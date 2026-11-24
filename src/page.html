@@ -50,6 +50,44 @@
   .side-link{color:var(--dim);padding:0 4px}
   .side-link:hover{color:var(--acc)}
 
+  /* sidebar quick account switcher */
+  .side-acct{position:relative}
+  .side-account{width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:background .18s,border-color .18s,transform .18s}
+  .side-account:hover{background:rgba(255,255,255,.055);border-color:var(--line2);transform:translateY(-1px)}
+  .side-account[aria-expanded="true"]{background:rgba(91,140,255,.12);border-color:rgba(160,170,255,.45)}
+  .side-account-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .side-account .side-name,.side-account .side-friend{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .side-caret{color:var(--dim);font-size:12px;flex:0 0 auto;transition:transform .18s,color .18s}
+  .side-account:hover .side-caret{color:var(--txt)}
+  .side-account[aria-expanded="true"] .side-caret{transform:rotate(180deg)}
+  .acct-menu{position:absolute;left:0;right:0;bottom:calc(100% + 8px);z-index:30;padding:7px;
+    border:1px solid var(--line2);border-radius:14px;background:linear-gradient(180deg,var(--card2),var(--card));
+    box-shadow:0 20px 44px rgba(0,0,0,.45);animation:acctMenuIn .16s ease-out}
+  .acct-menu[hidden]{display:none}
+  @keyframes acctMenuIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .acct-menu-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 7px 8px;
+    color:var(--dim2);font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;font-weight:600}
+  .acct-menu-list{display:flex;flex-direction:column;gap:2px;max-height:min(42vh,320px);overflow:auto;overscroll-behavior:contain}
+  .acct-menu-item{display:flex;align-items:center;gap:9px;width:100%;padding:8px;border:1px solid transparent;border-radius:10px;
+    background:transparent;color:var(--txt);font:inherit;text-align:left;cursor:pointer;transition:background .15s,border-color .15s}
+  .acct-menu-item:hover{background:rgba(255,255,255,.055)}
+  .acct-menu-item.on{background:rgba(91,140,255,.13);border-color:rgba(91,140,255,.3)}
+  .acct-menu-item:disabled{opacity:.55;cursor:progress}
+  .acct-menu-ava{width:27px;height:27px;flex:0 0 27px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:700;
+    background:rgba(91,140,255,.16);border:1px solid rgba(91,140,255,.3);color:#c7d8ff}
+  .acct-menu-info{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
+  .acct-menu-name{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;line-height:1.35;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .acct-menu-meta{display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dim2);line-height:1.35;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .acct-menu-meta .dot{width:6px;height:6px;flex:0 0 6px}
+  .acct-menu-check{color:var(--acc);font-size:12px;font-weight:700;flex:0 0 auto}
+  .acct-menu-empty{padding:14px 8px;text-align:center;color:var(--dim2);font-size:12px}
+  .acct-menu-foot{margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
+  .acct-menu-more{display:flex;align-items:center;justify-content:space-between;width:100%;padding:8px;border:0;border-radius:9px;
+    background:transparent;color:var(--dim);font:inherit;font-size:11.5px;cursor:pointer;text-align:left}
+  .acct-menu-more:hover{background:rgba(255,255,255,.055);color:var(--txt)}
+
   /* main */
   .main{flex:1;min-width:0;padding:26px 32px 48px;max-width:1440px;margin:0 auto}
   .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
@@ -256,7 +294,8 @@
   .btn{transition:background .16s ease,border-color .16s ease,color .16s ease,transform .12s ease,box-shadow .16s ease;position:relative}
   .btn:hover{transform:translateY(-1px)}
   .btn:active{transform:translateY(0) scale(.985)}
-  .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:2px solid rgba(91,140,255,.65);outline-offset:2px}
+  .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,
+  .side-account:focus-visible,.acct-menu-item:focus-visible,.acct-menu-more:focus-visible{outline:2px solid rgba(91,140,255,.65);outline-offset:2px}
   .btn.primary{box-shadow:0 6px 18px rgba(63,111,232,.28),inset 0 1px 0 rgba(255,255,255,.14)}
   .btn.primary:hover{box-shadow:0 9px 26px rgba(63,111,232,.38),inset 0 1px 0 rgba(255,255,255,.18)}
 
@@ -328,6 +367,13 @@
   html[data-theme="light"] .nav-item:hover{background:rgba(23,32,51,.05);color:var(--txt)}
   html[data-theme="light"] .nav-item.active{background:linear-gradient(100deg,rgba(47,107,255,.13),rgba(205,208,255,.2) 55%,rgba(188,246,232,.16));border-color:rgba(150,155,225,.35);color:#22439a}
   html[data-theme="light"] .side-account{background:#fff;border-color:var(--line);box-shadow:0 6px 18px rgba(31,53,89,.045)}
+  html[data-theme="light"] .side-account:hover{background:#f7f9fd;border-color:var(--line2)}
+  html[data-theme="light"] .side-account[aria-expanded="true"]{background:rgba(47,107,255,.07);border-color:rgba(47,107,255,.35)}
+  html[data-theme="light"] .acct-menu{background:#fff;border-color:var(--line2);box-shadow:0 20px 44px rgba(31,53,89,.18)}
+  html[data-theme="light"] .acct-menu-item:hover{background:rgba(23,32,51,.05)}
+  html[data-theme="light"] .acct-menu-item.on{background:rgba(47,107,255,.08);border-color:rgba(47,107,255,.24)}
+  html[data-theme="light"] .acct-menu-ava{background:rgba(47,107,255,.10);border-color:rgba(47,107,255,.24);color:#1f49b8}
+  html[data-theme="light"] .acct-menu-more:hover{background:rgba(23,32,51,.05)}
   html[data-theme="light"] .side-theme{background:#fff;border-color:var(--line);color:var(--dim)}
   html[data-theme="light"] .side-theme:hover{background:#f7f9fd;color:var(--txt);border-color:var(--line2)}
   html[data-theme="light"] .side-link{color:var(--dim)}
@@ -410,7 +456,7 @@
     .brand{padding:0}.brand-sub{display:none}.logo{width:34px;height:34px}
     .nav{flex-direction:row;gap:4px}.nav-item{padding:8px 10px}.nav-item .ico{width:auto}
     .side-foot{display:flex;flex-direction:row;align-items:center;gap:8px;margin:0 0 0 auto}
-    .side-account,.side-link{display:none}
+    .side-acct,.side-link{display:none}
     .side-theme{width:auto;padding:8px 10px;white-space:nowrap}
     .main{padding:20px 16px 40px}
     .hero-grid{grid-template-columns:1fr}
@@ -434,11 +480,19 @@
     </nav>
     <div class="side-foot">
       <button class="side-theme" id="themeToggle" type="button"><span id="themeIcon">🌙</span><span id="themeLabel">黑夜模式</span></button>
-      <div class="side-account">
-        <span class="dot" id="sideDot"></span>
-        <div style="min-width:0">
-          <div class="side-name" id="sideAcct">-</div>
-          <div class="side-friend" id="sideFriend">加载中…</div>
+      <div class="side-acct" id="sideAcctWrap">
+        <button class="side-account" id="sideAccountBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="acctMenu" title="快速切换账户">
+          <span class="dot" id="sideDot"></span>
+          <span class="side-account-main">
+            <span class="side-name" id="sideAcct">-</span>
+            <span class="side-friend" id="sideFriend">加载中…</span>
+          </span>
+          <span class="side-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="acct-menu" id="acctMenu" role="menu" aria-label="快速切换账户" hidden>
+          <div class="acct-menu-head"><span>切换账户</span><span id="acctMenuHint"></span></div>
+          <div class="acct-menu-list" id="acctMenuList"><div class="acct-menu-empty">正在加载…</div></div>
+          <div class="acct-menu-foot"><button class="acct-menu-more" id="acctMenuManage" type="button" role="menuitem">管理账户<span aria-hidden="true">↗</span></button></div>
         </div>
       </div>
       <a class="side-link" href="/viewer" target="_blank">打开抖音画面 ↗</a>
@@ -769,6 +823,7 @@ const state = {
   events: [], records: { search: '', bucket: '', result: '', page: 1, pageSize: 20 },
   sendJobPolling: false, screenTimer: null, apiTimer: null, homeTimer: null,
   cfgLoaded: false, configDirty: false, selectedFriends: new Set(),
+  acctMenuOpen: false, acctSwitching: false,
 };
 
 function toast(msg, type = 'ok', ms = 4200) {
@@ -820,6 +875,140 @@ function navigate(view) {
 function bindNav() {
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.view)));
   $$('[data-goto]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.goto)));
+}
+
+/* ---------------- sidebar quick account switcher ---------------- */
+function accountInitial(name) {
+  const s = String(name == null ? '' : name).trim();
+  return s ? Array.from(s)[0].toUpperCase() : '?';
+}
+function renderAcctMenu() {
+  const list = $('#acctMenuList');
+  if (!list) return;
+  const focused = document.activeElement;
+  const focusLabel = focused && focused.dataset ? focused.dataset.acctSwitch : null;
+  const focusManage = focused && focused.id === 'acctMenuManage';
+  const acc = state.accounts || { accounts: [], active: null };
+  const accounts = Array.isArray(acc.accounts) ? acc.accounts : [];
+  $('#acctMenuHint').textContent = accounts.length ? (accounts.length + ' 个') : '';
+  if (!accounts.length) {
+    list.innerHTML = '<div class="acct-menu-empty">还没有账户</div>';
+    return;
+  }
+  list.innerHTML = accounts.map((a) => {
+    const on = a.label === acc.active;
+    const meta = (a.enabled ? '运行中' : '已暂停') + ' · ' + ((a.friends || []).length) + ' 位好友';
+    return '<button class="acct-menu-item' + (on ? ' on' : '') + '" type="button" role="menuitemradio" aria-checked="' + on + '"'
+      + ' data-acct-switch="' + esc(a.label) + '"' + (state.acctSwitching ? ' disabled' : '') + '>'
+      + '<span class="acct-menu-ava" aria-hidden="true">' + esc(accountInitial(a.name || a.label)) + '</span>'
+      + '<span class="acct-menu-info">'
+      + '<span class="acct-menu-name" title="' + esc(a.name || a.label) + '">' + esc(a.name || a.label) + '</span>'
+      + '<span class="acct-menu-meta"><span class="dot' + (a.enabled ? ' on' : '') + '"></span>' + esc(meta) + '</span>'
+      + '</span>' + (on ? '<span class="acct-menu-check" aria-hidden="true">✓</span>' : '') + '</button>';
+  }).join('');
+  $$('[data-acct-switch]', list).forEach((b) => b.addEventListener('click', () => quickSwitchAccount(b.dataset.acctSwitch)));
+  if (focusLabel) {
+    const again = $$('[data-acct-switch]', list).find((b) => b.dataset.acctSwitch === focusLabel);
+    if (again) again.focus();
+  } else if (focusManage) {
+    $('#acctMenuManage').focus();
+  }
+}
+function onAcctMenuPointerDown(e) {
+  const wrap = $('#sideAcctWrap');
+  if (!wrap || !wrap.contains(e.target)) closeAcctMenu();
+}
+function onAcctMenuKeyDown(e) {
+  if (e.key === 'Escape') { e.preventDefault(); closeAcctMenu(true); return; }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  const items = $$('.acct-menu-item:not([disabled]),.acct-menu-more', $('#acctMenu'));
+  if (!items.length) return;
+  const cur = items.indexOf(document.activeElement);
+  let next = 0;
+  if (e.key === 'End') next = items.length - 1;
+  else if (e.key === 'ArrowDown') next = cur < 0 ? 0 : (cur + 1) % items.length;
+  else if (e.key === 'ArrowUp') next = cur < 0 ? items.length - 1 : (cur - 1 + items.length) % items.length;
+  e.preventDefault();
+  items[next].focus();
+}
+async function openAcctMenu({ focusFirst = false } = {}) {
+  const menu = $('#acctMenu');
+  if (!menu || state.acctMenuOpen) return;
+  state.acctMenuOpen = true;
+  menu.hidden = false;
+  $('#sideAccountBtn').setAttribute('aria-expanded', 'true');
+  if (state.accounts) renderAcctMenu();
+  document.addEventListener('pointerdown', onAcctMenuPointerDown, true);
+  document.addEventListener('keydown', onAcctMenuKeyDown, true);
+  if (focusFirst) {
+    const target = $('.acct-menu-item.on') || $('.acct-menu-item');
+    if (target) target.focus();
+  }
+  try {
+    const acc = await getJSON('/api/accounts');
+    state.accounts = acc;
+    if (state.acctMenuOpen) {
+      renderAcctMenu();
+      if (focusFirst && document.activeElement === $('#sideAccountBtn')) {
+        const target = $('.acct-menu-item.on') || $('.acct-menu-item');
+        if (target) target.focus();
+      }
+    }
+  } catch (e) {
+    if (state.acctMenuOpen) $('#acctMenuList').innerHTML = '<div class="acct-menu-empty">加载失败：' + esc(e.message) + '</div>';
+    toast('账户列表加载失败：' + e.message, 'bad');
+  }
+}
+function closeAcctMenu(refocus = false) {
+  if (!state.acctMenuOpen) return;
+  state.acctMenuOpen = false;
+  const menu = $('#acctMenu');
+  if (menu) menu.hidden = true;
+  $('#sideAccountBtn').setAttribute('aria-expanded', 'false');
+  document.removeEventListener('pointerdown', onAcctMenuPointerDown, true);
+  document.removeEventListener('keydown', onAcctMenuKeyDown, true);
+  if (refocus) $('#sideAccountBtn').focus();
+}
+async function quickSwitchAccount(label) {
+  if (!label || state.acctSwitching) return;
+  const acc = state.accounts || {};
+  if (label === acc.active) { closeAcctMenu(); return; }
+  state.acctSwitching = true;
+  if (state.acctMenuOpen) renderAcctMenu();
+  const target = (state.accounts && state.accounts.accounts || []).find((a) => a.label === label);
+  try {
+    const r = await postJSON('/api/accounts/switch', { label });
+    state.acctSwitching = false;
+    if (state.accounts) state.accounts.active = r.active || label;
+    closeAcctMenu();
+    toast('已切换到 ' + (target && (target.name || target.label) || r.active || label), 'ok');
+    state.config = null; state.cfgLoaded = false;
+    const [next] = await Promise.all([getJSON('/api/accounts').catch(() => null), loadHome()]);
+    if (next) {
+      state.accounts = next;
+      if (state.view === 'accounts') renderAccounts();
+    }
+    if (state.view === 'config') await loadConfigPage();
+    else if (state.view === 'records') await loadRecords();
+  } catch (e) {
+    state.acctSwitching = false;
+    toast('切换失败：' + e.message, 'bad');
+    if (state.acctMenuOpen) renderAcctMenu();
+  }
+}
+function bindSideAccount() {
+  const btn = $('#sideAccountBtn');
+  if (!btn) return;
+  btn.onclick = () => {
+    if (state.acctMenuOpen) closeAcctMenu();
+    else openAcctMenu();
+  };
+  btn.addEventListener('keydown', (e) => {
+    if (state.acctMenuOpen || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+    e.preventDefault();
+    openAcctMenu({ focusFirst: true });
+  });
+  $('#acctMenuManage').onclick = () => { closeAcctMenu(); navigate('accounts'); };
 }
 
 /* ---------------- home ---------------- */
@@ -1042,6 +1231,7 @@ async function loadAccounts() {
     const [acc, st] = await Promise.all([getJSON('/api/accounts'), getJSON('/api/status')]);
     state.accounts = acc; state.status = st;
     renderAccounts();
+    if (state.acctMenuOpen) renderAcctMenu();
     renderTopbar(); renderSidebar();
   } catch (e) { toast('账户加载失败：' + e.message, 'bad'); }
 }
@@ -1631,7 +1821,7 @@ function bindRecordsActions() {
 }
 
 async function init() {
-  bindNav(); bindHomeActions(); bindConfigActions(); bindRecordsActions();
+  bindNav(); bindSideAccount(); bindHomeActions(); bindConfigActions(); bindRecordsActions();
   applyTheme(document.documentElement.dataset.theme || 'dark', false);
   $('#themeToggle').onclick = toggleTheme;
   navigate('home');
