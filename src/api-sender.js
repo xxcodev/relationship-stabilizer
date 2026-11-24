@@ -148,19 +148,23 @@ async function createConversation(session, toUserId) {
 }
 
 /** Send the video card over HTTP. Returns {ok, statusCode, statusMessage, ...}. */
-async function sendVideo(session, video, { friend } = {}) {
+async function sendVideo(session, video, { friend, toUserId } = {}) {
   const target = String(friend || session.friend || '').trim();
   let conversationId;
   let conversationShortId;
   if (target && session.friend && target !== session.friend) {
-    const row = resolveFriend(session, target);
+    const uid = String(toUserId || '').trim();
+    const row = uid ? { userid: uid } : resolveFriend(session, target);
     if (!row) {
       return {
         ok: false,
-        error: `好友「${target}」不在导出时捕获的最近好友列表里，请先在分享面板里和 TA 聊过/换回浏览器发送`,
+        error: `好友「${target}」不在会话好友列表里，也没有 userid；先导出会话或从互关好友导入`,
         video,
         friend: target,
       };
+    }
+    if (!session.createTemplate || !session.createTemplate.bodyB64) {
+      return { ok: false, error: '会话缺少 conversation/create 模板，无法给新好友建会话', video, friend: target };
     }
     const conv = await createConversation(session, row.userid);
     if (!conv.ok) return { ok: false, error: conv.error, video, friend: target };

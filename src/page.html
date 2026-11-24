@@ -586,6 +586,19 @@
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:16px" id="mutualCard">
+        <div class="card-head"><div class="eyebrow">互关好友</div><span class="field-note" id="mutualInfo"></span></div>
+        <div class="rowbtns" style="margin-top:0">
+          <button class="btn primary sm" id="btnMutual">获取互关好友</button>
+          <span class="field-note" id="mutualMsg">读取当前账户的关注与粉丝列表，取交集。需要登录浏览器（会自动拉起）。</span>
+        </div>
+        <div class="chips" id="mutualList" style="margin-top:12px"></div>
+        <div class="rowbtns" id="mutualActions" style="display:none">
+          <button class="btn primary sm" id="mutualImport">添加所选好友</button>
+          <button class="btn ghost sm" id="mutualImportAll">全部添加</button>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:16px">
         <div class="card-head"><div class="eyebrow">全部账户</div><button class="btn ghost sm" id="acctRefresh">刷新</button></div>
         <div id="acctList"><div class="empty">加载中…</div></div>
@@ -848,24 +861,26 @@ function renderHomeFriendChips() {
   const data = state.data || {};
   const capturedArr = (api.friends || []).map((f) => f.name);
   const captured = new Set(capturedArr);
+  const entries = new Map(((api.accountFriendEntries) || []).map((e) => [e.name, e]));
   const accountFriends = Array.isArray(data.friends) ? data.friends : [];
   const names = [...capturedArr];
-  for (const name of accountFriends) if (!captured.has(name)) names.push(name);
-  // only captured friends can be used by the pure-API endpoint
-  state.selectedFriends = new Set([...state.selectedFriends].filter((n) => captured.has(n)));
+  for (const name of accountFriends) if (!captured.has(name) && entries.has(name)) names.push(name);
+  for (const name of entries.keys()) if (!names.includes(name)) names.push(name);
+  const canUse = (name) => captured.has(name) || !!(entries.get(name) && entries.get(name).userid);
+  state.selectedFriends = new Set([...state.selectedFriends].filter((n) => canUse(n)));
   if (!api.valid) {
     box.innerHTML = '<span class="muted">纯 API 会话不可用；请先在配置页导出会话。</span>';
     $('#friendsCount').textContent = '';
     return;
   }
   if (!names.length) {
-    box.innerHTML = '<span class="muted">会话里没有捕获到好友；先导出会话。</span>';
+    box.innerHTML = '<span class="muted">还没有可发送好友；在配置页添加好友，或到账户页导入互关好友。</span>';
     $('#friendsCount').textContent = '';
     return;
   }
   box.innerHTML = names.map((name) => {
-    if (!captured.has(name)) {
-      return '<label class="friend-check" title="不在会话捕获列表，重新导出会话后才能用纯 API 发送" style="opacity:.5"><input type="checkbox" disabled> ' + esc(name) + ' <span class="muted">未捕获</span></label>';
+    if (!canUse(name)) {
+      return '<label class="friend-check" title="不在会话捕获列表且没有 userid，重新导出会话或从互关导入后才能用纯 API 发送" style="opacity:.5"><input type="checkbox" disabled> ' + esc(name) + ' <span class="muted">未捕获</span></label>';
     }
     const checked = state.selectedFriends.has(name) ? ' checked' : '';
     return '<label class="friend-check"><input type="checkbox" data-home-friend="' + esc(name) + '"' + checked + '> ' + esc(name) + '</label>';
@@ -875,18 +890,6 @@ function renderHomeFriendChips() {
     else state.selectedFriends.delete(el.dataset.homeFriend);
     updateFriendsCount();
   }));
-  updateFriendsCount();
-}
-
-function updateFriendsCount() {
-  const n = state.selectedFriends.size;
-  const el = $('#friendsCount');
-  if (el) el.textContent = n ? ('已选 ' + n + ' 位') : '可以勾选多个好友';
-}
-
-function selectAllFriends(checked) {
-  $$('#homeFriendChips input[data-home-friend]').forEach((el) => { el.checked = checked; });
-  state.selectedFriends = new Set(checked ? $$('#homeFriendChips input[data-home-friend]').map((el) => el.dataset.homeFriend) : []);
   updateFriendsCount();
 }
 
@@ -1081,6 +1084,57 @@ async function setAccountEnabled(label, enabled) {
   } catch (e) { toast('操作失败：' + e.message, 'bad'); }
 }
 
+let mutualCache = null;
+async function loadMutualFriends() {
+  const btn = document.getElementById('btnMutual');
+  const msg = document.getElementById('mutualMsg');
+  const info = document.getElementById('mutualInfo');
+  btn.disabled = true;
+  msg.textContent = '正在启动/读取浏览器并获取互关列表（可能需要 10-30 秒）…';
+  info.textContent = '';
+  document.getElementById('mutualList').innerHTML = '';
+  document.getElementById('mutualActions').style.display = 'none';
+  try {
+    const r = await postJSON('/api/accounts/mutual-friends', {});
+    if (!r.ok) throw new Error(r.error || '读取失败');
+    mutualCache = r;
+    const existing = new Set(((state.accounts && state.accounts.accounts) || []).find((a) => a.label === r.label)?.friends || []);
+    info.textContent = (r.self && r.self.nickname ? ('账户 ' + r.self.nickname + ' · ') : '') + '关注 ' + r.following + ' · 粉丝 ' + r.followers + ' · 互关 ' + r.mutual.length;
+    document.getElementById('mutualList').innerHTML = r.mutual.length
+      ? r.mutual.map((u, i) => '<label class="friend-check"><input type="checkbox" data-mutual="' + i + '"' + (existing.has(u.name) ? '' : ' checked') + '> ' + esc(u.name) + (existing.has(u.name) ? ' <span class="muted">已有</span>' : '') + '</label>').join('')
+      : '<span class="muted">没有互关好友（或对方列表不可见）</span>';
+    document.getElementById('mutualActions').style.display = r.mutual.length ? 'flex' : 'none';
+    msg.textContent = r.errors && r.errors.length ? ('部分警告：' + r.errors.join('；')) : '选择要添加为发送好友的人，然后点「添加所选好友」。';
+  } catch (e) {
+    msg.textContent = '获取失败：' + e.message;
+    toast('获取互关好友失败：' + e.message, 'bad');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function importMutualFriends(all) {
+  if (!mutualCache || !mutualCache.mutual.length) return;
+  const selected = all
+    ? mutualCache.mutual
+    : [...document.querySelectorAll('#mutualList input[data-mutual]:checked')].map((el) => mutualCache.mutual[Number(el.dataset.mutual)]).filter(Boolean);
+  if (!selected.length) { toast('先勾选要添加的互关好友', 'warn'); return; }
+  const msg = document.getElementById('mutualMsg');
+  msg.textContent = '正在添加到当前账户…';
+  let added = 0;
+  for (const u of selected) {
+    try {
+      await postJSON('/api/friends', { name: u.name, userid: u.uid });
+      added++;
+    } catch (e) { /* ignore single failure */ }
+  }
+  msg.textContent = '已添加 ' + added + '/' + selected.length + ' 位好友';
+  toast('已添加 ' + added + ' 位互关好友', 'ok');
+  await loadAccounts();
+  await loadHome();
+  await loadMutualFriends();
+}
+
 let loginPollTimer = null;
 async function detectAccountName(label) {
   try {
@@ -1246,7 +1300,7 @@ async function loadFriends() {
     $('#friendList').innerHTML = friends.map((f) => '<div class="friend-row">'
       + '<label class="friend-check" style="padding:3px 8px"><input type="checkbox" data-friend-toggle="' + f.id + '"' + (f.enabled ? ' checked' : '') + '> ' + (f.enabled ? '启用' : '停用') + '</label>'
       + '<span class="name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
-      + '<span class="tag" style="font-size:10.5px" title="' + (captured.has(f.name) ? '可用纯 API 发送' : '不在会话捕获列表，重新导出会话后才能用纯 API 发送') + '">' + (captured.has(f.name) ? '纯 API 可用' : '未捕获') + '</span>'
+      + '<span class="tag" style="font-size:10.5px" title="' + ((captured.has(f.name) || f.userid) ? '可用纯 API 发送' : '不在会话捕获列表且没有 userid，重新导出会话或从互关导入后才能用纯 API 发送') + '">' + ((captured.has(f.name) || f.userid) ? '纯 API 可用' : '未捕获') + '</span>'
       + '<button class="btn ghost sm" data-friend-del="' + f.id + '">删除</button>'
       + '</div>').join('') || '<div class="empty">还没有好友，添加一个</div>';
     $$('[data-friend-toggle]').forEach((el) => el.addEventListener('change', async () => {
@@ -1534,6 +1588,9 @@ function bindHomeActions() {
     try { await postJSON('/api/accounts/rename', { name }); toast('已更新账户名称', 'ok'); await loadAccounts(); loadHome(); }
     catch (e) { $('#acctRenameMsg').textContent = '保存失败：' + e.message; }
   };
+  $('#btnMutual').onclick = loadMutualFriends;
+  $('#mutualImport').onclick = () => importMutualFriends(false);
+  $('#mutualImportAll').onclick = () => importMutualFriends(true);
   $('#newAcctQr').onclick = qrAddAccount;
   $('#acctDetectName').onclick = async () => {
     const active = state.accounts && state.accounts.active;

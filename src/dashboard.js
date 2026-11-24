@@ -121,6 +121,80 @@ async function runSendJob({ dry = false } = {}) {
   return sendJob;
 }
 
+async function ensureAccountBrowser(acc, waitMs = 20000) {
+  let state = await service.browserStatus(acc.port);
+  if (state.up) return state;
+  try { startBrowserFor(acc); } catch (e) { return { up: false, error: e.message }; }
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 1000));
+    state = await service.browserStatus(acc.port);
+    if (state.up) return state;
+  }
+  return state;
+}
+
+async function fetchMutualFriends(acc) {
+  const state = await ensureAccountBrowser(acc);
+  if (!state.up) throw new Error(state.error || '浏览器未能启动');
+  const js = `
+    (async () => {
+      const common = 'device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&source_type=1&count=50';
+      const prof = await fetch('/aweme/v1/web/user/profile/self/?' + common, { credentials: 'include', headers: { referer: location.href } })
+        .then((r) => r.json()).catch((e) => ({ error: e.message }));
+      if (!prof || !prof.user || !prof.user.sec_uid) return { ok: false, error: (prof && prof.status_msg) || '未登录' };
+      const sec = encodeURIComponent(prof.user.sec_uid);
+      async function collect(path, key) {
+        const items = []; const seen = new Set(); let maxTime = 0; let offset = 0; let page = 0; let error = null;
+        while (page < 30) {
+          const url = path + '?' + common + '&sec_user_id=' + sec + '&max_time=' + maxTime + '&offset=' + offset;
+          const j = await fetch(url, { credentials: 'include', headers: { referer: location.href } })
+            .then((r) => r.json()).catch((e) => ({ error: e.message }));
+          if (!j || j.status_code !== 0) { error = String((j && (j.status_msg || j.error)) || '接口失败'); break; }
+          const list = j[key] || [];
+          let added = 0;
+          for (const u of list) {
+            const id = String(u.uid || u.sec_uid || '');
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            items.push({ name: u.nickname || '', uid: String(u.uid || ''), sec_uid: u.sec_uid || '', unique_id: u.unique_id || '' });
+            added++;
+          }
+          if (!j.has_more || !added) break;
+          maxTime = j.max_time || maxTime;
+          offset = (Number(j.offset) || offset) + list.length;
+          page++;
+        }
+        return { items, error };
+      }
+      const [a, b] = await Promise.all([
+        collect('/aweme/v1/web/user/following/list/', 'followings'),
+        collect('/aweme/v1/web/user/follower/list/', 'followers'),
+      ]);
+      const fmap = new Map();
+      for (const u of a.items || []) if (u.uid) fmap.set(u.uid, u);
+      const mutual = (b.items || []).filter((u) => fmap.has(u.uid));
+      return {
+        ok: true,
+        self: { nickname: prof.user.nickname, uid: String(prof.user.uid || ''), sec_uid: prof.user.sec_uid },
+        mutual,
+        following: (a.items || []).length,
+        followers: (b.items || []).length,
+        errors: [a.error, b.error].filter(Boolean),
+      };
+    })()
+  `;
+  const res = await fetch(`http://127.0.0.1:${acc.port}/eval`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ js }),
+    signal: AbortSignal.timeout(90000),
+  });
+  const out = await res.json();
+  if (!out.out || !out.out.ok) throw new Error((out.out && out.out.error) || '读取失败');
+  return out.out;
+}
+
 function profileDirFor(label) {
   const slug = String(label || 'account').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 16) || 'account';
   const hash = crypto.createHash('sha1').update(String(label)).digest('hex').slice(0, 6);
@@ -324,6 +398,10 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const acc = currentAccount();
         const session = apiSession.load(acc.label);
         const state = apiSession.status(session, null);
+        const accountFriendEntries = repos
+          .listFriends(acc.id)
+          .filter((f) => f.enabled)
+          .map((f) => ({ name: f.name, userid: f.userid || '', apiCapable: !!f.userid || apiSession.canSendTo(session, f.name) }));
         return send(res, 200, {
           present: !!session,
           valid: state.valid,
@@ -335,6 +413,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           friend: (session && session.friend) || null,
           defaultFriend: (session && session.friend) || repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
           accountFriends: repos.listEnabledFriendNames(acc.id),
+          accountFriendEntries,
           templateBytes: session && session.template ? session.template.bodyB64.length : 0,
           cookies: session ? (session.cookies || []).length : 0,
           friends: session ? (session.friends || []) : [],
@@ -385,11 +464,13 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           }
           const results = [];
           for (const friend of list) {
-            if (!apiSession.canSendTo(session, friend)) {
-              results.push({ friend, ok: false, error: '好友不在会话好友列表里（先在分享面板聊过再导出会话）' });
+            const row = repos.getFriendByName(acc.id, friend);
+            const toUserId = row && row.userid;
+            if (!apiSession.canSendTo(session, friend) && !toUserId) {
+              results.push({ friend, ok: false, error: '好友不在会话好友列表里，也没有 userid（从互关导入或重新导出会话）' });
               continue;
             }
-            const out = await apiSender.sendVideo(session, video, { friend }).catch((e) => ({ ok: false, error: e.message }));
+            const out = await apiSender.sendVideo(session, video, { friend, toUserId }).catch((e) => ({ ok: false, error: e.message }));
             if (out.ok) {
               repos.insertSend({
                 accountId: acc.id,
@@ -442,10 +523,12 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const acc = currentAccount();
         let body = '';
         for await (const c of req) body += c;
-        const name = String((JSON.parse(body || '{}') || {}).name || '').trim();
+        const input = JSON.parse(body || '{}') || {};
+        const name = String(input.name || '').trim();
+        const userid = String(input.userid || '').trim();
         if (!name) return send(res, 400, { ok: false, error: '好友昵称不能为空' });
-        repos.addFriend(acc.id, name);
-        repos.logEvent('friend-add', { account: acc.label, name });
+        repos.addFriend(acc.id, name, userid);
+        repos.logEvent('friend-add', { account: acc.label, name, userid: userid || undefined });
         return send(res, 200, { ok: true, friends: repos.listFriends(acc.id) });
       }
       if (u.pathname === '/api/friends' && req.method === 'PATCH') {
@@ -588,6 +671,20 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           label: acc.label,
           accountName: repos.getAccount(acc.label).display_name || acc.label,
         });
+      }
+      if (u.pathname === '/api/accounts/mutual-friends' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        const acc = input.label ? repos.getAccount(String(input.label)) : currentAccount();
+        if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
+        try {
+          const out = await fetchMutualFriends(acc);
+          repos.logEvent('mutual-friends', { account: acc.label, mutual: out.mutual.length, following: out.following, followers: out.followers });
+          return send(res, 200, { ok: true, label: acc.label, ...out, errors: out.errors || [] });
+        } catch (e) {
+          return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
+        }
       }
       if (u.pathname === '/api/accounts/switch' && req.method === 'POST') {
         let body = '';

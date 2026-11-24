@@ -79,14 +79,20 @@ function listEnabledFriendNames(accountId) {
     .map((r) => r.name);
 }
 
-function addFriend(accountId, name) {
+function addFriend(accountId, name, userid = '') {
   const clean = String(name || '').trim();
   if (!clean) throw new Error('好友昵称不能为空');
+  const uid = String(userid || '').trim();
   db.open()
-    .prepare('INSERT OR IGNORE INTO friends (account_id, name, enabled, sort) VALUES (?, ?, 1, 0)')
-    .run(accountId, clean);
+    .prepare(`INSERT INTO friends (account_id, name, enabled, sort, userid) VALUES (?, ?, 1, 0, ?)
+      ON CONFLICT(account_id, name) DO UPDATE SET userid = CASE WHEN excluded.userid <> '' THEN excluded.userid ELSE friends.userid END`)
+    .run(accountId, clean, uid);
   syncAccountFriend(accountId);
   return listFriends(accountId);
+}
+
+function getFriendByName(accountId, name) {
+  return db.open().prepare('SELECT * FROM friends WHERE account_id = ? AND name = ?').get(accountId, String(name || '').trim()) || null;
 }
 
 function setFriendEnabled(accountId, friendId, enabled) {
@@ -218,7 +224,7 @@ module.exports = {
   nowIso,
   getSetting, setSetting,
   getAccount, upsertAccount, updateAccountDisplayName, listAccounts, setAccountEnabled,
-  listFriends, listEnabledFriendNames, addFriend, setFriendEnabled, removeFriend, syncAccountFriend,
+  listFriends, listEnabledFriendNames, addFriend, getFriendByName, setFriendEnabled, removeFriend, syncAccountFriend,
   listPools, seedPools, setPoolEnabled,
   listBands, replaceBands,
   getPlan, savePlan,

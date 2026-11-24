@@ -44,8 +44,12 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
   cfg.sendMode = repos.getSetting('sendMode', 'auto');
   cfg.accountLabel = acc.label;
   cfg.accountName = acc.display_name || acc.label;
-  cfg.friends = repos.listEnabledFriendNames(acc.id);
-  if (!cfg.friends.length && acc.friend) cfg.friends = [acc.friend];
+  cfg.friendRows = repos
+    .listFriends(acc.id)
+    .filter((f) => f.enabled)
+    .map((f) => ({ name: f.name, userid: f.userid || '' }));
+  if (!cfg.friendRows.length && acc.friend) cfg.friendRows = [{ name: acc.friend, userid: '' }];
+  cfg.friends = cfg.friendRows.map((f) => f.name);
   cfg.friend = cfg.friends[0] || acc.friend || '';
   return cfg;
 }
@@ -100,12 +104,19 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
     if (session) repos.logEvent('api-session-invalid', { account: cfg.accountLabel, reason: state.reason, ageHours: state.ageHours });
     return null;
   }
-  const friends = (cfg.friends || []).filter((f) => apiSession.canSendTo(session, f));
-  if (!friends.length) {
+  const rows = (cfg.friendRows || [])
+    .map((row) => ({
+      ...row,
+      apiCapable: !!row.userid || apiSession.canSendTo(session, row.name),
+    }))
+    .filter((row) => row.apiCapable);
+  if (!rows.length) {
     repos.logEvent('api-fallback-friend', { account: cfg.accountLabel, friends: cfg.friends });
     return null;
   }
-  const friend = friends[Math.floor(Math.random() * friends.length)];
+  const row = rows[Math.floor(Math.random() * rows.length)];
+  const friend = row.name;
+  const toUserId = row.userid || null;
   cfg.friend = friend;
   const pools = cfg.pools.filter((p) => p.enabled);
   if (!pools.length) return null;
@@ -116,7 +127,7 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
       repos.logEvent('api-dry-run', { account: cfg.accountLabel, friend, title: video.title, pool: pool.name });
       return { ok: true, dryRun: true, api: true, title: video.title, friend, video };
     }
-    const res = await apiSender.sendVideo(session, video, { friend });
+    const res = await apiSender.sendVideo(session, video, { friend, toUserId });
     if (res.ok) {
       repos.insertSend({
         accountId: cfg.accountId,
@@ -255,7 +266,7 @@ async function runDay(cfg, day) {
     const apiReady =
       cfg.sendMode !== 'browser' &&
       apiSession.status(session, null).valid &&
-      (cfg.friends || []).some((f) => apiSession.canSendTo(session, f));
+      (cfg.friendRows || []).some((f) => !!f.userid || apiSession.canSendTo(session, f.name));
     if (!started && !apiReady) {
       started = await startServer(cfg);
       if (!started) return { ok: false, reason: 'server failed' };
