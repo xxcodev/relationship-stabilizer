@@ -6,7 +6,7 @@
  *
  * The two long-lived processes stay in src/host.js, so CLI usage and the app share one model.
  */
-const { app, BrowserWindow, Tray, Menu, dialog, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, dialog, shell, nativeImage, screen } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const net = require('net');
@@ -89,6 +89,18 @@ function applyPaths() {
   process.env.DATA_DIR = dataDir;
   process.env.DB_FILE = path.join(dataDir, 'app.db');
   process.env.SHOTS_DIR = path.join(dataDir, 'shots');
+}
+
+// "Move to front" should land on the display the user is actually looking at, not always the
+// primary one (multi-monitor). Set before the browser-server child is spawned.
+function visiblePosition() {
+  try {
+    const point = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(point);
+    return `${Math.round(display.workArea.x + 80)},${Math.round(display.workArea.y + 80)}`;
+  } catch (e) {
+    return '80,80';
+  }
 }
 
 function log(...parts) {
@@ -321,7 +333,7 @@ async function ensureBrowserServer(acc) {
       [path.join(ROOT, 'src', 'browser-server.js'), '--profile', acc.profile_dir, '--port', String(acc.port)],
       {
         cwd: ROOT,
-        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', BROWSER_VISIBLE_POS: visiblePosition() },
         stdio: 'ignore',
         detached: true,
         windowsHide: true,
@@ -357,7 +369,17 @@ async function openViewer({ login = false } = {}) {
   }
   viewerPort = acc.port;
   viewerStarted = ready.started;
+  let viewerBounds = {};
+  try {
+    const anchor = win && !win.isDestroyed() ? win.getBounds() : null;
+    const display = anchor ? screen.getDisplayMatching(anchor) : screen.getPrimaryDisplay();
+    viewerBounds = {
+      x: Math.round(display.workArea.x + Math.max(40, (display.workArea.width - 1040) / 2)),
+      y: Math.round(display.workArea.y + Math.max(40, (display.workArea.height - 920) / 2)),
+    };
+  } catch (e) {}
   viewerWin = new BrowserWindow({
+    ...viewerBounds,
     width: 1040,
     height: 920,
     title: login ? `${TITLE} · 扫码登录` : `${TITLE} · 抖音画面`,
@@ -420,12 +442,14 @@ async function boot() {
     return;
   }
 
+  process.env.BROWSER_VISIBLE_POS = visiblePosition();
   host = new Host({
     dataDir,
     port,
     env: {
       ELECTRON_RUN_AS_NODE: '1',
       DASH_PORT: String(port),
+      BROWSER_VISIBLE_POS: process.env.BROWSER_VISIBLE_POS,
       ...(DEV ? { ACCOUNT_PORT: '9433' } : {}),
     },
     onLog: log,

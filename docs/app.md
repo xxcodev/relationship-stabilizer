@@ -13,16 +13,18 @@
 ## 安装（macOS）
 
 1. 从 [GitHub Releases](https://github.com/xxcodev/relationship-stabilizer/releases) 下载
-   `heartbeat-delivery-0.9.0-arm64.dmg`（或使用本地 `dist/` 里的同名文件），把「心动投递」拖进「应用程序」；
+   `heartbeat-delivery-0.9.1-arm64.dmg`（或使用本地 `dist/` 里的同名文件），把「心动投递」拖进「应用程序」；
 2. 首次启动选数据目录：
    - **新建**：默认在 `~/Library/Application Support/抖音转发/data`；
    - **使用已有目录**：指向原来 `douyin-forwarder/data`，可复用数据库、截图和 Chrome 登录态（免重新扫码）；
 3. 托盘菜单里可以：打开面板 / 抖音画面 / 暂停发送 / 重启调度 / 扫码登录 / 打开日志 / 打开数据目录 / 开机自启 / 退出。
 
-**应用内完成抖音操作**：自动化 Chrome 默认在屏幕外运行（`BROWSER_POS=-20000,-20000`），
+**应用内完成抖音操作**：自动化 Chrome 启动后立即最小化（不是仅靠屏幕外坐标——macOS 在多屏下会把
+完全出屏的窗口拉回显示器边缘、露出约 40px；最小化后实测 `kCGWindowIsOnscreen=false`，截帧照常渲染），
 扫码登录、完成人机验证都在应用内的「抖音画面」窗口完成——画面通过 `/api/screen` 每 2.5 秒截帧，
 点击图片会按坐标转发给真实浏览器（`/api/click`），需要时可以把窗口移到台前再挪回去（`/api/window`）。
 托盘「扫码登录…」= 自动拉起浏览器 + 打开画面窗口；关闭画面窗口会关掉由它启动的浏览器进程。
+「窗口移到台前」会恢复到**当前鼠标所在显示器**的左上角（多屏友好），「挪回屏幕外」= 重新最小化。
 
 > 应用默认使用 9400 端口。**如果旧的 launchd 实例还在跑（`com.dsh.douyin-forwarder`），启动时会提示端口被占用**——
 > 先 `launchctl bootout gui/$(id -u)/com.dsh.douyin-forwarder` 并停掉旧 dashboard，再启动应用。

@@ -259,12 +259,12 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const acc = currentAccount();
         let body = '';
         for await (const c of req) body += c;
-        const { show } = JSON.parse(body || '{}');
+        const input = JSON.parse(body || '{}');
         try {
           const out = await fetch(`http://127.0.0.1:${acc.port}/window`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ show: !!show }),
+            body: JSON.stringify({ show: !!input.show, minimized: !!input.minimized }),
             signal: AbortSignal.timeout(10000),
           }).then((r) => r.json());
           return send(res, 200, out);

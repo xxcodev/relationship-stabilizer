@@ -228,18 +228,32 @@ const server = http.createServer(async (req, res) => {
       return res.end(buf);
     }
     if (u.pathname === '/window' && req.method === 'POST') {
-      const { show } = JSON.parse(await readBody(req));
+      const body = JSON.parse(await readBody(req));
       const p = await cur();
       const cdp = await ctx.newCDPSession(p);
       const { windowId } = await cdp.send('Browser.getWindowForTarget');
-      const pos = show ? env.browser.visiblePosition : env.browser.windowPosition;
-      const [left, top] = pos.split(',').map(Number);
-      await cdp.send('Browser.setWindowBounds', {
-        windowId,
-        bounds: { left, top, width: env.browser.viewportWidth, height: env.browser.viewportHeight, windowState: 'normal' },
-      });
+      let out;
+      if (body.minimized === true || body.show === false) {
+        // A window moved to (-20000,-20000) is clamped by macOS/AppKit to the nearest display
+        // edge and can leave a ~40px sliver visible on multi-monitor setups. Minimizing keeps
+        // it invisible while Playwright still renders frames (backgrounding is disabled).
+        await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'minimized' } });
+        out = { ok: true, visible: false, state: 'minimized' };
+      } else {
+        const pos = env.browser.visiblePosition;
+        const [left, top] = pos.split(',').map(Number);
+        // restore from minimized first; a single call that also sets bounds is ignored on macOS,
+        // and the window needs a moment to leave the minimized state before bounds apply
+        await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        await cdp.send('Browser.setWindowBounds', {
+          windowId,
+          bounds: { left, top, width: env.browser.viewportWidth, height: env.browser.viewportHeight, windowState: 'normal' },
+        });
+        out = { ok: true, visible: true, position: pos };
+      }
       await cdp.detach().catch(() => {});
-      return res.end(JSON.stringify({ ok: true, visible: !!show, position: pos }));
+      return res.end(JSON.stringify(out));
     }
     if (u.pathname === '/quit') {
       res.end(JSON.stringify({ ok: true, closing: true }));
@@ -268,6 +282,18 @@ const server = http.createServer(async (req, res) => {
   else launch.channel = env.browser.channel;
   ctx = await chromium.launchPersistentContext(PROFILE, launch);
   page = ctx.pages()[0] || (await ctx.newPage());
+  // hidden mode: an off-screen x/y is clamped by macOS/AppKit to the nearest display edge and can
+  // leave a sliver visible on multi-monitor setups, so minimize before navigating instead.
+  if (!env.browser.headless) {
+    try {
+      const cdp = await ctx.newCDPSession(page);
+      const { windowId } = await cdp.send('Browser.getWindowForTarget');
+      await cdp.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'minimized' } });
+      await cdp.detach();
+    } catch (e) {
+      console.error('minimize failed:', e.message.split('\n')[0]);
+    }
+  }
   await page.goto('https://www.douyin.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(5000);
   console.log(`READY profile=${PROFILE} port=${PORT} url=${page.url()}`);
