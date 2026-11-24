@@ -10,6 +10,7 @@
 | [app.md](app.md) | 桌面应用(Electron)的进程模型、开发运行方式与 P1/P2 计划 |
 | [api-poc.md](api-poc.md) | API 直连验证(2026-11-24):只读与纯 HTTP 发送都已跑通 |
 | [api-mode.md](api-mode.md) | 纯 API 发送模式:会话导出、开关、回退与安全说明 |
+| [ui.md](ui.md) | 控制台四页(首页/账户/配置/记录)说明与截图 |
 
 ## 快速定位
 

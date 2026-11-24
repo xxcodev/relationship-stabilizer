@@ -1,534 +1,1108 @@
 <!doctype html>
 <html lang="zh-CN"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>心动投递 · 发送记录</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%92%8C%3C/text%3E%3C/svg%3E">
+<title>心动投递 · 控制台</title>
 <style>
-  :root{--bg:#0e1116;--card:#161b22;--line:#232a33;--txt:#e6edf3;--dim:#8b949e;--ok:#3fb950;--bad:#f85149;--acc:#2f81f7}
+  :root{
+    --bg:#0b0e14;--bg2:#0f131c;--card:#131925;--card2:#161d2b;--line:#222b3a;--line2:#2c3648;
+    --txt:#e9eef7;--dim:#8b98ab;--dim2:#637086;
+    --acc:#5b8cff;--acc2:#3f6fe8;--ok:#37d67a;--warn:#f5a524;--bad:#ff5d5d;
+    --shadow:0 10px 30px rgba(0,0,0,.28);--r:14px;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;padding:28px}
-  h1{font-size:18px;margin:0 0 4px}
-  .sub{color:var(--dim);font-size:12px;margin-bottom:18px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
-  .card .k{color:var(--dim);font-size:12px}
-  .card .v{font-size:26px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}
-  .chip{border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;font-variant-numeric:tabular-nums}
-  .chip.done{border-color:rgba(63,185,80,.45);color:var(--ok);background:rgba(63,185,80,.08)}
-  .chip.pending{color:var(--dim)}
-  .chip.failed{border-color:rgba(248,81,73,.5);color:var(--bad);background:rgba(248,81,73,.08)}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{text-align:left;color:var(--dim);font-weight:500;border-bottom:1px solid var(--line);padding:8px 10px}
-  td{border-bottom:1px solid var(--line);padding:9px 10px;vertical-align:top}
-  tr:hover td{background:rgba(255,255,255,.02)}
-  .b{display:inline-block;border-radius:6px;padding:1px 8px;font-size:12px;border:1px solid var(--line);color:var(--dim)}
-  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  html,body{height:100%}
+  body{margin:0;background:radial-gradient(1200px 600px at 10% -10%,rgba(91,140,255,.12),transparent 60%),var(--bg);color:var(--txt);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
   a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
-  .muted{color:var(--dim)}
-  .wrap{max-width:1180px;margin:0 auto}
-  .title{max-width:520px;overflow:hidden;text-overflow:ellipsis}
-  details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 16px;margin-bottom:20px}
-  summary{cursor:pointer;padding:14px 0;font-weight:600;outline:none}
-  .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding-bottom:8px}
-  label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
-  input,select,textarea{background:#0d1117;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px}
-  input[type=number]{width:100%}
-  textarea{min-height:70px;resize:vertical}
-  .bandrow{display:grid;grid-template-columns:1.2fr 1fr 1fr .8fr .8fr 40px;gap:8px;align-items:end;margin-bottom:8px}
-  .btn{background:#21262d;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px}
-  .btn:hover{background:#2b333d}
-  .btn.primary{background:#238636;border-color:#2ea043}
-  .btn.primary:hover{background:#2ea043}
-  .btn.danger{padding:6px 10px}
-  .rowbtns{display:flex;gap:10px;align-items:center;margin:14px 0 18px}
-  .pools{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--txt)}
-  .pools label{display:flex;gap:6px;align-items:center;cursor:pointer}
-  #msg{font-size:13px;margin-left:6px}
-  .sw{display:flex;align-items:center;gap:8px;font-size:13px}
+  button{font:inherit}
+  .muted{color:var(--dim)} .dim2{color:var(--dim2)} .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+  .app{display:flex;min-height:100vh}
+
+  /* sidebar */
+  .sidebar{width:236px;flex:0 0 236px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:26px;
+    padding:24px 16px;background:linear-gradient(180deg,rgba(19,25,37,.96),rgba(11,14,20,.96));border-right:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:12px;padding:2px 8px}
+  .logo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;
+    background:linear-gradient(135deg,rgba(91,140,255,.3),rgba(91,140,255,.08));border:1px solid rgba(91,140,255,.35)}
+  .brand-name{font-weight:700;letter-spacing:.2px}
+  .brand-sub{font-size:11px;color:var(--dim2);letter-spacing:.6px;text-transform:uppercase}
+  .nav{display:flex;flex-direction:column;gap:6px}
+  .nav-item{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:10px;border:1px solid transparent;background:transparent;
+    color:var(--dim);cursor:pointer;text-align:left;width:100%;transition:.16s}
+  .nav-item .ico{width:20px;text-align:center;font-size:15px}
+  .nav-item:hover{background:rgba(255,255,255,.04);color:var(--txt)}
+  .nav-item.active{background:linear-gradient(90deg,rgba(91,140,255,.18),rgba(91,140,255,.05));border-color:rgba(91,140,255,.3);color:#dce7ff}
+  .side-foot{margin-top:auto;display:flex;flex-direction:column;gap:12px;font-size:12px}
+  .side-account{display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim2);flex:0 0 8px}
+  .dot.on{background:var(--ok);box-shadow:0 0 10px rgba(55,214,122,.7)}
+  .side-name{font-weight:600;font-size:13px}
+  .side-friend{color:var(--dim2);font-size:11px}
+  .side-link{color:var(--dim);padding:0 4px}
+  .side-link:hover{color:var(--acc)}
+
+  /* main */
+  .main{flex:1;min-width:0;padding:26px 32px 48px;max-width:1440px;margin:0 auto}
+  .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
+  h1{font-size:24px;line-height:1.2;margin:0 0 5px;letter-spacing:.2px}
+  .sub{color:var(--dim);font-size:12.5px}
+  .top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:10px;border:1px solid var(--line2);
+    background:rgba(255,255,255,.03);color:var(--txt);cursor:pointer;font-size:13px;transition:.15s;white-space:nowrap}
+  .btn:hover{background:rgba(255,255,255,.07);border-color:#3a475e}
+  .btn.primary{background:linear-gradient(180deg,#3f6fe8,#315ed0);border-color:#4f7cf0;box-shadow:0 4px 14px rgba(63,111,232,.28)}
+  .btn.primary:hover{background:linear-gradient(180deg,#4b7bf2,#3565d8)}
+  .btn.success{background:linear-gradient(180deg,#2fae62,#248a4d);border-color:#37c274;color:#eafff2}
+  .btn.success:hover{background:linear-gradient(180deg,#37c274,#2a9a58)}
+  .btn.ghost{background:transparent}
+  .btn.sm{padding:6px 11px;font-size:12px;border-radius:9px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12px;border:1px solid var(--line2);
+    background:rgba(255,255,255,.03);color:var(--dim);white-space:nowrap}
+  .pill.ok{color:#9ff0c3;border-color:rgba(55,214,122,.45);background:rgba(55,214,122,.1)}
+  .pill.warn{color:#ffd18a;border-color:rgba(245,165,36,.45);background:rgba(245,165,36,.09)}
+  .pill.bad{color:#ffb3b3;border-color:rgba(255,93,93,.45);background:rgba(255,93,93,.1)}
+  .pill.blue{color:#c7d8ff;border-color:rgba(91,140,255,.45);background:rgba(91,140,255,.12)}
+
+  /* cards / layout */
+  .card{background:linear-gradient(180deg,rgba(22,29,43,.92),rgba(17,23,35,.92));border:1px solid var(--line);border-radius:var(--r);
+    padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+  .card.pad-sm{padding:14px 16px}
+  .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .eyebrow{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim2);font-weight:600}
+  .hero-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:16px;margin-bottom:16px}
+  .hero-num{font-size:42px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.5px;margin-top:4px}
+  .hero-den{font-size:17px;color:var(--dim);font-weight:500;margin-left:4px;letter-spacing:0}
+  .progress{height:9px;border-radius:999px;background:#0a0e15;border:1px solid var(--line);overflow:hidden;margin:14px 0 12px}
+  .progress>div{height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#3f6fe8,#37d67a);transition:width .4s}
+  .hero-meta{display:flex;gap:18px;flex-wrap:wrap;color:var(--dim);font-size:12.5px}
+  .hero-meta b{color:var(--txt);font-variant-numeric:tabular-nums}
+  .kv{display:flex;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px dashed rgba(255,255,255,.05);font-size:13px}
+  .kv:last-of-type{border-bottom:0}
+  .kv span{color:var(--dim)} .kv b{font-weight:500;text-align:right;word-break:break-all}
+  .card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:16px}
+  .stat .k{color:var(--dim);font-size:12px}
+  .stat .v{font-size:29px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+  .stat .v.small{font-size:20px;line-height:1.65;font-weight:600}
+  .two-col{display:grid;grid-template-columns:1.35fr .85fr;gap:16px;margin-bottom:16px}
+  .grid-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+  .mt{margin-top:18px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:1px solid var(--line2);border-radius:999px;padding:5px 12px;font-size:12.5px;color:var(--dim);font-variant-numeric:tabular-nums;background:rgba(255,255,255,.02)}
+  .chip.done{color:#9ff0c3;border-color:rgba(55,214,122,.38);background:rgba(55,214,122,.08)}
+  .chip.failed{color:#ffb3b3;border-color:rgba(255,93,93,.42);background:rgba(255,93,93,.08)}
+  .chip.pending{color:var(--dim)}
+  .alert{display:none;margin-bottom:16px;padding:12px 14px;border-radius:12px;border:1px solid rgba(245,165,36,.4);
+    background:rgba(245,165,36,.08);color:#ffd9a0;font-size:13px}
+  .alert.show{display:block}
+
+  /* timeline */
+  .timeline-wrap{display:flex;flex-wrap:wrap;gap:8px;max-height:118px;overflow:auto;padding-right:4px}
+  /* table */
+  .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--dim2);font-weight:600;font-size:11.5px;letter-spacing:.4px;text-transform:uppercase;
+    border-bottom:1px solid var(--line);padding:11px 12px;background:rgba(255,255,255,.02);position:sticky;top:0}
+  td{border-bottom:1px solid rgba(255,255,255,.045);padding:11px 12px;vertical-align:top}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:rgba(91,140,255,.04)}
+  .title-cell{max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tag{display:inline-block;border-radius:7px;padding:2px 8px;font-size:11.5px;border:1px solid var(--line2);color:var(--dim);background:rgba(255,255,255,.02);white-space:nowrap}
+  #recRows td:nth-child(2),#recRows td:nth-child(6),#recRows td:nth-child(7),#recRows td:nth-child(8),#homeRows td:last-child{white-space:nowrap}
+  .empty{padding:26px;text-align:center;color:var(--dim2);font-size:13px}
+  .mini-table td,.mini-table th{padding:9px 10px}
+  .link{color:var(--acc);cursor:pointer} .link:hover{text-decoration:underline}
+
+  /* forms */
+  .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+  label.f{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--dim)}
+  input,select,textarea{background:#0b0f16;border:1px solid var(--line2);color:var(--txt);border-radius:9px;padding:9px 11px;font:inherit;font-size:13px;outline:none;transition:.15s;min-width:0;max-width:100%}
+  .form input,.form select{width:100%}
+  input:focus,select:focus,textarea:focus{border-color:rgba(91,140,255,.65);box-shadow:0 0 0 3px rgba(91,140,255,.12)}
+  textarea{min-height:80px;resize:vertical}
+  .bandrow{display:grid;grid-template-columns:1.2fr .85fr .85fr .7fr .7fr 34px;gap:7px;align-items:center;margin-bottom:8px}
+  .bandrow input{width:100%;min-width:0;padding:8px 9px}
+  .bandrow .btn{padding:7px 0;width:34px}
+  .hint{font-size:12px;color:var(--dim2);margin-top:8px}
+  .pools{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:13px}
+  .pools label{display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--dim)}
+  .pools input{accent-color:var(--acc)}
+  .sw{display:flex;flex-direction:row;align-items:center;justify-content:space-between;border:1px solid var(--line2);border-radius:10px;
+    padding:10px 12px;color:var(--txt);background:rgba(255,255,255,.02)}
+  .switch{position:relative;width:42px;height:24px;border-radius:999px;background:#0a0e15;border:1px solid var(--line2);cursor:pointer;flex:0 0 42px}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--dim);transition:.18s}
+  .switch.on{background:rgba(55,214,122,.18);border-color:rgba(55,214,122,.5)}
+  .switch.on::after{left:20px;background:var(--ok)}
+  .seg{display:inline-flex;padding:3px;border:1px solid var(--line2);border-radius:10px;background:#0b0f16;gap:3px}
+  .seg button{border:0;background:transparent;color:var(--dim);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12.5px}
+  .seg button.on{background:rgba(91,140,255,.2);color:#dce7ff}
+  .rowbtns{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px}
+  .kv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+  .field-note{font-size:12px;color:var(--dim2)}
+
+  /* accounts */
+  .account-row{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);margin-bottom:10px;flex-wrap:wrap}
+  .account-row.active{border-color:rgba(91,140,255,.5);background:rgba(91,140,255,.07)}
+  .avatar{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:rgba(91,140,255,.15);border:1px solid rgba(91,140,255,.3);font-weight:700;color:#c7d8ff}
+  .account-main{flex:1;min-width:180px}
+  .account-name{font-weight:600}
+  .account-meta{color:var(--dim2);font-size:12px;margin-top:2px}
+  .account-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* records */
+  .toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .toolbar .grow{flex:1;min-width:180px}
+  .summary{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pager{display:flex;align-items:center;gap:8px;justify-content:flex-end;margin-top:12px;color:var(--dim);font-size:12.5px}
+
+  /* screen viewer */
+  .screen-wrap{position:relative;margin-top:12px;border-radius:12px;overflow:hidden;border:1px solid var(--line2);background:#05070b}
+  .screen-wrap img{width:100%;display:block;cursor:crosshair}
+  .screen-tip{position:absolute;left:10px;top:10px;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.12);
+    padding:4px 9px;border-radius:8px;font-size:11px;color:#cfd8e6;backdrop-filter:blur(6px)}
+
+  /* toast */
+  .toast{position:fixed;right:22px;bottom:22px;z-index:50;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .toast .t{pointer-events:auto;background:#1a2333;border:1px solid var(--line2);border-left:3px solid var(--acc);border-radius:10px;
+    padding:11px 14px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.45);min-width:220px;max-width:380px;animation:in .18s ease-out}
+  .toast .t.ok{border-left-color:var(--ok)} .toast .t.bad{border-left-color:var(--bad)} .toast .t.warn{border-left-color:var(--warn)}
+  @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* settings/details */
+  details{border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02);padding:0 14px;margin-bottom:12px}
+  summary{cursor:pointer;padding:12px 0;font-size:13px;font-weight:600;color:var(--dim);outline:none}
+  summary:hover{color:var(--txt)}
+  .events-mini{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim);max-height:220px;overflow:auto}
+  .events-mini .ev{display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.05)}
+  .events-mini .ev b{color:#cbd6e6;font-weight:500;flex:0 0 150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .events-mini .ev span{flex:1;color:var(--dim2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .events-mini .ev time{color:var(--dim2);flex:0 0 92px;text-align:right;font-variant-numeric:tabular-nums}
+  .inline-note{background:rgba(91,140,255,.07);border:1px solid rgba(91,140,255,.2);border-radius:10px;padding:10px 12px;color:var(--dim);font-size:12.5px;line-height:1.7}
+  code{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px;color:#cfd8e6}
+
+  .view[hidden]{display:none}
+  .footer-note{color:var(--dim2);font-size:11.5px;text-align:center;margin-top:30px}
+
+  @media (max-width:1100px){
+    .hero-grid{grid-template-columns:1fr 1fr}
+    .hero-grid .hero-card{grid-column:1 / -1}
+    .two-col{grid-template-columns:1fr}
+    .grid-2{grid-template-columns:1fr}
+    .stats{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:820px){
+    .app{flex-direction:column}
+    .sidebar{width:auto;flex:none;height:auto;position:static;flex-direction:row;align-items:center;gap:14px;padding:14px 16px;overflow-x:auto}
+    .brand{padding:0}.brand-sub{display:none}.logo{width:34px;height:34px}
+    .nav{flex-direction:row;gap:4px}.nav-item{padding:8px 10px}.nav-item .ico{width:auto}
+    .side-foot{display:none}
+    .main{padding:20px 16px 40px}
+    .hero-grid{grid-template-columns:1fr}
+    .top-actions{width:100%}
+    .bandrow{grid-template-columns:1fr 1fr 1fr;gap:6px}
+    .bandrow input[data-k="name"]{grid-column:1 / -1}
+  }
 </style></head>
-<body><div class="wrap">
-  <h1>心动投递 · 发送记录</h1>
-  <div class="sub">账号 <b id="acct">B</b> → <span id="friend">-</span> · <span id="enabledPill"></span> · <span id="acctMeta" class="muted"></span> · 每 20 秒自动刷新 · <span id="gen"></span></div>
-
-  <div id="alert" style="display:none;margin-bottom:14px" class="card bad"></div>
-
-  <div class="rowbtns" style="margin-bottom:16px">
-    <span class="chip" id="svcState">服务状态…</span>
-    <button class="btn" id="btnPause">暂停</button>
-    <button class="btn primary" id="btnResume">继续</button>
-    <button class="btn" id="btnRestart">重启服务</button>
-    <button class="btn primary" id="btnSendNow">立即分享一次</button>
-    <span id="svcMsg" class="muted"></span>
-    <span id="sendMsg" class="muted" style="width:100%"></span>
-  </div>
-
-  <details id="screenBox" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 16px;margin-bottom:18px">
-    <summary style="cursor:pointer;padding:14px 0;font-weight:600">🖥 浏览器画面 <span class="muted" style="font-weight:400">(扫码 / 完成验证都直接在这里点)</span></summary>
-    <div style="padding-bottom:16px">
-      <div class="rowbtns" style="margin-top:0">
-        <button class="btn" id="btnShowWin">把窗口移到台前</button>
-        <button class="btn" id="btnHideWin">把窗口挪回屏幕外</button>
-        <button class="btn" id="btnRefreshScreen">刷新画面</button>
-        <span id="screenMsg" class="muted"></span>
-      </div>
-      <div id="screenWrap" style="position:relative;display:none">
-        <img id="screenImg" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:crosshair" alt="浏览器画面" />
-      </div>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">💌</div>
+      <div><div class="brand-name">心动投递</div><div class="brand-sub">Heartbeat Delivery</div></div>
     </div>
-  </details>
-
-  <details id="apiBox" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 16px;margin-bottom:18px">
-    <summary style="cursor:pointer;padding:14px 0;font-weight:600">⚡ 纯 API 发送 <span id="apiBadge" class="muted" style="font-weight:400">检查中…</span></summary>
-    <div style="padding-bottom:16px">
-      <div id="apiLine" class="muted" style="line-height:1.7">检查中…</div>
-      <div class="rowbtns" style="margin-top:10px">
-        <button class="btn" id="btnApiRefresh">导出 / 刷新会话</button>
-        <button class="btn" id="btnApiAuto">切换自动刷新</button>
-        <button class="btn" id="btnApiMode">切换到纯 API 优先</button>
-        <button class="btn" id="btnBrowserMode">仅浏览器</button>
-        <span id="apiMsg" class="muted"></span>
+    <nav class="nav" id="nav">
+      <button class="nav-item active" data-view="home"><span class="ico">🏠</span>首页</button>
+      <button class="nav-item" data-view="accounts"><span class="ico">👤</span>账户</button>
+      <button class="nav-item" data-view="config"><span class="ico">⚙️</span>配置</button>
+      <button class="nav-item" data-view="records"><span class="ico">📋</span>记录</button>
+    </nav>
+    <div class="side-foot">
+      <div class="side-account">
+        <span class="dot" id="sideDot"></span>
+        <div style="min-width:0">
+          <div class="side-name" id="sideAcct">-</div>
+          <div class="side-friend" id="sideFriend">加载中…</div>
+        </div>
       </div>
-      <div class="rowbtns" style="margin-top:10px">
-        <select id="apiFriend" style="min-width:180px;padding:6px 10px;border-radius:7px;border:1px solid var(--line);background:#1d222c;color:var(--fg)"></select>
-        <button class="btn" id="btnApiDry">只试选片</button>
-        <button class="btn primary" id="btnApiSend">发送给所选好友</button>
-        <span id="apiSendMsg" class="muted"></span>
+      <a class="side-link" href="/viewer" target="_blank">打开抖音画面 ↗</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">首页</h1>
+        <div class="sub" id="pageSub">总览 · 今日排班 · 快速发送</div>
       </div>
-    </div>
-  </details>
+      <div class="top-actions">
+        <span class="pill" id="svcPill">检查中…</span>
+        <button class="btn ghost" id="btnPause">暂停</button>
+        <button class="btn success" id="btnResume">继续</button>
+        <button class="btn ghost" id="btnRestart">重启服务</button>
+        <button class="btn primary" id="btnSendNow">立即发送一次</button>
+      </div>
+    </header>
+    <div class="alert" id="alert"></div>
 
-  <div class="grid">
-    <div class="card"><div class="k">今日计划 <button class="btn" id="replan" style="float:right;padding:2px 8px;font-size:11px">重排</button></div><div class="v" id="plan">-</div></div>
-    <div class="card"><div class="k">今日已发</div><div class="v ok" id="done">-</div></div>
-    <div class="card"><div class="k">今日剩余</div><div class="v" id="left">-</div></div>
-    <div class="card"><div class="k">累计发送</div><div class="v" id="total">-</div></div>
-  </div>
+    <!-- ================= 首页 ================= -->
+    <section class="view" id="view-home" data-view-panel="home">
+      <div class="hero-grid">
+        <div class="card hero-card">
+          <div class="card-head">
+            <div><div class="eyebrow">今日进度</div><div class="hero-num"><span id="homeDone">-</span><span class="hero-den">/ <span id="homePlan">-</span></span></div></div>
+            <span class="pill" id="homeEnabled">…</span>
+          </div>
+          <div class="progress"><div id="homeBar"></div></div>
+          <div class="hero-meta">
+            <span>剩余 <b id="homeLeft">-</b> 条</span>
+            <span>下次 <b id="homeNext">-</b></span>
+            <span>累计 <b id="homeTotal">-</b> 条</span>
+            <span>更新 <b id="homeUpdated">-</b></span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="eyebrow">纯 API</div><span class="pill" id="homeApiPill">…</span></div>
+          <div class="kv"><span>发送模式</span><b id="homeApiMode">-</b></div>
+          <div class="kv"><span>会话</span><b id="homeApiSession">-</b></div>
+          <div class="kv"><span>可选好友</span><b id="homeApiFriend">-</b></div>
+          <div class="card-actions"><button class="btn ghost sm" data-goto="config">管理会话</button></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="eyebrow">浏览器</div><span class="pill" id="homeBrowserPill">…</span></div>
+          <div class="kv"><span>运行</span><b id="homeBrowserState">-</b></div>
+          <div class="kv"><span>登录</span><b id="homeBrowserLogin">-</b></div>
+          <div class="kv"><span>验证</span><b id="homeBrowserChallenge">-</b></div>
+          <div class="card-actions">
+            <button class="btn ghost sm" id="homeScreenToggle">实时画面</button>
+            <button class="btn ghost sm" id="homeShowWin">移到台前</button>
+          </div>
+        </div>
+      </div>
 
-  <div class="sub" style="margin-bottom:6px">今天的时刻表</div>
-  <div class="chips" id="timeline"></div>
+      <div class="stats">
+        <div class="card stat"><div class="k">发送成功率</div><div class="v ok" id="statRate">-</div></div>
+        <div class="card stat"><div class="k">今日失败</div><div class="v" id="statFail">-</div></div>
+        <div class="card stat"><div class="k">最常分类</div><div class="v small" id="statTop">-</div></div>
+        <div class="card stat"><div class="k">累计发送</div><div class="v" id="statTotal">-</div></div>
+      </div>
 
-  <div class="sub" style="margin-bottom:6px">分类分布</div>
-  <div class="chips" id="buckets"></div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-head"><div class="eyebrow">今天的时刻表</div><button class="btn ghost sm" id="homeReplan">重排</button></div>
+          <div class="chips timeline-wrap" id="homeTimeline"><span class="muted">加载中…</span></div>
+          <div class="eyebrow mt">分类分布</div>
+          <div class="chips mt" id="homeBuckets"><span class="muted">加载中…</span></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div class="eyebrow">快速发送（纯 API）</div><span class="pill blue" id="quickPill">API</span></div>
+          <label class="f">选择好友
+            <select id="homeFriend"><option value="">加载中…</option></select>
+          </label>
+          <div class="rowbtns">
+            <button class="btn ghost sm" id="btnApiDry">只试选片</button>
+            <button class="btn primary sm" id="btnApiSend">发送给所选好友</button>
+          </div>
+          <div class="field-note" id="homeSendMsg" style="margin-top:10px">选中好友后，通过纯 HTTP 建会话并发送，不会启动浏览器。</div>
+          <div class="eyebrow mt">或者</div>
+          <div class="rowbtns">
+            <button class="btn ghost sm" id="btnQuickBrowserSend">用浏览器发送一次</button>
+            <span class="field-note">走完整浏览器流程，约 1 分钟</span>
+          </div>
+        </div>
+      </div>
 
-  <details id="settings">
-    <summary>⚙ 参数设置（改完点保存，下一轮生效）</summary>
-    <div class="form">
-      <label class="f">好友昵称<input id="c_friend" placeholder="Hime"></label>
-      <label class="f">两条之间最少间隔（分钟）<input id="c_gap" type="number" min="1" max="120"></label>
-      <label class="f">每日总条数（下限）<input id="c_tmin" type="number" min="0" max="200"></label>
-      <label class="f">每日总条数（上限）<input id="c_tmax" type="number" min="0" max="200"></label>
-      <label class="f">池间延迟（毫秒，越大越慢越安全）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
-      <label class="f sw">运行状态
-        <select id="c_enabled"><option value="true">启用</option><option value="false">暂停</option></select>
-      </label>
-    </div>
+      <div class="card" id="homeScreenCard" style="display:none;margin-bottom:16px">
+        <div class="card-head"><div class="eyebrow">实时画面（扫码 / 验证 / 点击）</div>
+          <div class="card-actions" style="margin:0">
+            <button class="btn ghost sm" id="btnRefreshScreen">刷新画面</button>
+            <button class="btn ghost sm" id="btnHideWin">移到屏幕外</button>
+            <button class="btn ghost sm" id="screenClose">收起</button>
+          </div>
+        </div>
+        <div class="screen-wrap"><img id="screenImg" alt="浏览器画面"><div class="screen-tip">点画面 = 点击浏览器</div></div>
+      </div>
 
-    <div class="sub" style="margin:14px 0 6px">时段与条数</div>
-    <div id="bands"></div>
-    <div class="rowbtns"><button class="btn" id="addBand">+ 添加时段</button>
-      <span id="sumHint" class="muted"></span></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><div class="eyebrow">最近发送</div><button class="btn ghost sm" data-goto="records">查看全部</button></div>
+        <div class="table-wrap" style="border:0">
+          <table class="mini-table"><thead><tr><th style="width:140px">时间</th><th style="width:80px">分类</th><th>标题</th><th style="width:110px">好友</th><th style="width:100px">结果</th></tr></thead>
+          <tbody id="homeRows"><tr><td colspan="5" class="empty">加载中…</td></tr></tbody></table>
+        </div>
+      </div>
 
-    <div class="sub" style="margin:8px 0 6px">视频池</div>
-    <div class="pools" id="pools"></div>
+      <div class="card">
+        <div class="card-head"><div class="eyebrow">最近事件</div><button class="btn ghost sm" id="homeEventsRefresh">刷新</button></div>
+        <div class="events-mini" id="homeEvents"><span class="muted">加载中…</span></div>
+      </div>
+    </section>
 
-    <div class="sub" style="margin:14px 0 6px">屏蔽词（每行一个，命中标题或作者就跳过）</div>
-    <textarea id="c_ban" style="width:100%"></textarea>
+    <!-- ================= 账户 ================= -->
+    <section class="view" id="view-accounts" data-view-panel="accounts" hidden>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head">
+          <div><div class="eyebrow">当前账户</div><div style="font-size:20px;font-weight:700;margin-top:3px" id="acctTitle">-</div></div>
+          <span class="pill" id="acctPill">…</span>
+        </div>
+        <div class="kv-grid">
+          <div class="kv"><span>好友</span><b id="acctFriend">-</b></div>
+          <div class="kv"><span>浏览器端口</span><b id="acctPort">-</b></div>
+          <div class="kv"><span>时段数</span><b id="acctBands">-</b></div>
+          <div class="kv"><span>累计发送</span><b id="acctSends">-</b></div>
+          <div class="kv" style="grid-column:1 / -1"><span>浏览器 Profile</span><b id="acctProfile" style="font-size:12px">-</b></div>
+        </div>
+        <div class="card-actions">
+          <button class="btn success sm" id="acctResume">继续</button>
+          <button class="btn ghost sm" id="acctPause">暂停</button>
+          <button class="btn ghost sm" id="acctRestart">重启服务</button>
+          <button class="btn ghost sm" id="acctOpenScreen">打开实时画面</button>
+          <button class="btn ghost sm" id="acctOpenViewer">新窗口打开 ↗</button>
+        </div>
+      </div>
 
-    <div id="previewBox" class="chips" style="margin:10px 0 0"></div>
-    <div class="rowbtns">
-      <button class="btn primary" id="save">保存设置</button>
-      <button class="btn" id="preview">预览一次</button>
-      <button class="btn" id="btnSafe" title="把总条数调到 6-8、间隔 15 分钟,降低风控概率">安全模式</button>
-      <span id="msg" class="muted"></span>
-    </div>
-  </details>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><div class="eyebrow">全部账户</div><button class="btn ghost sm" id="acctRefresh">刷新</button></div>
+        <div id="acctList"><div class="empty">加载中…</div></div>
+      </div>
 
-  <details id="events"><summary>最近事件（排障用）</summary><div id="eventList" class="muted" style="padding-bottom:14px;font-size:12px;line-height:1.9"></div></details>
+      <div class="grid-2">
+        <div class="card">
+          <div class="eyebrow">添加账户</div>
+          <div class="hint" style="margin-top:8px">在终端执行：</div>
+          <div class="inline-note" style="margin-top:10px">
+            <code>node src/index.js account add &lt;名字&gt; --port 9335 --friend &lt;好友&gt;</code><br>
+            首次发送前会打开浏览器，扫码登录一次即可。账户之间 profile 独立。
+          </div>
+        </div>
+        <div class="card">
+          <div class="eyebrow">切换账户说明</div>
+          <div class="hint" style="margin-top:8px">
+            切换后会自动重启调度，用于新账户的排班与发送；浏览器登录态跟随各账户的 profile。
+            面板数据会立即切换到新账户。
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <table><thead><tr>
-    <th style="width:150px">时间</th><th style="width:76px">分类</th><th>标题</th><th style="width:120px">作者</th><th style="width:70px">赞</th><th style="width:80px">结果</th><th style="width:56px">截图</th>
-  </tr></thead><tbody id="rows"></tbody></table>
+    <!-- ================= 配置 ================= -->
+    <section class="view" id="view-config" data-view-panel="config" hidden>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><div class="eyebrow">发送计划</div><span class="field-note" id="configHint"></span></div>
+          <div class="form">
+            <label class="f">好友昵称<input id="c_friend" placeholder="好友昵称"></label>
+            <label class="f">运行状态<select id="c_enabled"><option value="true">启用</option><option value="false">暂停</option></select></label>
+            <label class="f">两条之间最少间隔（分钟）<input id="c_gap" type="number" min="1" max="120"></label>
+            <label class="f">每日总条数（下限）<input id="c_tmin" type="number" min="0" max="200"></label>
+            <label class="f">每日总条数（上限）<input id="c_tmax" type="number" min="0" max="200"></label>
+            <label class="f">池间延迟（毫秒，越大越慢越安全）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
+          </div>
+          <div class="eyebrow mt">时段与条数</div>
+          <div id="bands" style="margin-top:10px"></div>
+          <div class="rowbtns"><button class="btn ghost sm" id="addBand">+ 添加时段</button><span class="hint" id="sumHint"></span></div>
+          <div class="eyebrow mt">视频池</div>
+          <div class="pools" id="pools" style="margin-top:8px"></div>
+          <div class="eyebrow mt">屏蔽词（每行一个，命中标题或作者就跳过）</div>
+          <textarea id="c_ban" style="width:100%;margin-top:8px"></textarea>
+          <div class="rowbtns">
+            <button class="btn primary" id="save">保存设置</button>
+            <button class="btn ghost" id="preview">预览一次</button>
+            <button class="btn ghost" id="btnSafe" title="把总条数调到 6-8、间隔 15 分钟，降低风控概率">安全模式</button>
+            <span class="field-note" id="msg"></span>
+          </div>
+          <div id="previewBox" style="margin-top:12px"></div>
+        </div>
+
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-head"><div class="eyebrow">纯 API 会话</div><span class="pill" id="apiBadge">检查中…</span></div>
+            <div class="seg" id="apiModeSeg">
+              <button data-mode="auto">纯 API 优先</button>
+              <button data-mode="browser">仅浏览器</button>
+            </div>
+            <div class="kv" style="margin-top:12px"><span>自动刷新</span>
+              <div style="display:flex;align-items:center;gap:10px"><span class="field-note" id="apiAutoText">-</span><span class="switch" id="apiAutoSwitch"></span></div>
+            </div>
+            <div id="apiLine" class="hint" style="margin-top:10px;line-height:1.8">检查中…</div>
+            <div class="card-actions">
+              <button class="btn ghost sm" id="btnApiRefresh">导出 / 刷新会话</button>
+              <button class="btn ghost sm" id="btnApiModeAuto">切到纯 API 优先</button>
+              <button class="btn ghost sm" id="btnBrowserMode">仅浏览器</button>
+            </div>
+            <div class="eyebrow mt">可选好友（来自会话）</div>
+            <div class="chips" id="apiFriends" style="margin-top:8px"><span class="muted">-</span></div>
+            <div class="field-note" id="apiMsg" style="margin-top:10px"></div>
+          </div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="eyebrow">维护</div>
+            <div class="card-actions">
+              <button class="btn ghost sm" id="btnSendNowCfg">立即发送一次</button>
+              <button class="btn ghost sm" id="btnReplanCfg">重排今日</button>
+              <button class="btn ghost sm" id="btnShowWinCfg">把浏览器移到台前</button>
+            </div>
+            <div class="field-note" id="maintMsg" style="margin-top:10px">发送失败会自动回退浏览器；人机验证请到首页「实时画面」完成。</div>
+          </div>
+          <details id="eventsCfg">
+            <summary>最近事件（排障用）</summary>
+            <div class="events-mini" id="cfgEvents" style="padding-bottom:12px">展开后加载…</div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 记录 ================= -->
+    <section class="view" id="view-records" data-view-panel="records" hidden>
+      <div class="summary">
+        <span class="pill" id="recTotal">-</span>
+        <span class="pill ok" id="recOk">-</span>
+        <span class="pill bad" id="recFail">-</span>
+        <span class="pill blue" id="recToday">-</span>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="toolbar">
+          <input class="grow" id="recSearch" placeholder="搜索标题 / 作者 / 好友…">
+          <select id="recBucket"><option value="">全部分类</option></select>
+          <select id="recResult"><option value="">全部结果</option><option value="ok">成功</option><option value="failed">失败</option></select>
+          <button class="btn ghost sm" id="recRefresh">刷新</button>
+          <button class="btn ghost sm" id="recCsv">导出 CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr>
+            <th style="width:140px">时间</th><th style="width:90px">分类</th><th>标题</th><th style="width:150px">作者</th><th style="width:110px">好友</th><th style="width:92px">赞</th><th style="width:150px">结果</th><th style="width:64px">截图</th>
+          </tr></thead><tbody id="recRows"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody></table>
+        </div>
+        <div class="pager">
+          <span id="recPagerInfo"></span>
+          <button class="btn ghost sm" id="recPrev">上一页</button>
+          <button class="btn ghost sm" id="recNext">下一页</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="eyebrow">事件日志</div><div class="card-actions" style="margin:0"><button class="btn ghost sm" id="recEventsRefresh">刷新</button></div></div>
+        <div class="events-mini" id="recEvents"><span class="muted">加载中…</span></div>
+      </div>
+    </section>
+
+    <div class="footer-note">心动投递 · 控制台 · 数据自动刷新 15s · <span id="footTime">-</span></div>
+  </main>
 </div>
+<div class="toast" id="toast"></div>
+
 <script>
-const fmt = (n) => n >= 10000 ? (n/10000).toFixed(1)+'万' : String(n);
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = (n) => Number(n) >= 10000 ? (Number(n) / 10000).toFixed(1) + '万' : String(n || 0);
+const timeOf = (iso) => iso ? new Date(iso).toLocaleTimeString('zh-CN', { hour12: false }) : '-';
+const dateTimeOf = (iso) => iso ? new Date(iso).toLocaleString('zh-CN', { hour12: false }) : '-';
+
 const POOLS = __POOL_NAMES__;
-let cfg = null;
+const state = {
+  view: 'home', data: null, status: null, api: null, accounts: null, config: null,
+  events: [], records: { search: '', bucket: '', result: '', page: 1, pageSize: 20 },
+  sendJobPolling: false, screenTimer: null, apiTimer: null, homeTimer: null,
+  cfgLoaded: false, configDirty: false,
+};
 
-function bandRow(b){
+function toast(msg, type = 'ok', ms = 4200) {
+  const el = document.createElement('div');
+  el.className = 't ' + type;
+  el.textContent = msg;
+  $('#toast').appendChild(el);
+  setTimeout(() => el.remove(), ms);
+}
+async function getJSON(url, opts) {
+  const r = await fetch(url, { cache: 'no-store', ...(opts || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+async function postJSON(url, body) {
+  return getJSON(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+}
+
+/* ---------------- navigation ---------------- */
+const VIEW_META = {
+  home: ['首页', '总览 · 今日排班 · 快速发送'],
+  accounts: ['账户', '当前账户 · 多账户切换 · 登录状态'],
+  config: ['配置', '发送计划 · 纯 API 会话 · 维护'],
+  records: ['记录', '发送历史 · 分类统计 · 事件日志'],
+};
+function navigate(view) {
+  if (!VIEW_META[view]) view = 'home';
+  state.view = view;
+  $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+  $$('[data-view-panel]').forEach((p) => { p.hidden = p.dataset.viewPanel !== view; });
+  const [title, sub] = VIEW_META[view];
+  $('#pageTitle').textContent = title;
+  $('#pageSub').textContent = sub;
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  if (view === 'home') loadHome();
+  if (view === 'accounts') loadAccounts();
+  if (view === 'config') loadConfigPage();
+  if (view === 'records') loadRecords();
+}
+function bindNav() {
+  $$('.nav-item').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.view)));
+  $$('[data-goto]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.goto)));
+}
+
+/* ---------------- home ---------------- */
+function setPill(el, text, type = '') {
+  el.textContent = text;
+  el.className = 'pill' + (type ? ' ' + type : '');
+}
+function renderSidebar() {
+  const d = state.data || {};
+  const st = state.status || {};
+  $('#sideAcct').textContent = d.account || '-';
+  $('#sideFriend').textContent = d.friend ? ('→ ' + d.friend) : '未配置好友';
+  const dot = $('#sideDot');
+  dot.className = 'dot' + (st.enabled && st.scheduler && st.scheduler.running ? ' on' : '');
+}
+function renderTopbar() {
+  const st = state.status || {};
+  const d = state.data || {};
+  const running = !!(st.scheduler && st.scheduler.running);
+  const paused = st.enabled === false;
+  if (!running) setPill($('#svcPill'), '服务未运行', 'bad');
+  else if (paused) setPill($('#svcPill'), '已暂停', 'warn');
+  else setPill($('#svcPill'), '运行中', 'ok');
+  $('#btnResume').style.display = paused || !running ? '' : 'none';
+  $('#btnPause').style.display = paused || !running ? 'none' : '';
+  const alert = $('#alert');
+  if (st.browser && st.browser.challenge) {
+    alert.className = 'alert show';
+    alert.textContent = '抖音要求人机验证：在「首页 → 实时画面」里完成验证后点「继续」。';
+  } else {
+    alert.className = 'alert';
+  }
+}
+function fillFriendSelect(api) {
+  const sel = $('#homeFriend');
+  if (!sel || !api || !Array.isArray(api.friends)) return;
+  const cur = sel.value;
+  sel.innerHTML = api.friends.length
+    ? api.friends.map((f) => '<option value="' + esc(f.name) + '">' + esc(f.name) + '</option>').join('')
+    : '<option value="">（会话里没有好友列表）</option>';
+  if (cur && api.friends.some((f) => f.name === cur)) sel.value = cur;
+  else if (api.defaultFriend) sel.value = api.defaultFriend;
+}
+function renderHome() {
+  const d = state.data || {};
+  const st = state.status || {};
+  const api = state.api || {};
+  const plan = d.todayPlan || 0;
+  const done = d.todayDone || 0;
+  const left = Math.max(0, plan - done);
+  $('#homeDone').textContent = done;
+  $('#homePlan').textContent = plan;
+  const sends = d.sends || [];
+  const okCount = sends.filter((s) => s.ok).length;
+  $('#statRate').textContent = sends.length ? Math.round((okCount / sends.length) * 100) + '%' : '-';
+  $('#statFail').textContent = (d.todayTimeline || []).filter((t) => t.status === 'failed').length;
+  const topBucket = Object.entries(d.bucketStats || {}).sort((a, b) => b[1] - a[1])[0];
+  $('#statTop').textContent = topBucket ? topBucket[0] : '-';
+  $('#statTotal').textContent = d.totalSends ?? '-';
+  $('#homeLeft').textContent = left;
+  $('#homeNext').textContent = d.nextTime || '—';
+  $('#homeTotal').textContent = d.totalSends ?? '-';
+  $('#homeUpdated').textContent = d.generatedAt ? timeOf(d.generatedAt) : '-';
+  $('#homeBar').style.width = (plan ? Math.min(100, (done / plan) * 100) : 0) + '%';
+  setPill($('#homeEnabled'), d.enabled ? '运行中' : '已暂停', d.enabled ? 'ok' : 'warn');
+
+  if (api.present) {
+    setPill($('#homeApiPill'), api.valid ? '会话可用' : '会话过期', api.valid ? 'ok' : 'bad');
+    $('#homeApiMode').textContent = api.sendMode === 'auto' ? '纯 API 优先' : '仅浏览器';
+    $('#homeApiSession').textContent = api.valid ? ('可用 · ' + (api.ageHours ?? '-') + 'h 前') : (api.reason || '不可用');
+    $('#homeApiFriend').textContent = (api.friendCount || 0) + ' 人';
+  } else {
+    setPill($('#homeApiPill'), '未导出', 'warn');
+    $('#homeApiMode').textContent = api.sendMode === 'browser' ? '仅浏览器' : '-';
+    $('#homeApiSession').textContent = '未导出';
+    $('#homeApiFriend').textContent = '-';
+  }
+  const browser = st.browser || {};
+  setPill($('#homeBrowserPill'), browser.up ? '已启动' : '未启动', browser.up ? 'blue' : '');
+  $('#homeBrowserState').textContent = browser.up ? '运行中' : '未启动';
+  $('#homeBrowserLogin').textContent = browser.loggedIn == null ? '-' : (browser.loggedIn ? '已登录' : '未登录');
+  $('#homeBrowserChallenge').textContent = browser.challenge ? '需要人机验证' : '正常';
+  fillFriendSelect(api);
+
+  $('#homeTimeline').innerHTML = d.todayTimeline && d.todayTimeline.length
+    ? d.todayTimeline.map((t) => '<span class="chip ' + t.status + '">' + t.time + (t.status === 'done' ? ' ✓' : (t.status === 'failed' ? ' ✗' : '')) + '</span>').join('')
+    : '<span class="muted">今天还没有计划（暂停中或未到窗口）</span>';
+  const buckets = Object.entries(d.bucketStats || {}).sort((a, b) => b[1] - a[1]);
+  $('#homeBuckets').innerHTML = buckets.length ? buckets.map(([k, v]) => '<span class="chip">' + esc(k) + ' · ' + v + '</span>').join('') : '<span class="muted">暂无记录</span>';
+
+  $('#homeRows').innerHTML = (d.sends || []).slice(0, 5).map((s) => '<tr>'
+    + '<td class="muted">' + esc(s.local) + '</td>'
+    + '<td><span class="tag">' + esc(s.bucket) + '</span></td>'
+    + '<td class="title-cell" title="' + esc(s.title) + '">' + esc(s.title) + '</td>'
+    + '<td class="muted">' + esc(s.friend || '-') + '</td>'
+    + '<td class="' + (s.ok ? 'ok' : 'bad') + '">' + esc(s.ok ? (s.toast || '成功') : (s.toast || '失败')) + '</td>'
+    + '</tr>').join('') || '<tr><td colspan="5" class="empty">还没有发送记录</td></tr>';
+  renderSidebar();
+  renderTopbar();
+  $('#footTime').textContent = '最近刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+}
+async function loadHome() {
+  try {
+    const [data, status, api] = await Promise.all([
+      getJSON('/api/data'), getJSON('/api/status'), getJSON('/api/api-session').catch(() => null),
+    ]);
+    state.data = data; state.status = status; state.api = api;
+    renderHome();
+    loadHomeEvents();
+  } catch (e) {
+    toast('首页加载失败：' + e.message, 'bad');
+  }
+}
+async function loadHomeEvents() {
+  try {
+    const d = await getJSON('/api/events?limit=6');
+    $('#homeEvents').innerHTML = renderEvents(d.events || []);
+  } catch (e) { /* ignore */ }
+}
+function renderEvents(events) {
+  return (events || []).map((e) => '<div class="ev"><b title="' + esc(e.event) + '">' + esc(e.event) + '</b><span title="' + esc(e.payload) + '">' + esc(String(e.payload || '').slice(0, 160)) + '</span><time>' + esc((e.ts || '').slice(5, 19).replace('T', ' ')) + '</time></div>').join('') || '<span class="muted">暂无事件</span>';
+}
+
+/* quick API send */
+async function apiSendFriend(dry) {
+  const friend = $('#homeFriend').value;
+  const msg = $('#homeSendMsg');
+  if (!friend) { toast('没有可选好友，先在配置页导出会话', 'warn'); return; }
+  if (!dry && !window.confirm('确认通过纯 API 发送一条视频给「' + friend + '」？')) return;
+  msg.textContent = dry ? '选片中…' : '发送中…';
+  try {
+    const r = await postJSON('/api/api-session/send', { friend, dry });
+    if (r.ok && r.dry) { msg.textContent = '选中：' + (r.picked && r.picked.title || ''); toast('已选片（未发送）', 'ok'); }
+    else if (r.ok) { msg.textContent = '已发送给 ' + (r.friend || friend) + '（HTTP API）'; toast('已发送给 ' + (r.friend || friend), 'ok'); loadHome(); }
+    else { msg.textContent = '失败：' + (r.error || '未知错误'); toast('发送失败：' + (r.error || ''), 'bad'); }
+  } catch (e) { msg.textContent = '请求失败：' + e.message; toast('请求失败：' + e.message, 'bad'); }
+}
+
+/* send now */
+async function triggerSendNow() {
+  const btn = $('#btnSendNow');
+  try {
+    const out = await postJSON('/api/send-now', {});
+    if (!out.ok) throw new Error(out.error || '触发失败');
+    toast('已触发发送，正在执行…', 'ok');
+    pollSendJob();
+  } catch (e) { toast('触发失败：' + e.message, 'bad'); }
+}
+async function pollSendJob() {
+  if (state.sendJobPolling) return;
+  state.sendJobPolling = true;
+  const btn = $('#btnSendNow');
+  btn.disabled = true;
+  try {
+    for (let i = 0; i < 80; i++) {
+      const d = await getJSON('/api/send-now');
+      const j = d.job || {};
+      if (j.status === 'running') { await new Promise((r) => setTimeout(r, 2500)); continue; }
+      if (j.status === 'done') {
+        const t = (j.result && j.result.target && j.result.target.name) || '';
+        toast('已发送' + (t ? '给 ' + t : '') + ' · ' + ((j.result && j.result.toast) || '成功'), 'ok');
+      } else if (j.status === 'failed') {
+        toast('发送失败：' + ((j.result && (j.result.error || j.result.reason)) || '未知原因'), 'bad');
+      }
+      break;
+    }
+  } catch (e) { /* ignore */ }
+  btn.disabled = false;
+  state.sendJobPolling = false;
+  loadHome();
+}
+
+/* ---------------- accounts ---------------- */
+async function loadAccounts() {
+  try {
+    const [acc, st] = await Promise.all([getJSON('/api/accounts'), getJSON('/api/status')]);
+    state.accounts = acc; state.status = st;
+    renderAccounts();
+    renderTopbar(); renderSidebar();
+  } catch (e) { toast('账户加载失败：' + e.message, 'bad'); }
+}
+function renderAccounts() {
+  const acc = state.accounts || { accounts: [], active: null };
+  const st = state.status || {};
+  const active = acc.accounts.find((a) => a.label === acc.active) || acc.accounts[0];
+  if (active) {
+    $('#acctTitle').textContent = active.label;
+    $('#acctFriend').textContent = active.friend || '未配置';
+    $('#acctPort').textContent = active.port;
+    $('#acctBands').textContent = active.bands + ' 个';
+    $('#acctSends').textContent = active.sends + ' 条';
+    $('#acctProfile').textContent = active.profile || '-';
+    setPill($('#acctPill'), active.enabled ? '运行中' : '已暂停', active.enabled ? 'ok' : 'warn');
+  }
+  const rows = (acc.accounts || []).map((a) => {
+    const isActive = a.label === acc.active;
+    return '<div class="account-row' + (isActive ? ' active' : '') + '">'
+      + '<div class="avatar">' + esc(a.label.slice(0, 1).toUpperCase()) + '</div>'
+      + '<div class="account-main"><div class="account-name">' + esc(a.label) + (isActive ? ' <span class="pill blue" style="margin-left:6px">当前</span>' : '') + '</div>'
+      + '<div class="account-meta">好友 ' + esc(a.friend || '-') + ' · 端口 ' + a.port + ' · ' + a.bands + ' 时段 · ' + a.sends + ' 条</div></div>'
+      + '<div class="account-actions">'
+      + (isActive ? '<button class="btn ghost sm" disabled>已选中</button>'
+        : '<button class="btn sm" data-switch="' + esc(a.label) + '">切换到此账户</button>')
+      + '</div></div>';
+  }).join('');
+  $('#acctList').innerHTML = rows || '<div class="empty">还没有账户</div>';
+  $$('[data-switch]').forEach((b) => b.addEventListener('click', () => switchAccount(b.dataset.switch)));
+}
+async function switchAccount(label) {
+  if (!window.confirm('切换到账户「' + label + '」并重启调度？')) return;
+  try {
+    const r = await postJSON('/api/accounts/switch', { label });
+    toast('已切换到 ' + r.active, 'ok');
+    state.config = null; state.cfgLoaded = false;
+    await loadAccounts(); await loadHome();
+  } catch (e) { toast('切换失败：' + e.message, 'bad'); }
+}
+
+/* ---------------- config ---------------- */
+function bandRow(b) {
   return '<div class="bandrow">'
-    + '<input value="'+(b.name||'')+'" data-k="name" placeholder="名称">'
-    + '<input value="'+(b.from||'')+'" data-k="from" placeholder="07:00">'
-    + '<input value="'+(b.to||'')+'" data-k="to" placeholder="10:00">'
-    + '<input type="number" value="'+(b.min??1)+'" data-k="min" placeholder="最少">'
-    + '<input type="number" value="'+(b.max??3)+'" data-k="max" placeholder="最多">'
-    + '<button class="btn danger delband">删</button>'
-    + '</div>';
+    + '<input value="' + esc(b.name || '') + '" data-k="name" placeholder="名称">'
+    + '<input value="' + esc(b.from || '') + '" data-k="from" placeholder="07:00">'
+    + '<input value="' + esc(b.to || '') + '" data-k="to" placeholder="10:00">'
+    + '<input type="number" value="' + (b.min ?? 1) + '" data-k="min" placeholder="最少">'
+    + '<input type="number" value="' + (b.max ?? 3) + '" data-k="max" placeholder="最多">'
+    + '<button class="btn ghost sm" data-delband>删</button></div>';
 }
-function updateHint(){
-  const rows = [...document.querySelectorAll('.bandrow')];
+function updateHint() {
+  const rows = $$('.bandrow');
   let lo = 0, hi = 0;
-  rows.forEach(r => { lo += Number(r.querySelector('[data-k="min"]').value)||0; hi += Number(r.querySelector('[data-k="max"]').value)||0; });
-  document.getElementById('sumHint').textContent = '各时段下限之和 ' + lo + '，上限之和 ' + hi + '；总条数超出这个范围时会自动按比例放宽或收紧';
+  rows.forEach((r) => { lo += Number(r.querySelector('[data-k="min"]').value) || 0; hi += Number(r.querySelector('[data-k="max"]').value) || 0; });
+  $('#sumHint').textContent = '各时段下限之和 ' + lo + '，上限之和 ' + hi;
 }
-
-function renderBands(bands){
-  document.getElementById('bands').innerHTML = (bands||[]).map(bandRow).join('');
+function renderBands(bands) { $('#bands').innerHTML = (bands || []).map(bandRow).join(''); }
+function renderPools(pools) {
+  $('#pools').innerHTML = POOLS.map((p) => '<label><input type="checkbox" data-pool="' + esc(p) + '" ' + ((pools && pools[p] === false) ? '' : 'checked') + '> ' + esc(p) + '</label>').join('');
 }
-function renderPools(pools){
-  document.getElementById('pools').innerHTML = POOLS.map(p =>
-    '<label><input type="checkbox" data-pool="'+p+'" '+((pools&&pools[p]===false)?'':'checked')+'> '+p+'</label>').join('');
-}
-function collect(){
-  const bands = [...document.querySelectorAll('.bandrow')].map(r => {
-    const g = k => r.querySelector('[data-k="'+k+'"]').value;
-    return { name:g('name'), from:g('from'), to:g('to'), min:Number(g('min')), max:Number(g('max')) };
+function collectConfig() {
+  const bands = $$('.bandrow').map((r) => {
+    const g = (k) => r.querySelector('[data-k="' + k + '"]').value;
+    return { name: g('name'), from: g('from'), to: g('to'), min: Number(g('min')), max: Number(g('max')) };
   });
   const pools = {};
-  document.querySelectorAll('[data-pool]').forEach(c => pools[c.dataset.pool] = c.checked);
+  $$('[data-pool]').forEach((c) => { pools[c.dataset.pool] = c.checked; });
   return {
-    enabled: document.getElementById('c_enabled').value === 'true',
-    friend: document.getElementById('c_friend').value.trim(),
-    minGapMinutes: Number(document.getElementById('c_gap').value),
-    totalMin: Number(document.getElementById('c_tmin').value),
-    totalMax: Number(document.getElementById('c_tmax').value),
-    poolDelayMs: Number(document.getElementById('c_pdelay').value),
+    enabled: $('#c_enabled').value === 'true',
+    friend: $('#c_friend').value.trim(),
+    minGapMinutes: Number($('#c_gap').value),
+    totalMin: Number($('#c_tmin').value),
+    totalMax: Number($('#c_tmax').value),
+    poolDelayMs: Number($('#c_pdelay').value),
     bands, pools,
-    banWords: document.getElementById('c_ban').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    banWords: $('#c_ban').value.split('\n').map((s) => s.trim()).filter(Boolean),
   };
 }
-
-async function loadConfig(){
-  cfg = await (await fetch('/api/config')).json();
-  document.getElementById('c_friend').value = cfg.friend || '';
-  document.getElementById('c_gap').value = cfg.minGapMinutes || 5;
-  document.getElementById('c_tmin').value = cfg.totalMin ?? 0;
-  document.getElementById('c_tmax').value = cfg.totalMax ?? 0;
-  document.getElementById('c_pdelay').value = cfg.poolDelayMs ?? 2500;
-  document.getElementById('c_enabled').value = cfg.enabled === false ? 'false' : 'true';
-  document.getElementById('c_ban').value = (cfg.banWords||[]).join('\n');
-  renderBands(cfg.bands);
-  renderPools(cfg.pools);
-  updateHint();
+async function loadConfigPage() {
+  try {
+    const cfg = await getJSON('/api/config');
+    state.config = cfg; state.cfgLoaded = true;
+    $('#c_friend').value = cfg.friend || '';
+    $('#c_gap').value = cfg.minGapMinutes ?? 5;
+    $('#c_tmin').value = cfg.totalMin ?? 0;
+    $('#c_tmax').value = cfg.totalMax ?? 0;
+    $('#c_pdelay').value = cfg.poolDelayMs ?? 2500;
+    $('#c_enabled').value = cfg.enabled === false ? 'false' : 'true';
+    $('#c_ban').value = (cfg.banWords || []).join('\n');
+    renderBands(cfg.bands);
+    renderPools(cfg.pools);
+    updateHint();
+    await loadApiSession();
+    loadCfgEvents();
+  } catch (e) { toast('配置加载失败：' + e.message, 'bad'); }
 }
-
-async function load(){
-  const d = await (await fetch('/api/data')).json();
-  document.getElementById('plan').textContent = d.todayPlan;
-  document.getElementById('done').textContent = d.todayDone;
-  document.getElementById('left').textContent = Math.max(0, d.todayPlan - d.todayDone);
-  document.getElementById('total').textContent = d.totalSends;
-  document.getElementById('gen').textContent = '更新于 ' + new Date(d.generatedAt).toLocaleTimeString('zh-CN',{hour12:false});
-  document.getElementById('friend').textContent = d.friend || '-';
-  document.getElementById('enabledPill').innerHTML = d.enabled
-    ? '<span class="chip done">运行中</span>' : '<span class="chip pending">已暂停</span>';
-  document.getElementById('timeline').innerHTML = d.todayTimeline.length
-    ? d.todayTimeline.map(t=>'<span class="chip '+t.status+'">'+t.time+(t.status==='done'?' ✓':(t.status==='failed'?' ✗':''))+'</span>').join('')
-    : '<span class="muted">今天还没有计划（暂停中或未到窗口）</span>';
-  document.getElementById('buckets').innerHTML = Object.entries(d.bucketStats)
-    .sort((a,b)=>b[1]-a[1]).map(([k,v])=>'<span class="chip">'+k+' · '+v+'</span>').join('') || '<span class="muted">暂无记录</span>';
-  document.getElementById('rows').innerHTML = d.sends.map(s=>'<tr>'
-    +'<td class="muted">'+s.local+'</td>'
-    +'<td><span class="b">'+s.bucket+'</span></td>'
-    +'<td class="title" title="'+String(s.title).replace(/"/g,'&quot;')+'">'+s.title+'</td>'
-    +'<td class="muted">'+(s.author||'').replace(/^@/,'')+'</td>'
-    +'<td class="muted">'+fmt(s.likes)+'</td>'
-    +'<td class="'+(s.ok?'ok':'bad')+'">'+(s.ok?(s.toast||'成功'):(s.toast||'失败'))+'</td>'
-    +'<td>'+(s.shot?'<a href="/shot/'+s.shot+'" target="_blank">看</a>':'<span class="muted">-</span>')+'</td>'
-    +'</tr>').join('') || '<tr><td colspan="7" class="muted">还没有发送记录</td></tr>';
-}
-
-document.getElementById('replan').onclick = async () => {
-  if (!confirm('按当前设置重新随机今天的时刻表？已发送的记录不会重复发，也不会撤回。')) return;
-  const msg = document.getElementById('msg');
-  msg.className='muted'; msg.textContent='重排中…';
-  const out = await (await fetch('/api/today/regenerate', {method:'POST'})).json();
-  if (out.ok) { msg.className='ok'; msg.textContent='已重排：今天 '+out.count+' 条，第一条 '+out.times[0]; load(); }
-  else { msg.className='bad'; msg.textContent='重排失败：'+(out.error||''); }
-};
-
 let lastPreview = null;
+async function updateApiMode(mode) {
+  try {
+    await postJSON('/api/api-session/mode', { mode });
+    toast(mode === 'auto' ? '已切换到纯 API 优先' : '已切换为仅浏览器', 'ok');
+    await loadApiSession(); loadHome();
+  } catch (e) { toast('切换失败：' + e.message, 'bad'); }
+}
+async function loadApiSession() {
+  try {
+    const d = await getJSON('/api/api-session');
+    state.api = d;
+    const badge = $('#apiBadge');
+    badge.textContent = d.valid ? '会话可用' : (d.present ? '会话不可用' : '未导出');
+    badge.className = 'pill ' + (d.valid ? 'ok' : (d.present ? 'bad' : 'warn'));
+    $$('#apiModeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.mode === d.sendMode));
+    $('#apiAutoText').textContent = d.autoRefresh ? '开' : '关';
+    $('#apiAutoSwitch').classList.toggle('on', !!d.autoRefresh);
+    const modeText = d.sendMode === 'auto' ? '纯 API 优先（失败回退浏览器）' : '仅浏览器';
+    const lines = ['发送模式：' + modeText, '自动刷新：' + (d.autoRefresh ? '开' : '关')];
+    if (d.present) {
+      lines.push('状态：' + (d.valid ? '可用' : '不可用（' + (d.reason || '') + '）'));
+      lines.push('账号/好友：' + (d.account || '-') + ' → ' + (d.defaultFriend || '-'));
+      lines.push('抓取于：' + dateTimeOf(d.createdAt) + '（' + (d.ageHours != null ? d.ageHours + 'h 前' : '-') + '，有效期 ' + d.maxAgeHours + 'h）');
+      lines.push('模板 ' + d.templateBytes + ' 字符 · cookies ' + d.cookies + ' 条 · 好友 ' + d.friendCount + ' 人' + (d.hasCreateTemplate ? '（支持任意好友）' : ''));
+    } else {
+      lines.push('还没有导出会话。点「导出 / 刷新会话」会短暂启动一个最小化浏览器（不会发送消息）。');
+    }
+    $('#apiLine').innerHTML = lines.map(esc).join('<br>');
+    $('#apiFriends').innerHTML = (d.friends || []).length
+      ? d.friends.map((f) => '<span class="chip">' + esc(f.name) + '</span>').join('')
+      : '<span class="muted">暂无好友列表</span>';
+    $('#quickPill').textContent = d.sendMode === 'auto' ? 'API' : '浏览器';
+  } catch (e) { $('#apiLine').textContent = '读取失败：' + e.message; }
+}
+async function loadCfgEvents() {
+  try {
+    const d = await getJSON('/api/events?limit=30');
+    $('#cfgEvents').innerHTML = renderEvents(d.events || []);
+  } catch (e) { /* ignore */ }
+}
 
-document.getElementById('btnSafe').onclick = async () => {
-  document.getElementById('c_tmin').value = 6;
-  document.getElementById('c_tmax').value = 8;
-  document.getElementById('c_gap').value = 15;
-  const msg = document.getElementById('msg');
-  msg.className='muted'; msg.textContent='应用中…';
-  const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collect()) });
-  const out = await res.json();
-  if (out.ok) { msg.className='ok'; msg.textContent='已切到安全模式:每天 6-8 条,间隔 ≥15 分钟'; loadConfig(); load(); }
-  else { msg.className='bad'; msg.textContent='失败:'+(out.error||''); }
-};
-
-document.getElementById('preview').onclick = async () => {
-  const box = document.getElementById('previewBox');
-  box.innerHTML = '<span class="muted">生成中…</span>';
-  const res = await fetch('/api/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collect()) });
-  const out = await res.json();
-  if (!out.ok) { box.innerHTML = '<span class="bad">预览失败：'+out.error+'</span>'; return; }
-  lastPreview = out;
-  const short = out.count < out.requested ? '<span class="bad"> 时段容量不足，只排下 '+out.count+'/'+out.requested+' 条</span>' : '';
-  let html = '<div style="width:100%" class="muted">共 '+out.count+' 条 · 窗口 '+out.window+'（再点一次重新抽）'+short+'</div>';
-  (out.notes||[]).forEach(n => { html += '<div style="width:100%" class="muted">· '+n+'</div>'; });
-  html += '<table style="margin-top:10px"><thead><tr><th style="width:90px">时段</th><th style="width:120px">范围</th><th style="width:60px">条数</th><th>时刻</th></tr></thead><tbody>';
-  out.bands.forEach(b => {
-    html += '<tr><td>'+b.name+'</td><td class="muted">'+b.from+'-'+b.to+'</td><td>'+b.n+'</td><td class="muted">'+b.times.join(' ')+'</td></tr>';
+/* ---------------- records ---------------- */
+function recordsFiltered() {
+  const d = state.data || {};
+  const f = state.records;
+  const q = f.search.trim().toLowerCase();
+  return (d.sends || []).filter((s) => {
+    if (f.bucket && s.bucket !== f.bucket) return false;
+    if (f.result === 'ok' && !s.ok) return false;
+    if (f.result === 'failed' && s.ok) return false;
+    if (q && !((s.title || '') + ' ' + (s.author || '') + ' ' + (s.friend || '')).toLowerCase().includes(q)) return false;
+    return true;
   });
-  html += '</tbody></table>';
-  html += '<div class="rowbtns" style="width:100%"><button class="btn primary" id="applyBtn">保存并生效</button><button class="btn" id="cancelBtn">取消</button><span id="applyMsg" class="muted"></span></div>';
-  box.innerHTML = html;
-  document.getElementById('applyBtn').onclick = async () => {
-    const msg = document.getElementById('applyMsg');
-    msg.className = 'muted'; msg.textContent = '应用中…';
-    const r = await fetch('/api/apply', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ config: collect(), times: lastPreview.times }) });
-    const o = await r.json();
-    if (o.ok) {
-      msg.className = 'ok';
-      msg.textContent = '已生效：今天 '+o.applied+' 条' + (o.skippedPast ? '（跳过已过时刻 '+o.skippedPast+' 个）' : '') + (o.restarted ? '，调度已重载' : '，下次发送前自动生效');
-      load();
-    } else { msg.className = 'bad'; msg.textContent = '失败：'+o.error; }
-  };
-  document.getElementById('cancelBtn').onclick = () => {
-    box.innerHTML = '';
-    lastPreview = null;
-    document.getElementById('msg').textContent = '';
-  };
-};
-
-document.getElementById('bands').addEventListener('click', (e) => {
-  if (e.target && e.target.classList.contains('delband')) e.target.closest('.bandrow').remove();
-});
-
-document.getElementById('addBand').onclick = () => {
-  document.getElementById('bands').insertAdjacentHTML('beforeend',
-    bandRow({name:'时段', from:'15:00', to:'17:00', min:1, max:2}));
-};
-document.getElementById('save').onclick = async () => {
-  const msg = document.getElementById('msg');
-  msg.className = 'muted'; msg.textContent = '保存中…';
-  const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collect()) });
-  const out = await res.json();
-  if (out.ok) { msg.className = 'ok'; msg.textContent = '已保存，下一轮生成计划时生效'; loadConfig(); load(); }
-  else { msg.className = 'bad'; msg.textContent = '保存失败：' + (out.error||'未知错误'); }
-};
-
-async function status(){
+}
+function renderRecords() {
+  const d = state.data || {};
+  const all = d.sends || [];
+  const filtered = recordsFiltered();
+  const f = state.records;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / f.pageSize));
+  f.page = Math.min(f.page, totalPages);
+  const start = (f.page - 1) * f.pageSize;
+  const rows = filtered.slice(start, start + f.pageSize);
+  $('#recTotal').textContent = '全部 ' + all.length + ' 条';
+  $('#recOk').textContent = '成功 ' + all.filter((s) => s.ok).length;
+  $('#recFail').textContent = '失败 ' + all.filter((s) => !s.ok).length;
+  $('#recToday').textContent = '今日 ' + (d.todayDone ?? 0) + ' 条';
+  const buckets = [...new Set(all.map((s) => s.bucket).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh'));
+  const curBucket = f.bucket;
+  $('#recBucket').innerHTML = '<option value="">全部分类</option>' + buckets.map((b) => '<option value="' + esc(b) + '"' + (b === curBucket ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
+  $('#recRows').innerHTML = rows.map((s) => '<tr>'
+    + '<td class="muted">' + esc(s.local) + '</td>'
+    + '<td><span class="tag">' + esc(s.bucket) + '</span></td>'
+    + '<td class="title-cell" title="' + esc(s.title) + '">' + esc(s.title) + '</td>'
+    + '<td class="muted">' + esc((s.author || '').replace(/^@/, '')) + '</td>'
+    + '<td class="muted">' + esc(s.friend || '-') + '</td>'
+    + '<td class="muted">' + fmt(s.likes) + '</td>'
+    + '<td class="' + (s.ok ? 'ok' : 'bad') + '">' + esc(s.ok ? (s.toast || '成功') : (s.toast || '失败')) + '</td>'
+    + '<td>' + (s.shot ? '<a href="/shot/' + encodeURIComponent(s.shot) + '" target="_blank">查看</a>' : '<span class="muted">-</span>') + '</td>'
+    + '</tr>').join('') || '<tr><td colspan="8" class="empty">' + (all.length ? '没有符合筛选的记录' : '还没有发送记录') + '</td></tr>';
+  $('#recPagerInfo').textContent = '第 ' + f.page + ' / ' + totalPages + ' 页 · ' + filtered.length + ' 条';
+  $('#recPrev').disabled = f.page <= 1;
+  $('#recNext').disabled = f.page >= totalPages;
+  return rows;
+}
+async function loadRecords() {
   try {
-    const s = await (await fetch('/api/status')).json();
-    const pill = document.getElementById('svcState');
-    const alertBox = document.getElementById('alert');
-    const running = s.scheduler && s.scheduler.running;
-    if (!running) {
-      pill.className = 'chip bad'; pill.textContent = '服务未运行';
-    } else if (!s.enabled) {
-      pill.className = 'chip pending'; pill.textContent = '已暂停';
-    } else {
-      pill.className = 'chip done'; pill.textContent = '运行中';
-    }
-    if (s.browser && s.browser.challenge) {
-      alertBox.style.display = 'block';
-      alertBox.textContent = '抖音要求人机验证:请在打开的浏览器窗口里完成验证,然后点「继续」。';
-    } else if (!s.browser || !s.browser.up) {
-      alertBox.style.display = 'none';
-    } else {
-      alertBox.style.display = 'none';
-    }
-  } catch (e) {}
+    const d = await getJSON('/api/data');
+    state.data = d;
+    renderRecords();
+    await loadRecEvents();
+    renderSidebar();
+  } catch (e) { toast('记录加载失败：' + e.message, 'bad'); }
 }
-
-async function control(action){
-  const msg = document.getElementById('svcMsg');
-  msg.className='muted'; msg.textContent='执行中…';
-  const out = await (await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})})).json();
-  if (out.ok) {
-    msg.className='ok';
-    msg.textContent = {pause:'已暂停',resume:'已继续',restart:'服务已重启'}[action] + (out.restarted && out.restarted.ok ? '' : '(需手动重启)');
-    status(); load();
-  } else { msg.className='bad'; msg.textContent = out.error || '失败'; }
-}
-
-async function pollSend(){
-  const msg = document.getElementById('sendMsg');
+async function loadRecEvents() {
   try {
-    const d = await (await fetch('/api/send-now')).json();
-    const j = d.job || {};
-    if (j.status === 'running') {
-      msg.className='muted'; msg.textContent='正在发送…(选片 → 打开 → 分享,约 1 分钟)';
-      setTimeout(pollSend, 3000);
-    } else if (j.status === 'done') {
-      const t = (j.result && j.result.target && j.result.target.name) || '';
-      msg.className='ok'; msg.textContent='已发送' + (t ? '给 ' + t : '') + ' · ' + ((j.result && j.result.toast) || '成功');
-      load();
-    } else if (j.status === 'failed') {
-      msg.className='bad'; msg.textContent='失败:' + ((j.result && (j.result.error || j.result.reason)) || '未知原因');
-    }
-  } catch (e) {}
+    const d = await getJSON('/api/events?limit=80');
+    state.events = d.events || [];
+    $('#recEvents').innerHTML = renderEvents(state.events);
+  } catch (e) { /* ignore */ }
+}
+function exportCsv() {
+  const rows = recordsFiltered();
+  const head = ['时间', '分类', '标题', '作者', '好友', '赞', '结果', '截图'];
+  const body = rows.map((s) => [s.local, s.bucket, s.title, s.author, s.friend || '', s.likes, s.ok ? (s.toast || '成功') : (s.toast || '失败'), s.shot || '']);
+  const csv = [head, ...body].map((r) => r.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'heartbeat-sends-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('已导出 ' + rows.length + ' 条记录', 'ok');
 }
 
-document.getElementById('btnSendNow').onclick = async () => {
-  const msg = document.getElementById('sendMsg');
-  msg.className='muted'; msg.textContent='已触发,正在启动浏览器…';
-  const r = await fetch('/api/send-now', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
-  const out = await r.json();
-  if (!out.ok) { msg.className='bad'; msg.textContent = out.error || '触发失败'; return; }
-  pollSend();
-};
-
-document.getElementById('btnPause').onclick = () => control('pause');
-document.getElementById('btnResume').onclick = () => control('resume');
-document.getElementById('btnRestart').onclick = () => control('restart');
-
-let screenTimer = null;
-function screenRefresh(){
-  const img = document.getElementById('screenImg');
-  if (!img) return;
-  img.src = '/api/screen?t=' + Date.now();
+/* ---------------- screen viewer ---------------- */
+function screenRefresh() {
+  const img = $('#screenImg');
+  if (img && img.offsetParent !== null) img.src = '/api/screen?t=' + Date.now();
 }
-
-async function toggleScreen(open){
-  document.getElementById('screenWrap').style.display = open ? 'block' : 'none';
-  if (open) { screenRefresh(); screenTimer = setInterval(screenRefresh, 2500); }
-  else if (screenTimer) { clearInterval(screenTimer); screenTimer = null; }
+function showScreen(show) {
+  const card = $('#homeScreenCard');
+  card.style.display = show ? '' : 'none';
+  if (show) {
+    state.screenTimer = setInterval(screenRefresh, 2500);
+    screenRefresh();
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else if (state.screenTimer) {
+    clearInterval(state.screenTimer); state.screenTimer = null;
+  }
 }
-
-document.getElementById('screenBox').addEventListener('toggle', (e) => toggleScreen(e.target.open));
-document.getElementById('btnRefreshScreen').onclick = () => screenRefresh();
-document.getElementById('btnShowWin').onclick = async () => {
-  const m = document.getElementById('screenMsg'); m.className='muted'; m.textContent='处理中…';
-  const r = await (await fetch('/api/window',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({show:true})})).json();
-  m.className = r.ok ? 'ok' : 'bad'; m.textContent = r.ok ? '窗口已移到台前' : ('失败:' + (r.error||''));
-  screenRefresh();
-};
-document.getElementById('btnHideWin').onclick = async () => {
-  const m = document.getElementById('screenMsg'); m.className='muted'; m.textContent='处理中…';
-  const r = await (await fetch('/api/window',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({show:false})})).json();
-  m.className = r.ok ? 'ok' : 'bad'; m.textContent = r.ok ? '窗口已挪回屏幕外' : ('失败:' + (r.error||''));
-  screenRefresh();
-};
-document.getElementById('screenImg').onclick = async (ev) => {
+async function windowAction(show) {
+  try {
+    await postJSON('/api/window', { show });
+    toast(show ? '浏览器窗口已移到台前' : '浏览器窗口已挪回屏幕外', 'ok');
+    setTimeout(screenRefresh, 800);
+  } catch (e) { toast('操作失败：' + e.message, 'bad'); }
+}
+async function clickScreen(ev) {
   const img = ev.target;
   const rect = img.getBoundingClientRect();
-  const sx = img.naturalWidth / rect.width;
-  const sy = img.naturalHeight / rect.height;
-  const x = Math.round((ev.clientX - rect.left) * sx);
-  const y = Math.round((ev.clientY - rect.top) * sy);
-  const m = document.getElementById('screenMsg'); m.className='muted'; m.textContent = '点击 ('+x+', '+y+')…';
-  const r = await (await fetch('/api/click',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({x,y})})).json();
-  m.className = r.ok ? 'ok' : 'bad';
-  m.textContent = r.ok ? '已点击 ('+x+', '+y+')' : ('点击失败:' + (r.error||''));
-  setTimeout(screenRefresh, 800);
-};
-
-async function loadApiSession(){
-  const line = document.getElementById('apiLine');
-  const badge = document.getElementById('apiBadge');
+  const x = Math.round((ev.clientX - rect.left) * (img.naturalWidth / rect.width));
+  const y = Math.round((ev.clientY - rect.top) * (img.naturalHeight / rect.height));
   try {
-    const d = await (await fetch('/api/api-session', { cache: 'no-store' })).json();
-    const mode = d.sendMode === 'auto' ? '纯 API 优先（失败回退浏览器）' : '仅浏览器';
-    badge.textContent = d.valid ? '会话可用' : (d.present ? '会话不可用' : '未导出');
-    badge.className = d.valid ? 'ok' : 'bad';
-    const parts = [
-      '发送模式：<b>' + mode + '</b>',
-      '自动刷新：' + (d.autoRefresh ? '开' : '关'),
-    ];
-    if (d.present) {
-      parts.push('状态：' + (d.valid ? '可用' : ('不可用（' + (d.reason || '') + '）')));
-      parts.push('账号/好友：' + (d.account || '-') + ' → ' + (d.defaultFriend || '-'));
-      parts.push('抓取于：' + new Date(d.createdAt).toLocaleString('zh-CN', { hour12: false }) + '（' + (d.ageHours != null ? d.ageHours + 'h 前' : '-') + '，有效期 ' + d.maxAgeHours + 'h）');
-      parts.push('模板/cookies/好友：' + d.templateBytes + ' 字符 / ' + d.cookies + ' 条 / ' + d.friendCount + ' 人' + (d.hasCreateTemplate ? '（支持任意好友）' : ''));
-    } else {
-      parts.push('还没有导出会话；点「导出 / 刷新会话」会短暂启动一个最小化浏览器（不会发送消息）。');
-    }
-    line.innerHTML = parts.join('<br>');
-    const sel = document.getElementById('apiFriend');
-    if (sel && Array.isArray(d.friends)) {
-      const current = sel.value;
-      sel.innerHTML = d.friends.map((f) => '<option value="' + f.name.replace(/"/g, '&quot;') + '">' + f.name + '</option>').join('');
-      if (current && d.friends.some((f) => f.name === current)) sel.value = current;
-      else if (d.defaultFriend) sel.value = d.defaultFriend;
-    }
-  } catch (e) {
-    line.textContent = '读取失败：' + e.message;
-    badge.textContent = '读取失败';
-  }
+    await postJSON('/api/click', { x, y });
+    toast('已点击 (' + x + ', ' + y + ')', 'ok', 1600);
+    setTimeout(screenRefresh, 700);
+  } catch (e) { toast('点击失败：' + e.message, 'bad'); }
 }
 
-async function apiPost(path, body){
-  const r = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {}) });
-  return r.json();
-}
-
-document.getElementById('btnApiRefresh').onclick = async () => {
-  const m = document.getElementById('apiMsg'); m.className='muted'; m.textContent='已启动导出…';
-  const r = await apiPost('/api/api-session/refresh').catch((e) => ({ ok:false, error:e.message }));
-  m.className = r.ok ? 'ok' : 'bad';
-  m.textContent = r.ok ? '导出已启动（最小化浏览器，不会发送消息）' : ('启动失败：' + (r.error || ''));
-  setTimeout(loadApiSession, 8000);
-  setTimeout(loadApiSession, 25000);
-};
-document.getElementById('btnApiAuto').onclick = async () => {
-  const d = await (await fetch('/api/api-session', { cache:'no-store' })).json();
-  const r = await apiPost('/api/api-session/auto-refresh', { enabled: !d.autoRefresh });
-  document.getElementById('apiMsg').textContent = r.ok ? ('自动刷新已' + (r.enabled ? '开启' : '关闭')) : '切换失败';
-  loadApiSession();
-};
-document.getElementById('btnApiMode').onclick = async () => {
-  const r = await apiPost('/api/api-session/mode', { mode: 'auto' });
-  document.getElementById('apiMsg').textContent = r.ok ? '已切换到纯 API 优先（调度已重启）' : '切换失败';
-  loadApiSession();
-};
-document.getElementById('btnBrowserMode').onclick = async () => {
-  const r = await apiPost('/api/api-session/mode', { mode: 'browser' });
-  document.getElementById('apiMsg').textContent = r.ok ? '已切换为仅浏览器' : '切换失败';
-  loadApiSession();
-};
-loadApiSession();
-setInterval(loadApiSession, 20000);
-
-async function apiSendFriend(dry){
-  const sel = document.getElementById('apiFriend');
-  const friend = sel && sel.value;
-  const msg = document.getElementById('apiSendMsg');
-  if (!friend) { msg.className='bad'; msg.textContent='没有可选好友'; return; }
-  if (!dry && !window.confirm('确认通过纯 API 发送一条视频给「' + friend + '」？')) return;
-  msg.className='muted'; msg.textContent = (dry ? '选片中…' : '发送中…');
+/* ---------------- actions ---------------- */
+async function control(action) {
   try {
-    const r = await apiPost('/api/api-session/send', { friend, dry });
-    if (r.ok && r.dry) {
-      msg.className='ok'; msg.textContent = '选中：' + (r.picked && r.picked.title || '');
-    } else if (r.ok) {
-      msg.className='ok'; msg.textContent = '已发送给 ' + (r.friend || friend) + '（HTTP API），message id ' + (r.serverMessageId || '-');
-    } else {
-      msg.className='bad'; msg.textContent = '失败：' + (r.error || '未知错误');
-    }
-  } catch (e) {
-    msg.className='bad'; msg.textContent = '请求失败：' + e.message;
-  }
-  setTimeout(loadApiSession, 1500);
+    const out = await postJSON('/api/control', { action });
+    const label = { pause: '已暂停', resume: '已继续', restart: '服务已重启' }[action] || '已执行';
+    toast(label + (out.restarted && out.restarted.ok ? '' : '（需手动重启调度）'), 'ok');
+    await loadHome();
+    if (state.view === 'accounts') await loadAccounts();
+  } catch (e) { toast('操作失败：' + e.message, 'bad'); }
 }
-document.getElementById('btnApiDry').onclick = () => apiSendFriend(true);
-document.getElementById('btnApiSend').onclick = () => apiSendFriend(false);
-
-async function loadAccount(){
+async function replan() {
+  if (!window.confirm('按当前设置重新随机今天的时刻表？已发送的记录不会重复。')) return;
   try {
-    const d = await (await fetch('/api/accounts')).json();
-    const a = (d.accounts||[]).find(x => x.label === d.active) || (d.accounts||[])[0];
-    if (!a) return;
-    document.getElementById('acct').textContent = a.label;
-    document.getElementById('acctMeta').textContent = 'port ' + a.port + ' · ' + a.bands + ' 个时段 · 累计 ' + a.sends + ' 条';
-  } catch (e) {}
+    const out = await postJSON('/api/today/regenerate');
+    toast(out.ok ? ('已重排：今天 ' + out.count + ' 条') : ('重排失败：' + (out.error || '')), out.ok ? 'ok' : 'bad');
+    await loadHome();
+  } catch (e) { toast('重排失败：' + e.message, 'bad'); }
 }
 
-async function loadEvents(){
-  const d = await (await fetch('/api/events?limit=40')).json();
-  document.getElementById('eventList').innerHTML = (d.events||[]).map(e =>
-    '<div>' + e.ts.slice(5,19).replace('T',' ') + '  <b>' + e.event + '</b>  ' + String(e.payload||'').slice(0,110) + '</div>').join('') || '暂无事件';
+function bindConfigActions() {
+  $('#bands').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-delband]');
+    if (btn) { btn.closest('.bandrow').remove(); updateHint(); }
+  });
+  $('#bands').addEventListener('input', updateHint);
+  $('#addBand').onclick = () => { $('#bands').insertAdjacentHTML('beforeend', bandRow({ name: '时段', from: '15:00', to: '17:00', min: 1, max: 2 })); updateHint(); };
+  $('#save').onclick = async () => {
+    const msg = $('#msg'); msg.textContent = '保存中…';
+    try {
+      await postJSON('/api/config', collectConfig());
+      msg.textContent = ''; toast('设置已保存，下一轮生成计划时生效', 'ok');
+      await loadConfigPage(); await loadHome();
+    } catch (e) { msg.textContent = '保存失败：' + e.message; toast('保存失败：' + e.message, 'bad'); }
+  };
+  $('#btnSafe').onclick = async () => {
+    $('#c_tmin').value = 6; $('#c_tmax').value = 8; $('#c_gap').value = 15;
+    $('#msg').textContent = '应用中…';
+    try {
+      await postJSON('/api/config', collectConfig());
+      toast('已切到安全模式：每天 6-8 条，间隔 ≥15 分钟', 'ok');
+      await loadConfigPage(); await loadHome();
+    } catch (e) { $('#msg').textContent = '失败：' + e.message; }
+  };
+  $('#preview').onclick = async () => {
+    const box = $('#previewBox');
+    box.innerHTML = '<div class="field-note">生成中…</div>';
+    try {
+      const out = await postJSON('/api/preview', collectConfig());
+      if (!out.ok) { box.innerHTML = '<div class="bad">预览失败：' + esc(out.error) + '</div>'; return; }
+      lastPreview = out;
+      let html = '<div class="field-note">共 ' + out.count + ' 条 · 窗口 ' + esc(out.window) + (out.count < out.requested ? '（时段容量不足）' : '') + '</div>';
+      html += '<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>时段</th><th>范围</th><th>条数</th><th>时刻</th></tr></thead><tbody>';
+      out.bands.forEach((b) => { html += '<tr><td>' + esc(b.name) + '</td><td class="muted">' + esc(b.from) + '-' + esc(b.to) + '</td><td>' + b.n + '</td><td class="muted">' + esc(b.times.join(' ')) + '</td></tr>'; });
+      html += '</tbody></table></div><div class="rowbtns"><button class="btn primary sm" id="applyBtn">保存并生效</button><button class="btn ghost sm" id="cancelBtn">取消</button><span class="field-note" id="applyMsg"></span></div>';
+      box.innerHTML = html;
+      $('#applyBtn').onclick = async () => {
+        $('#applyMsg').textContent = '应用中…';
+        try {
+          const o = await postJSON('/api/apply', { config: collectConfig(), times: lastPreview.times });
+          toast('已生效：今天 ' + o.applied + ' 条', 'ok');
+          $('#applyMsg').textContent = '已生效';
+          loadHome();
+        } catch (e) { $('#applyMsg').textContent = '失败：' + e.message; }
+      };
+      $('#cancelBtn').onclick = () => { box.innerHTML = ''; lastPreview = null; };
+    } catch (e) { box.innerHTML = '<div class="bad">预览失败：' + esc(e.message) + '</div>'; }
+  };
+  $('#btnApiRefresh').onclick = async () => {
+    try {
+      await postJSON('/api/api-session/refresh');
+      $('#apiMsg').textContent = '导出已启动（最小化浏览器，不会发送消息）';
+      toast('会话导出已启动，稍等片刻自动刷新', 'ok');
+      setTimeout(loadApiSession, 8000); setTimeout(loadApiSession, 25000);
+    } catch (e) { $('#apiMsg').textContent = '启动失败：' + e.message; }
+  };
+  $('#apiAutoSwitch').onclick = async () => {
+    const d = await getJSON('/api/api-session').catch(() => ({}));
+    try { await postJSON('/api/api-session/auto-refresh', { enabled: !d.autoRefresh }); await loadApiSession(); } catch (e) { toast(e.message, 'bad'); }
+  };
+  $$('#apiModeSeg button').forEach((b) => b.onclick = () => updateApiMode(b.dataset.mode));
+  $('#btnApiModeAuto').onclick = () => updateApiMode('auto');
+  $('#btnBrowserMode').onclick = () => updateApiMode('browser');
+  $('#btnSendNowCfg').onclick = triggerSendNow;
+  $('#btnReplanCfg').onclick = replan;
+  $('#btnShowWinCfg').onclick = () => windowAction(true);
+  $('#eventsCfg').addEventListener('toggle', (e) => { if (e.target.open) loadCfgEvents(); });
 }
 
-document.getElementById('events').addEventListener('toggle', () => { if (document.getElementById('events').open) loadEvents(); });
+function bindHomeActions() {
+  $('#homeReplan').onclick = replan;
+  $('#btnPause').onclick = () => control('pause');
+  $('#btnResume').onclick = () => control('resume');
+  $('#btnRestart').onclick = () => control('restart');
+  $('#btnSendNow').onclick = triggerSendNow;
+  $('#btnQuickBrowserSend').onclick = triggerSendNow;
+  $('#homeScreenToggle').onclick = () => showScreen($('#homeScreenCard').style.display === 'none');
+  $('#screenClose').onclick = () => showScreen(false);
+  $('#homeShowWin').onclick = () => windowAction(true);
+  $('#btnRefreshScreen').onclick = screenRefresh;
+  $('#btnHideWin').onclick = () => windowAction(false);
+  $('#screenImg').onclick = clickScreen;
+  $('#btnApiDry').onclick = () => apiSendFriend(true);
+  $('#btnApiSend').onclick = () => apiSendFriend(false);
+  $('#homeEventsRefresh').onclick = loadHomeEvents;
+  $('#footTime').textContent = '最近刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  $('#acctRefresh').onclick = loadAccounts;
+  $('#acctPause').onclick = () => control('pause');
+  $('#acctResume').onclick = () => control('resume');
+  $('#acctRestart').onclick = () => control('restart');
+  $('#acctOpenScreen').onclick = () => { navigate('home'); setTimeout(() => showScreen(true), 300); };
+  $('#acctOpenViewer').onclick = () => window.open('/viewer', '_blank');
+}
 
-loadConfig(); load(); status(); loadAccount();
-fetch('/api/send-now').then(r=>r.json()).then(d=>{ if(d.job && d.job.status==='running') pollSend(); }).catch(()=>{});
-setInterval(() => { load(); status(); }, 20000);
-</script></body></html>
+function bindRecordsActions() {
+  $('#recSearch').addEventListener('input', (e) => { state.records.search = e.target.value; state.records.page = 1; renderRecords(); });
+  $('#recBucket').addEventListener('change', (e) => { state.records.bucket = e.target.value; state.records.page = 1; renderRecords(); });
+  $('#recResult').addEventListener('change', (e) => { state.records.result = e.target.value; state.records.page = 1; renderRecords(); });
+  $('#recPrev').onclick = () => { state.records.page = Math.max(1, state.records.page - 1); renderRecords(); };
+  $('#recNext').onclick = () => { state.records.page += 1; renderRecords(); };
+  $('#recRefresh').onclick = loadRecords;
+  $('#recEventsRefresh').onclick = loadRecEvents;
+  $('#recCsv').onclick = exportCsv;
+}
+
+async function init() {
+  bindNav(); bindHomeActions(); bindConfigActions(); bindRecordsActions();
+  navigate('home');
+  setInterval(() => {
+    if (state.view === 'home') loadHome();
+    else if (state.view === 'records') loadRecords();
+    else if (state.view === 'accounts') loadAccounts();
+  }, 15000);
+}
+init();
+</script>
+</body></html>

@@ -112,6 +112,17 @@ async function main() {
         break;
       }
 
+      if (sub === 'switch') {
+        const label = args[1];
+        const acc = repos.getAccount(label);
+        if (!acc) throw new Error(`no account ${label}`);
+        repos.setSetting('activeAccount', acc.label);
+        let restarted = null;
+        try { restarted = require('./service').restartScheduler(); } catch (e) {}
+        console.log(`active account = ${acc.label}` + (restarted && restarted.ok ? ' (scheduler restarted)' : ''));
+        break;
+      }
+
       if (sub === 'enable' || sub === 'disable') {
         const label = args[1];
         const acc = repos.getAccount(label);
@@ -131,7 +142,7 @@ async function main() {
         console.log(`removed ${acc.label} (${sends} sends deleted)`);
         break;
       }
-      throw new Error('usage: account list | add | enable <label> | disable <label> | remove <label> [--force]');
+      throw new Error('usage: account list | add | switch <label> | enable <label> | disable <label> | remove <label> [--force]');
     }
 
     case 'api:export': {

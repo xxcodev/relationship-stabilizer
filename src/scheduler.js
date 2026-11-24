@@ -17,7 +17,7 @@ const sleep = picker.sleep;
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
-  const acc = repos.getAccount(accountLabel);
+  const acc = repos.getAccount(accountLabel || repos.getSetting('activeAccount', null));
   if (!acc) throw new Error('no account configured');
   const bands = repos.listBands(acc.id).map((b) => ({
     name: b.name,

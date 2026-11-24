@@ -181,7 +181,9 @@ function api(action) {
 
 function account() {
   try {
-    return require('../src/repos').getAccount();
+    const repos = require('../src/repos');
+    const label = process.env.ACCOUNT || repos.getSetting('activeAccount', null);
+    return repos.getAccount(label);
   } catch (e) {
     return null;
   }

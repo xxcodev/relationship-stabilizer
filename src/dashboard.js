@@ -23,9 +23,10 @@ const hm = planner.hm;
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
 
 const ACCOUNT_LABEL = process.env.ACCOUNT || null;
+const activeLabel = () => repos.getSetting('activeAccount', ACCOUNT_LABEL);
 
 function currentAccount() {
-  const acc = repos.getAccount(ACCOUNT_LABEL);
+  const acc = repos.getAccount(activeLabel());
   if (!acc) throw new Error('no account configured — run `npm run migrate -- <legacyDir>` or `npm run init`');
   return acc;
 }
@@ -69,6 +70,11 @@ function dataFromDb() {
       time: hm(t),
       status: (plan.done || []).includes(t) ? 'done' : (plan.failed || []).includes(t) ? 'failed' : 'pending',
     })),
+    nextTime: (() => {
+      const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+      const row = (plan ? plan.times : []).find((t) => !(plan.done || []).includes(t) && !(plan.failed || []).includes(t) && t > nowMin);
+      return row === undefined ? null : hm(row);
+    })(),
     totalSends: sends.length,
     bucketStats: Object.fromEntries(repos.bucketStats(acc.id).map((r) => [r.bucket || '-', r.n])),
     sends: sends.map((s) => ({
@@ -77,6 +83,7 @@ function dataFromDb() {
       bucket: s.bucket,
       title: s.title,
       author: s.author,
+      friend: s.friend,
       likes: s.likes,
       ok: s.ok,
       toast: s.toast,
@@ -375,6 +382,18 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const enabled = !!(JSON.parse(body || '{}') || {}).enabled;
         repos.setSetting('apiAutoRefresh', enabled ? '1' : '0');
         return send(res, 200, { ok: true, enabled });
+      }
+      if (u.pathname === '/api/accounts/switch' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const { label } = JSON.parse(body || '{}');
+        const target = repos.getAccount(String(label || ''));
+        if (!target) return send(res, 404, { ok: false, error: `没有账户 ${label}` });
+        const from = currentAccount().label;
+        repos.setSetting('activeAccount', target.label);
+        repos.logEvent('account-switch', { from, to: target.label });
+        const restarted = service.restartScheduler();
+        return send(res, 200, { ok: true, active: target.label, restarted });
       }
       if (u.pathname === '/api/accounts') {
         const rows = require('./db').open().prepare('SELECT * FROM accounts ORDER BY id').all();
