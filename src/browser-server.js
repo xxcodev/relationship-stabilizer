@@ -22,6 +22,52 @@ fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 let ctx, page;
 
+// Optional capture for the pure-API experiment (docs/api-poc.md). Off unless POC_CAPTURE_DIR is set.
+const POC_CAPTURE_DIR = process.env.POC_CAPTURE_DIR || null;
+const POC_ABORT_SEND = process.env.POC_ABORT_SEND === '1';
+const POC_FILE = POC_CAPTURE_DIR ? path.join(POC_CAPTURE_DIR, 'all.jsonl') : null;
+let pocLastSend = null;
+function pocCap(kind, data) {
+  if (!POC_FILE) return;
+  try {
+    fs.appendFileSync(POC_FILE, JSON.stringify({ kind, ts: Date.now(), ...data }) + '\n');
+  } catch (e) {}
+}
+function pocWire(ctx, page) {
+  fs.mkdirSync(POC_CAPTURE_DIR, { recursive: true });
+  ctx.on('request', (req) => {
+    if (!['xhr', 'fetch'].includes(req.resourceType())) return;
+    let bodyB64 = null;
+    try {
+      if (typeof req.postDataBuffer === 'function') {
+        const buffer = req.postDataBuffer();
+        if (buffer) bodyB64 = Buffer.from(buffer).toString('base64');
+      }
+    } catch (e) {}
+    const item = {
+      method: req.method(),
+      url: req.url(),
+      resourceType: req.resourceType(),
+      headers: req.headers(),
+      postData: (() => { try { return (req.postData() || '').slice(0, 2000); } catch (e) { return null; } })(),
+      bodyB64,
+    };
+    pocCap('request', item);
+    if (/imapi\.douyin\.com\/v1\/message\/send/.test(req.url())) pocLastSend = item;
+  });
+  ctx.on('response', async (res) => {
+    const req = res.request();
+    if (!['xhr', 'fetch'].includes(req.resourceType())) return;
+    try {
+      const body = await res.text();
+      pocCap('response', { method: req.method(), url: req.url(), status: res.status(), body: body.slice(0, 24000) });
+    } catch (e) {}
+  });
+  page.on('websocket', (ws) => {
+    pocCap('ws-open', { url: ws.url() });
+  });
+}
+
 async function cur() {
   const pages = ctx.pages().filter((p) => !p.isClosed());
   page = pages.find((p) => /douyin/.test(p.url())) || pages[0];
@@ -255,6 +301,9 @@ const server = http.createServer(async (req, res) => {
       await cdp.detach().catch(() => {});
       return res.end(JSON.stringify(out));
     }
+    if (POC_CAPTURE_DIR && u.pathname === '/poc/bundle') {
+      return res.end(JSON.stringify({ cookies: await ctx.cookies(), lastSend: pocLastSend }));
+    }
     if (u.pathname === '/quit') {
       res.end(JSON.stringify({ ok: true, closing: true }));
       setTimeout(async () => {
@@ -282,6 +331,14 @@ const server = http.createServer(async (req, res) => {
   else launch.channel = env.browser.channel;
   ctx = await chromium.launchPersistentContext(PROFILE, launch);
   page = ctx.pages()[0] || (await ctx.newPage());
+  if (POC_CAPTURE_DIR) {
+    pocWire(ctx, page);
+    if (POC_ABORT_SEND) {
+      await ctx.route('**/v1/message/send', async (route) => {
+        await route.abort().catch(() => {});
+      });
+    }
+  }
   // hidden mode: an off-screen x/y is clamped by macOS/AppKit to the nearest display edge and can
   // leave a sliver visible on multi-monitor setups, so minimize before navigating instead.
   if (!env.browser.headless) {
