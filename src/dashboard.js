@@ -317,6 +317,7 @@ function persist(cfg) {
 }
 
 const PAGE = fs.readFileSync(path.join(__dirname, 'page.html'), 'utf8');
+const APP_VERSION = require('../package.json').version;
 
 function send(res, code, obj) {
   res.statusCode = code;
@@ -332,7 +333,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
       if (u.pathname === '/') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         const pools = repos.listPools().map((p) => p.name);
-        return res.end(PAGE.replace('__POOL_NAMES__', JSON.stringify(pools)));
+        return res.end(PAGE.replace('__POOL_NAMES__', JSON.stringify(pools)).replaceAll('__APP_VERSION__', APP_VERSION));
       }
       if (u.pathname === '/viewer' || u.pathname === '/viewer.html') {
         const file = path.join(env.ROOT, 'app', 'viewer.html');
