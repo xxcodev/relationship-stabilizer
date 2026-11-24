@@ -1030,12 +1030,18 @@ function screenRefresh() {
   const img = $('#screenImg');
   if (img && img.offsetParent !== null) img.src = '/api/screen?t=' + Date.now();
 }
+async function ensureBrowserForScreen() {
+  try { await postJSON('/api/browser/start'); } catch (e) { /* browser may already be running */ }
+}
+
 function showScreen(show) {
   const card = $('#homeScreenCard');
   card.style.display = show ? '' : 'none';
   if (show) {
-    state.screenTimer = setInterval(screenRefresh, 2500);
-    screenRefresh();
+    ensureBrowserForScreen().then(() => {
+      state.screenTimer = setInterval(screenRefresh, 2500);
+      setTimeout(screenRefresh, 1800);
+    });
     card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   } else if (state.screenTimer) {
     clearInterval(state.screenTimer); state.screenTimer = null;
@@ -1202,7 +1208,7 @@ function bindHomeActions() {
   $('#acctResume').onclick = () => control('resume');
   $('#acctRestart').onclick = () => control('restart');
   $('#acctOpenScreen').onclick = () => { navigate('home'); setTimeout(() => showScreen(true), 300); };
-  $('#acctOpenViewer').onclick = () => window.open('/viewer', '_blank');
+  $('#acctOpenViewer').onclick = () => { navigate('home'); setTimeout(() => { showScreen(true); windowAction(true); }, 300); };
 }
 
 function bindRecordsActions() {

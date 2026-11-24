@@ -16,9 +16,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function readAccounts(dataDir) {
   try {
     const db = new DatabaseSync(path.join(dataDir, 'app.db'));
-    const rows = db.prepare('SELECT label FROM accounts ORDER BY id').all();
+    const rows = db.prepare('SELECT label, port FROM accounts ORDER BY id').all();
     db.close();
-    return rows.map((r) => String(r.label)).filter(Boolean);
+    return rows.map((r) => ({ label: String(r.label), port: Number(r.port) })).filter((r) => r.label);
   } catch (e) {
     return [];
   }
@@ -169,7 +169,7 @@ class Host {
   // one scheduler child per account: each child has its own profile, port, plan and API session
   spawnSchedules() {
     const labels = readAccounts(this.dataDir);
-    const targets = labels.length ? labels : [''];
+    const targets = labels.length ? labels.map((r) => r.label) : [''];
     for (const label of targets) {
       const name = label ? `schedule:${label}` : 'schedule';
       const args = ['src/index.js', 'schedule'];
@@ -251,6 +251,12 @@ class Host {
     for (const child of kids) {
       try {
         child.kill('SIGKILL');
+      } catch (e) {}
+    }
+    // browsers started on demand by the dashboard are detached; ask them to close too
+    for (const acc of readAccounts(this.dataDir)) {
+      try {
+        await fetch(`http://127.0.0.1:${acc.port}/quit`, { method: 'POST', signal: AbortSignal.timeout(1500) });
       } catch (e) {}
     }
     this.children = {};

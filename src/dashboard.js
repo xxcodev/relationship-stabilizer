@@ -244,6 +244,23 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         runSendJob({ dry }).catch(() => {});
         return send(res, 202, { ok: true, job: sendJob });
       }
+      if (u.pathname === '/api/browser/start' && req.method === 'POST') {
+        const acc = currentAccount();
+        const state = await service.browserStatus(acc.port);
+        if (state.up) return send(res, 200, { ok: true, already: true, url: state.url || null });
+        try {
+          const child = spawn(
+            process.execPath,
+            [path.join(env.ROOT, 'src', 'browser-server.js'), '--profile', env.browserProfileDir(acc.profile_dir), '--port', String(acc.port)],
+            { cwd: env.ROOT, env: process.env, detached: true, stdio: 'ignore', windowsHide: true }
+          );
+          child.unref();
+          repos.logEvent('browser-start', { account: acc.label });
+          return send(res, 200, { ok: true, started: true });
+        } catch (e) {
+          return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
       if (u.pathname === '/api/screen') {
         const acc = currentAccount();
         try {
