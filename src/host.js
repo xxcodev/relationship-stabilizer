@@ -43,6 +43,7 @@ class Host {
     this.children = {};
     this.timers = [];
     this.stopping = false;
+    this.owned = false;
     this.intentional = new Set();
     this.restartTimers = {};
     this.onLog = onLog || (() => {});
@@ -128,6 +129,7 @@ class Host {
       }
     }
     fs.writeFileSync(pidFile, String(process.pid));
+    this.owned = true;
     fs.writeFileSync(
       path.join(this.runDir, 'host.json'),
       JSON.stringify({ pid: process.pid, port: this.port, dataDir: this.dataDir, startedAt: new Date().toISOString() }, null, 2)
@@ -190,13 +192,26 @@ class Host {
     }
   }
 
+  releaseFiles() {
+    if (!this.owned) return;
+    try {
+      const pidFile = path.join(this.runDir, 'host.pid');
+      const pid = Number(fs.readFileSync(pidFile, 'utf8'));
+      if (pid !== process.pid) return;
+    } catch (e) {
+      return;
+    }
+    for (const file of ['host.pid', 'host.json']) fs.rmSync(path.join(this.runDir, file), { force: true });
+    this.owned = false;
+  }
+
   async stop() {
     if (this.stopping) return;
     this.stopping = true;
     this.intentional.clear();
     this.timers.forEach(clearInterval);
     this.timers = [];
-    for (const file of ['host.pid', 'host.json']) fs.rmSync(path.join(this.runDir, file), { force: true });
+    this.releaseFiles();
     const kids = Object.values(this.children);
     for (const child of kids) {
       try {

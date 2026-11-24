@@ -7,6 +7,10 @@
 - **面板内嵌浏览器画面**:`/api/screen` 实时截图 + `/api/click` 坐标点击 + `/api/window` 显示/隐藏。
   扫码、完成「点击两个形状相同的物体」都可以直接在面板里操作,不需要切到 Chrome 窗口。
 - `browser-server` 新增 `/screen` 与 `/window`(通过 CDP `Browser.setWindowBounds` 移动窗口)。
+- **应用内抖音画面窗口**:Electron 托盘/菜单新增「抖音画面…」;扫码登录改为在应用内画面中完成,
+  不再提示去 Chrome 窗口;发送时 Chrome 保持屏幕外,只有登录/验证码需要人看画面。
+- **改名**:应用显示名从「抖音转发」改为「心动投递」(Heartbeat Delivery,`appId com.dsh.heartbeat-delivery`),
+  旧版 `settings.json` 会自动迁移;npm 包名与仓库名保持不变。
 
 
 ## 0.8.0 — 2026-11-24

@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>抖音画面</title>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --line:#2a2f3a; --fg:#e8ecf1; --muted:#8b93a7; --ok:#3ddc84; --bad:#ff6b6b; --warn:#ffb020; --primary:#2f6fed; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid var(--line); background:var(--card); position:sticky; top:0; z-index:2; }
+  header h1 { font-size:15px; margin:0; }
+  header .muted { color:var(--muted); }
+  .hint { margin:10px 16px 0; padding:10px 12px; border:1px solid #2f4f8f; background:#12203a; border-radius:8px; color:#cfe0ff; display:none; }
+  .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 16px; }
+  button { border:1px solid var(--line); background:#1d222c; color:var(--fg); border-radius:7px; padding:6px 12px; font-size:13px; cursor:pointer; }
+  button:hover { border-color:#3b4a63; }
+  button.primary { background:var(--primary); border-color:var(--primary); }
+  label { color:var(--muted); font-size:12px; display:flex; align-items:center; gap:6px; }
+  #msg { color:var(--muted); font-size:12px; }
+  #msg.ok { color:var(--ok); } #msg.bad { color:var(--bad); }
+  .status { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 12px; }
+  .pill { border:1px solid var(--line); background:var(--card); border-radius:999px; padding:3px 10px; font-size:12px; color:var(--muted); }
+  .pill.ok { color:var(--ok); border-color:#1f5c3c; }
+  .pill.bad { color:var(--bad); border-color:#5c1f1f; }
+  .pill.warn { color:var(--warn); border-color:#5c4a1f; }
+  .wrap { padding:0 16px 20px; position:relative; min-height:200px; }
+  #img { width:100%; border:1px solid var(--line); border-radius:8px; cursor:crosshair; display:none; }
+  #placeholder { border:1px dashed var(--line); border-radius:8px; padding:60px 16px; text-align:center; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>抖音画面</h1>
+  <span class="muted" id="acct">…</span>
+  <span class="muted" style="margin-left:auto" id="updated"></span>
+</header>
+
+<div class="hint" id="hint">
+  请在上方画面里完成扫码登录（或人机验证）。登录态会保存到数据目录，完成后点「完成并关闭」。
+</div>
+
+<div class="toolbar">
+  <button id="btnRefresh">刷新画面</button>
+  <label><input type="checkbox" id="auto" checked /> 自动刷新（2.5s）</label>
+  <button id="btnShow">窗口移到台前</button>
+  <button id="btnHide">窗口挪回屏幕外</button>
+  <button id="btnDone" class="primary">完成并关闭</button>
+  <span id="msg"></span>
+</div>
+
+<div class="status">
+  <span class="pill" id="stBrowser">浏览器：检查中</span>
+  <span class="pill" id="stLogin">登录：检查中</span>
+  <span class="pill" id="stChallenge" style="display:none">需要人工验证</span>
+  <span class="pill" id="stUrl" style="display:none"></span>
+</div>
+
+<div class="wrap">
+  <img id="img" alt="浏览器画面" />
+  <div id="placeholder">正在连接浏览器…</div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const loginMode = new URLSearchParams(location.search).get('mode') === 'login';
+if (loginMode) $('hint').style.display = 'block';
+
+let timer = null;
+let lastStatus = null;
+
+function setMsg(text, kind) {
+  const el = $('msg');
+  el.textContent = text || '';
+  el.className = kind || '';
+}
+
+function refreshFrame() {
+  if (!$('auto').checked) return;
+  const img = $('img');
+  img.src = '/api/screen?t=' + Date.now();
+}
+
+$('img').onload = () => {
+  $('placeholder').style.display = 'none';
+  $('img').style.display = 'block';
+};
+$('img').onerror = () => {
+  $('img').style.display = 'none';
+  $('placeholder').style.display = 'block';
+  $('placeholder').textContent = '浏览器未运行（或画面暂时不可用）。点「刷新画面」重试。';
+};
+
+async function loadStatus() {
+  try {
+    const d = await (await fetch('/api/status', { cache: 'no-store' })).json();
+    lastStatus = d;
+    const b = d.browser || {};
+    $('acct').textContent = '账号 ' + (d.account || '-') + (d.enabled === false ? ' · 已暂停' : '');
+    const stB = $('stBrowser');
+    stB.textContent = '浏览器：' + (b.up ? '运行中' : '未运行');
+    stB.className = 'pill ' + (b.up ? 'ok' : 'bad');
+    const stL = $('stLogin');
+    stL.textContent = '登录：' + (b.up ? (b.loggedIn ? '已登录' : '未登录') : '-');
+    stL.className = 'pill ' + (b.up && b.loggedIn ? 'ok' : (b.up ? 'warn' : ''));
+    $('stChallenge').style.display = b.challenge ? '' : 'none';
+    $('stUrl').style.display = b.url ? '' : 'none';
+    $('stUrl').textContent = b.url ? ('页面：' + b.url.slice(0, 80)) : '';
+    if (b.up && b.challenge) setMsg('检测到人机验证，请在画面里完成', 'bad');
+    if (b.up && b.loggedIn && !b.challenge) setMsg('浏览器已登录', 'ok');
+  } catch (e) {
+    $('stBrowser').textContent = '浏览器：面板不可达';
+    $('stBrowser').className = 'pill bad';
+  }
+}
+
+async function loadAccount() {
+  try {
+    const d = await (await fetch('/api/accounts', { cache: 'no-store' })).json();
+    const a = (d.accounts || []).find((x) => x.label === d.active) || (d.accounts || [])[0];
+    if (a) $('acct').textContent = '账号 ' + a.label + ' · port ' + a.port;
+  } catch (e) {}
+}
+
+async function postJson(url, body) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  return r.json();
+}
+
+$('btnRefresh').onclick = () => {
+  setMsg('刷新中…');
+  const img = $('img');
+  img.src = '/api/screen?t=' + Date.now();
+  setTimeout(() => setMsg(''), 1200);
+};
+
+$('auto').onchange = () => {
+  if ($('auto').checked) { startTimer(); refreshFrame(); }
+  else stopTimer();
+};
+
+$('btnShow').onclick = async () => {
+  setMsg('正在把窗口移到台前…');
+  const r = await postJson('/api/window', { show: true }).catch((e) => ({ ok: false, error: e.message }));
+  setMsg(r.ok ? '已移到台前' : '失败：' + (r.error || ''), r.ok ? 'ok' : 'bad');
+  refreshFrame();
+};
+
+$('btnHide').onclick = async () => {
+  setMsg('正在把窗口挪回屏幕外…');
+  const r = await postJson('/api/window', { show: false }).catch((e) => ({ ok: false, error: e.message }));
+  setMsg(r.ok ? '已挪回屏幕外' : '失败：' + (r.error || ''), r.ok ? 'ok' : 'bad');
+  refreshFrame();
+};
+
+$('btnDone').onclick = () => window.close();
+
+// image click → real browser click (coordinates are scaled from the rendered image)
+$('img').onclick = async (ev) => {
+  const img = ev.target;
+  const rect = img.getBoundingClientRect();
+  const x = Math.round((ev.clientX - rect.left) * (img.naturalWidth / rect.width));
+  const y = Math.round((ev.clientY - rect.top) * (img.naturalHeight / rect.height));
+  setMsg('点击 (' + x + ', ' + y + ')…');
+  const r = await postJson('/api/click', { x, y }).catch((e) => ({ ok: false, error: e.message }));
+  setMsg(r.ok ? '已点击 (' + x + ', ' + y + ')' : '点击失败：' + (r.error || ''), r.ok ? 'ok' : 'bad');
+  setTimeout(refreshFrame, 700);
+};
+
+function startTimer() {
+  if (timer) return;
+  timer = setInterval(refreshFrame, 2500);
+}
+function stopTimer() {
+  if (!timer) return;
+  clearInterval(timer);
+  timer = null;
+}
+
+loadAccount();
+loadStatus();
+refreshFrame();
+startTimer();
+setInterval(loadStatus, 3000);
+setInterval(() => { $('updated').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false }); }, 1000);
+</script>
+</body>
+</html>

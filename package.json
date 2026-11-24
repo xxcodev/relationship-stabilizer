@@ -1,7 +1,7 @@
 {
   "name": "douyin-forwarder",
-  "version": "0.8.0",
-  "productName": "抖音转发",
+  "version": "0.9.0",
+  "productName": "心动投递",
   "private": true,
   "type": "commonjs",
   "description": "Scheduled Douyin video forwarding: pick a video from configurable pools, forward it to a friend, all driven by a SQLite-backed scheduler and a local control panel.",
@@ -47,7 +47,7 @@
     "douyin-forwarder": "src/index.js"
   },
   "build": {
-    "appId": "com.dsh.douyin-forwarder",
+    "appId": "com.dsh.heartbeat-delivery",
     "productName": "抖音转发",
     "asar": false,
     "directories": {
@@ -85,6 +85,6 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
     },
-    "artifactName": "douyin-forwarder-${version}-${arch}.${ext}"
+    "artifactName": "heartbeat-delivery-${version}-${arch}.${ext}"
   }
 }

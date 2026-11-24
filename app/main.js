@@ -16,7 +16,10 @@ const { Host } = require('../src/host');
 const DEV = !app.isPackaged;
 const ROOT = path.resolve(__dirname, '..');
 const DEFAULT_PORT = DEV ? 9420 : 9400;
-const TITLE = '抖音转发';
+const TITLE = '心动投递';
+// older builds used this name; keep their settings.json when upgrading
+const LEGACY_TITLES = ['抖音转发'];
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // app.getName() feeds userData; set it before the first getPath call.
 app.setName(TITLE);
@@ -29,10 +32,31 @@ let host = null;
 let win = null;
 let tray = null;
 let trayTimer = null;
+let viewerWin = null;
+let viewerPort = null;
+let viewerStarted = false;
 let quitting = false;
 
 function settingsFile() {
   return path.join(app.getPath('userData'), 'settings.json');
+}
+
+// keep the chosen data directory when upgrading from a build with the old app name
+function migrateLegacySettings() {
+  const target = settingsFile();
+  if (fs.existsSync(target)) return;
+  for (const name of LEGACY_TITLES) {
+    const legacy = path.join(app.getPath('appData'), name, 'settings.json');
+    if (!fs.existsSync(legacy)) continue;
+    try {
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.copyFileSync(legacy, target);
+      log(`migrated settings from ${legacy}`);
+    } catch (e) {
+      log(`settings migration failed: ${e.message}`);
+    }
+    return;
+  }
 }
 
 function readSettings() {
@@ -56,9 +80,9 @@ function saveSettings(patch) {
 
 function applyPaths() {
   dataDir = path.resolve(
-    process.env.DF_DATA_DIR || settings.dataDir || (DEV ? path.join(ROOT, 'data-app') : path.join(app.getPath('userData'), 'data'))
+    process.env.DF_DATA_DIR || (DEV ? path.join(ROOT, 'data-app') : settings.dataDir || path.join(app.getPath('userData'), 'data'))
   );
-  port = Number(process.env.DF_PORT || settings.port || DEFAULT_PORT);
+  port = Number(process.env.DF_PORT || (DEV ? DEFAULT_PORT : settings.port) || DEFAULT_PORT);
   logDir = path.join(dataDir, 'logs');
   // main process helpers (login / tray state) share the same DB as the children
   process.env.DATA_DIR = dataDir;
@@ -203,6 +227,7 @@ function buildTrayMenu() {
       if (!res.ok) dialog.showErrorBox('操作失败', res.error || '面板无响应');
     }),
     { type: 'separator' },
+    item('抖音画面…', () => openViewer()),
     item('扫码登录…', () => login()),
     item('打开日志目录', () => shell.openPath(logDir)),
     item('打开数据目录', () => shell.openPath(dataDir)),
@@ -236,7 +261,7 @@ function refreshTrayMenu() {
 function createTray() {
   tray = new Tray(trayIcon());
   tray.setToolTip(TITLE);
-  if (process.platform === 'darwin') tray.setTitle(DEV ? ' 抖音转发(dev)' : ' 抖音转发');
+  if (process.platform === 'darwin') tray.setTitle(DEV ? ` ${TITLE}(dev)` : ` ${TITLE}`);
   refreshTrayMenu();
   tray.on('double-click', () => showWindow());
   trayTimer = setInterval(refreshTrayMenu, 5000);
@@ -264,15 +289,33 @@ async function chooseDataDir() {
   }
 }
 
-async function login() {
-  const acc = account();
-  if (!acc) {
-    dialog.showErrorBox('没有账号', '请先在面板里初始化或导入数据目录。');
-    return;
-  }
-  let child;
+function browserBase(accountPort) {
+  return `http://127.0.0.1:${accountPort}`;
+}
+
+async function browserUp(accountPort) {
   try {
-    child = spawn(
+    const res = await fetch(`${browserBase(accountPort)}/state`, { signal: AbortSignal.timeout(2000) });
+    return res.ok;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function quitBrowserServer(accountPort) {
+  try {
+    await fetch(`${browserBase(accountPort)}/quit`, { method: 'POST', signal: AbortSignal.timeout(3000) });
+  } catch (e) {}
+}
+
+// The viewer talks to the dashboard proxy (/api/screen, /api/click, /api/window), which in turn
+// talks to browser-server. Chrome itself stays on the off-screen position; the user only sees
+// the frame inside the app.
+async function ensureBrowserServer(acc) {
+  if (await browserUp(acc.port)) return { ok: true, started: false };
+  log(`starting browser-server on :${acc.port} for the in-app viewer`);
+  try {
+    const child = spawn(
       process.execPath,
       [path.join(ROOT, 'src', 'browser-server.js'), '--profile', acc.profile_dir, '--port', String(acc.port)],
       {
@@ -285,28 +328,56 @@ async function login() {
     );
     child.unref();
   } catch (e) {
-    dialog.showErrorBox('打开浏览器失败', e.message);
+    return { ok: false, error: e.message };
+  }
+  for (let i = 0; i < 40; i++) {
+    await sleep(750);
+    if (await browserUp(acc.port)) return { ok: true, started: true };
+  }
+  return { ok: false, error: `浏览器端口 ${acc.port} 未就绪（可能是 profile 被占用）` };
+}
+
+async function openViewer({ login = false } = {}) {
+  const acc = account();
+  if (!acc) {
+    dialog.showErrorBox('没有账号', '请先在面板里初始化或导入数据目录。');
     return;
   }
-  const { response } = await dialog.showMessageBox({
-    type: 'info',
-    title: '扫码登录',
-    message: '请在打开的 Chrome 窗口里扫码登录',
-    detail: '登录态会保存在数据目录，之后无需重复扫码。完成（或关闭浏览器）后点「完成」关闭浏览器窗口。',
-    buttons: ['完成', '取消'],
-    defaultId: 0,
-    cancelId: 1,
-  });
-  try {
-    await fetch(`http://127.0.0.1:${acc.port}/quit`, { method: 'POST', signal: AbortSignal.timeout(3000) });
-  } catch (e) {}
-  if (response !== 0) {
-    setTimeout(() => {
-      try {
-        child.kill('SIGTERM');
-      } catch (e) {}
-    }, 1000);
+  if (viewerWin) {
+    viewerWin.show();
+    viewerWin.focus();
+    return;
   }
+  const ready = await ensureBrowserServer(acc);
+  if (!ready.ok) {
+    dialog.showErrorBox('打开抖音画面失败', ready.error);
+    return;
+  }
+  viewerPort = acc.port;
+  viewerStarted = ready.started;
+  viewerWin = new BrowserWindow({
+    width: 1040,
+    height: 920,
+    title: login ? `${TITLE} · 扫码登录` : `${TITLE} · 抖音画面`,
+    backgroundColor: '#0f1115',
+    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
+  });
+  viewerWin.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  viewerWin.on('closed', () => {
+    viewerWin = null;
+    if (viewerStarted && viewerPort) quitBrowserServer(viewerPort);
+    viewerStarted = false;
+    viewerPort = null;
+  });
+  await viewerWin.loadURL(`http://127.0.0.1:${port}/viewer${login ? '?mode=login' : ''}`);
+  log(`viewer opened login=${login} browser-port=${acc.port} started=${ready.started}`);
+}
+
+function login() {
+  return openViewer({ login: true });
 }
 
 function about() {
@@ -323,6 +394,7 @@ function about() {
 }
 
 async function boot() {
+  if (!DEV) migrateLegacySettings();
   settings = readSettings();
   applyPaths();
   log(`electron=${process.versions.electron} node=${process.versions.node} dev=${DEV}`);
@@ -358,6 +430,9 @@ async function boot() {
   await host.start();
   createWindow();
   createTray();
+  if (process.env.DF_OPEN_VIEWER === '1') {
+    openViewer().catch((e) => log(`openViewer failed: ${e.message}`));
+  }
 }
 
 function fail(err) {
@@ -398,7 +473,14 @@ app.on('before-quit', (event) => {
   quitting = true;
   if (trayTimer) clearInterval(trayTimer);
   log('quitting; stopping children');
-  const done = () => {
+  const done = async () => {
+    if (viewerStarted && viewerPort) await quitBrowserServer(viewerPort);
+    if (viewerWin) {
+      try {
+        viewerWin.destroy();
+      } catch (e) {}
+      viewerWin = null;
+    }
     if (tray) {
       try {
         tray.destroy();

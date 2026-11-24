@@ -197,6 +197,12 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const pools = repos.listPools().map((p) => p.name);
         return res.end(PAGE.replace('__POOL_NAMES__', JSON.stringify(pools)));
       }
+      if (u.pathname === '/viewer' || u.pathname === '/viewer.html') {
+        const file = path.join(env.ROOT, 'app', 'viewer.html');
+        if (!fs.existsSync(file)) return send(res, 404, { error: 'viewer not found' });
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.end(fs.readFileSync(file));
+      }
       if (u.pathname === '/api/data') return send(res, 200, dataFromDb());
       if (u.pathname === '/api/status') return send(res, 200, await statusFromDb());
       if (u.pathname === '/api/send-now' && req.method === 'GET') {
