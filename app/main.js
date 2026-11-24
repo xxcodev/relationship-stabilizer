@@ -398,6 +398,17 @@ app.on('before-quit', (event) => {
   quitting = true;
   if (trayTimer) clearInterval(trayTimer);
   log('quitting; stopping children');
-  const done = () => app.exit(0);
+  const done = () => {
+    if (tray) {
+      try {
+        tray.destroy();
+      } catch (e) {}
+      tray = null;
+    }
+    // Second pass: `quitting` is already true, so the handler above lets the quit proceed.
+    // Calling app.exit() directly from a prevented before-quit can leave the process alive.
+    app.quit();
+    setTimeout(() => app.exit(0), 3000);
+  };
   Promise.resolve(host && host.stop()).then(done, done);
 });
