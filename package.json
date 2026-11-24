@@ -1,6 +1,7 @@
 {
   "name": "douyin-forwarder",
   "version": "0.8.0",
+  "productName": "抖音转发",
   "private": true,
   "type": "commonjs",
   "description": "Scheduled Douyin video forwarding: pick a video from configurable pools, forward it to a friend, all driven by a SQLite-backed scheduler and a local control panel.",
@@ -18,10 +19,14 @@
     "doctor": "node src/index.js doctor",
     "verify": "node src/verify.js",
     "backup": "node src/backup.js",
-    "test": "node --test"
+    "test": "node --test",
+    "app:dev": "node scripts/run-electron.js"
   },
   "dependencies": {
     "playwright-core": "^1.65.1"
+  },
+  "devDependencies": {
+    "electron": "^45.4.1"
   },
   "keywords": [
     "douyin",
@@ -33,7 +38,7 @@
   ],
   "author": "wenwu <wenwu@gxshxc.com>",
   "license": "UNLICENSED",
-  "main": "src/index.js",
+  "main": "app/main.js",
   "bin": {
     "douyin-forwarder": "src/index.js"
   }

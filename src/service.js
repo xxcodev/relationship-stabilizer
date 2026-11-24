@@ -4,11 +4,47 @@
 // Service supervision helpers. Platform specific, but every call degrades to a no-op
 // with a reason instead of throwing.
 const { execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 const env = require('./env');
 
 const LABEL = process.env.SERVICE_LABEL || 'com.dsh.douyin-forwarder';
+const RUN_DIR = path.join(env.DATA_DIR, 'run');
+
+// When the Electron shell owns the children it writes
+// data/run/host.pid; the dashboard talks to it through marker files instead of launchd.
+function hostPid() {
+  try {
+    const pid = Number(fs.readFileSync(path.join(RUN_DIR, 'host.pid'), 'utf8'));
+    if (!Number.isInteger(pid) || pid <= 0) return null;
+    process.kill(pid, 0);
+    return pid;
+  } catch (e) {
+    return null;
+  }
+}
+
+function hostStatus() {
+  const pid = hostPid();
+  if (!pid) return null;
+  return { running: true, detail: `host ${pid}`, kind: 'host' };
+}
+
+function hostRestart() {
+  const pid = hostPid();
+  if (!pid) return null;
+  try {
+    fs.mkdirSync(RUN_DIR, { recursive: true });
+    fs.writeFileSync(path.join(RUN_DIR, 'restart-scheduler'), String(Date.now()));
+    return { ok: true, kind: 'host' };
+  } catch (e) {
+    return { ok: false, kind: 'host', error: e.message.split('\n')[0] };
+  }
+}
 
 function schedulerStatus() {
+  const host = hostStatus();
+  if (host) return host;
   if (env.platform === 'darwin') {
     try {
       const out = execFileSync('launchctl', ['print', `gui/${process.getuid()}/${LABEL}`], {
@@ -32,6 +68,8 @@ function schedulerStatus() {
 }
 
 function restartScheduler() {
+  const host = hostRestart();
+  if (host) return host;
   if (env.platform === 'darwin') {
     try {
       execFileSync('launchctl', ['kickstart', '-k', `gui/${process.getuid()}/${LABEL}`], { timeout: 15000 });

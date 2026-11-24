@@ -7,6 +7,7 @@
 | [cutover.md](cutover.md) | 从旧脚本切换到本程序,以及回滚步骤 |
 | [incidents.md](incidents.md) | 真实事故记录:定时失败、人机验证 |
 | [handoff-fnos.md](handoff-fnos.md) | 打包成飞牛(fnOS)应用的可行性分析(未实施的调研) |
+| [app.md](app.md) | 桌面应用(Electron)的进程模型、开发运行方式与 P1/P2 计划 |
 
 ## 快速定位
 

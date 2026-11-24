@@ -16,3 +16,14 @@ node_modules/
 .DS_Store
 .idea/
 .vscode/
+
+# local caches / electron app
+.npm-cache/
+.electron-cache/
+data-app/
+dist/
+
+# stray Chromium/Chrome profile locks (crash leftovers)
+SingletonCookie
+SingletonLock
+SingletonSocket

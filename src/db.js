@@ -14,7 +14,14 @@ let db = null;
 function open(file = env.DB_FILE) {
   if (db) return db;
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  db = new DatabaseSync(file);
+  // Dashboard and scheduler run concurrently in the app shell; a short busy timeout keeps
+  // a transient write lock from surfacing as "database is locked". The option is newer than
+  // the minimum supported Node, so fall back to the plain constructor.
+  try {
+    db = new DatabaseSync(file, { timeout: 5000 });
+  } catch (e) {
+    db = new DatabaseSync(file);
+  }
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec('PRAGMA foreign_keys = ON;');
   migrate(db);

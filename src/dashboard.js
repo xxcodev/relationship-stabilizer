@@ -10,7 +10,7 @@ const repos = require('./repos');
 const planner = require('./planner');
 const service = require('./service');
 
-const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('..', 'browser-test'));
+const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
 
 const hm = planner.hm;
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });

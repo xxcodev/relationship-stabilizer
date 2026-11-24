@@ -57,7 +57,7 @@ async function startServer(cfg) {
   const child = spawn(
     process.execPath,
     [path.join(__dirname, 'browser-server.js'), '--profile', cfg.profileDir, '--port', String(cfg.port)],
-    { detached: true, stdio: 'ignore', cwd: env.ROOT }
+    { detached: true, stdio: 'ignore', cwd: env.ROOT, windowsHide: true }
   );
   child.unref();
   for (let i = 0; i < 40; i++) {
