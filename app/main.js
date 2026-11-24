@@ -19,6 +19,21 @@ const DEFAULT_PORT = DEV ? 9420 : 9400;
 const TITLE = '心动投递';
 // older builds used this name; keep their settings.json when upgrading
 const LEGACY_TITLES = ['抖音转发'];
+
+// `scripts/build-app.js --variant bundled` writes app/variant.json into the package.
+const VARIANT = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(ROOT, 'app', 'variant.json'), 'utf8'));
+  } catch (e) {
+    return {};
+  }
+})();
+const BUNDLED_BROWSER = VARIANT.browser === 'chromium';
+
+// keep the bundled Chromium away from the system Chrome profile (separate cookies/keychain)
+function browserProfileDir(base) {
+  return BUNDLED_BROWSER ? `${base}-chromium` : base;
+}
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // app.getName() feeds userData; set it before the first getPath call.
@@ -330,7 +345,7 @@ async function ensureBrowserServer(acc) {
   try {
     const child = spawn(
       process.execPath,
-      [path.join(ROOT, 'src', 'browser-server.js'), '--profile', acc.profile_dir, '--port', String(acc.port)],
+      [path.join(ROOT, 'src', 'browser-server.js'), '--profile', browserProfileDir(acc.profile_dir), '--port', String(acc.port)],
       {
         cwd: ROOT,
         env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', BROWSER_VISIBLE_POS: visiblePosition() },
@@ -413,6 +428,7 @@ function about() {
     detail:
       `数据目录：${dataDir}\n` +
       `面板端口：${port}\n` +
+      `浏览器：${BUNDLED_BROWSER ? '自带 Chromium(独立登录态)' : '系统 Google Chrome'}\n` +
       `日志：${logDir}\n` +
       `Electron ${process.versions.electron} / Node ${process.versions.node}`,
   });
@@ -423,7 +439,14 @@ async function boot() {
   settings = readSettings();
   applyPaths();
   log(`electron=${process.versions.electron} node=${process.versions.node} dev=${DEV}`);
-  log(`data=${dataDir} port=${port}`);
+  log(`data=${dataDir} port=${port} browser=${BUNDLED_BROWSER ? 'bundled-chromium' : 'system-chrome'}`);
+  if (BUNDLED_BROWSER) {
+    process.env.BROWSER_CHANNEL = 'chromium';
+    process.env.PLAYWRIGHT_BROWSERS_PATH = app.isPackaged
+      ? path.join(process.resourcesPath, 'playwright-browsers')
+      : path.join(ROOT, 'node_modules', 'playwright-core', '.local-browsers');
+    log(`bundled chromium: ${process.env.PLAYWRIGHT_BROWSERS_PATH}`);
+  }
 
   if (!DEV && !process.env.DF_DATA_DIR && !settings.dataDir) {
     const proceed = await firstRunWizard();

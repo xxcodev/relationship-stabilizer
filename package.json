@@ -1,6 +1,6 @@
 {
   "name": "douyin-forwarder",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "productName": "心动投递",
   "private": true,
   "type": "commonjs",
@@ -21,9 +21,12 @@
     "backup": "node src/backup.js",
     "test": "node --test",
     "app:dev": "node scripts/run-electron.js",
-    "app:pack": "electron-builder --dir",
-    "app:dist:mac": "electron-builder --mac",
-    "app:dist:win": "electron-builder --win"
+    "app:pack": "node scripts/build-app.js --variant standard --platform dir",
+    "app:dist:mac": "node scripts/build-app.js --variant standard --platform mac",
+    "app:dist:win": "node scripts/build-app.js --variant standard --platform win",
+    "app:dist:mac:bundled": "node scripts/build-app.js --variant bundled --platform mac",
+    "app:dist:win:bundled": "node scripts/build-app.js --variant bundled --platform win",
+    "browser:install": "node scripts/install-browser.js"
   },
   "dependencies": {
     "playwright-core": "^1.65.1"

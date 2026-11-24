@@ -10,10 +10,26 @@
 
 ![应用内抖音画面：扫码登录/验证码都在里面完成](assets/app-viewer.png)
 
+## 两个版本
+
+| 版本 | 产物 | 浏览器 | 适用 |
+|---|---|---|---|
+| 标准版 | `heartbeat-delivery-<ver>-arm64.dmg` | 系统安装的 Google Chrome | 自己用、已登录过 Chrome，最稳 |
+| 自带浏览器版 | `heartbeat-delivery-bundled-<ver>-arm64.dmg` | 打包进应用的 Playwright Chromium（Chrome for Testing） | 不想/不能装 Chrome、要分发给别人 |
+
+自带浏览器版说明：
+
+- 体积大约多 200MB（dmg 约 330MB）；
+- **需要重新扫码登录一次**：自带的 Chromium 使用独立的浏览器配置目录
+  `<dataDir>/profile-*-chromium`，不会碰系统 Chrome 的登录态（两边的 Cookie 加密 key 不同）；
+- 指纹是干净的 Chromium，风控表现需要实测；标准版仍然是默认推荐；
+- 构建方式：`npm run browser:install` 下载内核（装到 `node_modules/playwright-core/.local-browsers`），
+  然后 `npm run app:dist:mac:bundled`；CI 会同时产出两个版本。
+
 ## 安装（macOS）
 
 1. 从 [GitHub Releases](https://github.com/xxcodev/relationship-stabilizer/releases) 下载
-   `heartbeat-delivery-0.9.1-arm64.dmg`（或使用本地 `dist/` 里的同名文件），把「心动投递」拖进「应用程序」；
+   `heartbeat-delivery-0.10.0-arm64.dmg`（标准版）或 `heartbeat-delivery-bundled-0.10.0-arm64.dmg`（自带浏览器版），把「心动投递」拖进「应用程序」；
 2. 首次启动选数据目录：
    - **新建**：默认在 `~/Library/Application Support/抖音转发/data`；
    - **使用已有目录**：指向原来 `douyin-forwarder/data`，可复用数据库、截图和 Chrome 登录态（免重新扫码）；

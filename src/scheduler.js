@@ -33,7 +33,7 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
   });
   cfg.friend = acc.friend;
   cfg.accountId = acc.id;
-  cfg.profileDir = acc.profile_dir;
+  cfg.profileDir = env.browserProfileDir(acc.profile_dir);
   cfg.port = acc.port;
   cfg.pools = repos.listPools().map((p) => ({ name: p.name, keyword: p.keyword, enabled: !!p.enabled }));
   cfg.banWords = repos.getSetting('banWords', []);

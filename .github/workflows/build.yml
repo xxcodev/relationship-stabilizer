@@ -12,9 +12,11 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            target: app:dist:mac
+            standard: app:dist:mac
+            bundled: app:dist:mac:bundled
           - os: windows-latest
-            target: app:dist:win
+            standard: app:dist:win
+            bundled: app:dist:win:bundled
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +25,14 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run ${{ matrix.target }} -- --publish never
+      - name: Install bundled Chromium (for the self-contained variant)
+        run: npx playwright-core install chromium --no-shell
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: "0"
+      - name: Build standard (system Chrome)
+        run: npm run ${{ matrix.standard }}
+      - name: Build bundled (self-contained Chromium)
+        run: npm run ${{ matrix.bundled }}
       - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ runner.os }}

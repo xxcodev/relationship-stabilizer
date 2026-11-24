@@ -58,7 +58,9 @@ function checkBrowser() {
   const found = candidates.find((p) => fs.existsSync(p));
   if (found) return ok('browser', found);
   if (env.browser.channel === 'chromium') {
-    return ok('browser', 'Playwright-managed Chromium (run `npx playwright install chromium`)');
+    const dir = process.env.PLAYWRIGHT_BROWSERS_PATH;
+    if (dir && dir !== '0' && fs.existsSync(dir)) return ok('browser', `bundled Chromium (${dir})`);
+    return ok('browser', 'Playwright-managed Chromium (run `npm run browser:install`)');
   }
   return bad('browser', `no Chrome found; set BROWSER_EXECUTABLE or BROWSER_CHANNEL=chromium`);
 }

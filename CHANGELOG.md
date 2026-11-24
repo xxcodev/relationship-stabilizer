@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.10.0 — 2026-11-24
+
+- **自带浏览器版**:`npm run browser:install` 把 Playwright 的 Chromium(Chrome for Testing)
+  装进 `node_modules/playwright-core/.local-browsers`,打包时复制到
+  `Contents/Resources/playwright-browsers`;应用通过 `BROWSER_CHANNEL=chromium` +
+  `PLAYWRIGHT_BROWSERS_PATH` 使用它,不再依赖系统 Chrome。
+- 自带浏览器版使用独立配置目录 `<dataDir>/profile-*-chromium`(不碰系统 Chrome 的登录态,
+  首次需要在应用内画面里重新扫码);标准版行为不变。
+- `scripts/build-app.js`:一个构建入口,`--variant standard|bundled` 产出
+  `heartbeat-delivery-*` / `heartbeat-delivery-bundled-*` 两种 dmg;CI 同时构建两个版本。
+- `doctor` 会检查内置 Chromium 目录;「关于」里显示当前使用的浏览器。
+
+
 ## 0.9.1 — 2026-11-24
 
 - **多屏隐藏更彻底**:隐藏模式从「把窗口挪到 -20000,-20000」改为**启动即最小化**。

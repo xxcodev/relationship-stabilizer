@@ -26,9 +26,16 @@ const bool = (v, d) => (v === undefined ? d : /^(1|true|yes|on)$/i.test(String(v
 
 const DATA_DIR = path.resolve(ROOT, process.env.DATA_DIR || 'data');
 
+// A bundled Chromium build must not open the system Chrome profile (cookies are bound to the
+// "Chrome Safe Storage" keychain item), so it gets its own persistent directory.
+function browserProfileDir(base) {
+  return module.exports.browser.channel === 'chromium' ? `${base}-chromium` : base;
+}
+
 module.exports = {
   ROOT,
   DATA_DIR,
+  browserProfileDir,
   DB_FILE: path.resolve(ROOT, process.env.DB_FILE || path.join(DATA_DIR, 'app.db')),
 
   dashboard: {
