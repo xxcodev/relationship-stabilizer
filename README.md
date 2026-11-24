@@ -160,8 +160,9 @@ npm run verify  # 环境 + 表结构 + HTTP 接口冒烟
 macOS(launchd)与 Linux(systemd --user)的示例配置见 `docs/daemon.md`;
 从旧版脚本切换与回滚见 `docs/cutover.md`。
 
-桌面应用(Electron,开发中):`npm run app:dev` 打开原生窗口加载现有面板,开发数据隔离在
-`data-app/`;进程模型与 P1/P2 计划见 `docs/app.md`。
+桌面应用(Electron):`npm install && npm run app:dev` 打开原生窗口加载现有面板(开发数据隔离在
+`data-app/`);打包用 `npm run app:dist:mac`(macOS)或 `npm run app:dist:win`(Windows)。
+安装、托盘、开机自启与数据目录说明见 `docs/app.md`。
 
 ## 已知限制
 
