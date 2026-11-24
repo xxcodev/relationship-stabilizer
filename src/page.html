@@ -306,11 +306,16 @@
           <div class="card-head"><div class="eyebrow">快速发送（纯 API）</div><span class="pill blue" id="quickPill">API</span></div>
           <div class="eyebrow">发送给（可多选）</div>
           <div class="chips" id="homeFriendChips" style="margin-top:8px"><span class="muted">加载中…</span></div>
-          <div class="rowbtns">
+          <div class="rowbtns" style="margin-top:8px">
+            <button class="btn ghost sm" id="friendsAll">全选可发送</button>
+            <button class="btn ghost sm" id="friendsClear">清空</button>
+            <span class="field-note" id="friendsCount"></span>
+          </div>
+          <div class="rowbtns" style="margin-top:2px">
             <button class="btn ghost sm" id="btnApiDry">只试选片</button>
             <button class="btn primary sm" id="btnApiSend">发送给所选好友</button>
           </div>
-          <div class="field-note" id="homeSendMsg" style="margin-top:10px">选中好友后，通过纯 HTTP 建会话并发送，不会启动浏览器。</div>
+          <div class="field-note" id="homeSendMsg" style="margin-top:10px">勾选会话里的好友（可多选），通过纯 HTTP 发送，不会启动浏览器。显示「未捕获」的账户好友需要先重新导出会话。</div>
           <div class="eyebrow mt">或者</div>
           <div class="rowbtns">
             <button class="btn ghost sm" id="btnQuickBrowserSend">用浏览器发送一次</button>
@@ -609,28 +614,50 @@ function renderHomeFriendChips() {
   if (!box) return;
   const api = state.api || {};
   const data = state.data || {};
-  const captured = new Set((api.friends || []).map((f) => f.name));
-  const candidates = (Array.isArray(data.friends) ? data.friends : []).filter((n) => captured.has(n));
-  const valid = new Set(state.selectedFriends);
-  for (const name of [...valid]) if (!candidates.includes(name)) valid.delete(name);
-  state.selectedFriends = valid;
+  const capturedArr = (api.friends || []).map((f) => f.name);
+  const captured = new Set(capturedArr);
+  const accountFriends = Array.isArray(data.friends) ? data.friends : [];
+  const names = [...capturedArr];
+  for (const name of accountFriends) if (!captured.has(name)) names.push(name);
+  // only captured friends can be used by the pure-API endpoint
+  state.selectedFriends = new Set([...state.selectedFriends].filter((n) => captured.has(n)));
   if (!api.valid) {
     box.innerHTML = '<span class="muted">纯 API 会话不可用；请先在配置页导出会话。</span>';
+    $('#friendsCount').textContent = '';
     return;
   }
-  if (!candidates.length) {
-    box.innerHTML = '<span class="muted">当前账户还没有「会话里能发送」的好友；在配置页添加好友并重新导出会话。</span>';
+  if (!names.length) {
+    box.innerHTML = '<span class="muted">会话里没有捕获到好友；先导出会话。</span>';
+    $('#friendsCount').textContent = '';
     return;
   }
-  box.innerHTML = candidates.map((name) => {
+  box.innerHTML = names.map((name) => {
+    if (!captured.has(name)) {
+      return '<label class="friend-check" title="不在会话捕获列表，重新导出会话后才能用纯 API 发送" style="opacity:.5"><input type="checkbox" disabled> ' + esc(name) + ' <span class="muted">未捕获</span></label>';
+    }
     const checked = state.selectedFriends.has(name) ? ' checked' : '';
-    return '<label class="friend-check"><input type="checkbox" data-home-friend="' + esc(name) + '"' + checked + '>' + esc(name) + '</label>';
+    return '<label class="friend-check"><input type="checkbox" data-home-friend="' + esc(name) + '"' + checked + '> ' + esc(name) + '</label>';
   }).join('');
   box.querySelectorAll('input[data-home-friend]').forEach((el) => el.addEventListener('change', () => {
     if (el.checked) state.selectedFriends.add(el.dataset.homeFriend);
     else state.selectedFriends.delete(el.dataset.homeFriend);
+    updateFriendsCount();
   }));
+  updateFriendsCount();
 }
+
+function updateFriendsCount() {
+  const n = state.selectedFriends.size;
+  const el = $('#friendsCount');
+  if (el) el.textContent = n ? ('已选 ' + n + ' 位') : '可以勾选多个好友';
+}
+
+function selectAllFriends(checked) {
+  $$('#homeFriendChips input[data-home-friend]').forEach((el) => { el.checked = checked; });
+  state.selectedFriends = new Set(checked ? $$('#homeFriendChips input[data-home-friend]').map((el) => el.dataset.homeFriend) : []);
+  updateFriendsCount();
+}
+
 function selectedHomeFriends() {
   return [...$$('#homeFriendChips input[data-home-friend]').filter((el) => el.checked)].map((el) => el.dataset.homeFriend);
 }
@@ -899,10 +926,12 @@ async function loadFriends() {
   try {
     const d = await getJSON('/api/friends');
     const friends = d.friends || [];
+    const captured = new Set(((state.api && state.api.friends) || []).map((x) => x.name));
     $('#friendCountPill').textContent = friends.filter((f) => f.enabled).length + ' / ' + friends.length + ' 启用';
     $('#friendList').innerHTML = friends.map((f) => '<div class="friend-row">'
       + '<label class="friend-check" style="padding:3px 8px"><input type="checkbox" data-friend-toggle="' + f.id + '"' + (f.enabled ? ' checked' : '') + '> ' + (f.enabled ? '启用' : '停用') + '</label>'
       + '<span class="name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
+      + '<span class="tag" style="font-size:10.5px" title="' + (captured.has(f.name) ? '可用纯 API 发送' : '不在会话捕获列表，重新导出会话后才能用纯 API 发送') + '">' + (captured.has(f.name) ? '纯 API 可用' : '未捕获') + '</span>'
       + '<button class="btn ghost sm" data-friend-del="' + f.id + '">删除</button>'
       + '</div>').join('') || '<div class="empty">还没有好友，添加一个</div>';
     $$('[data-friend-toggle]').forEach((el) => el.addEventListener('change', async () => {
@@ -1177,6 +1206,8 @@ function bindHomeActions() {
   $('#btnRefreshScreen').onclick = screenRefresh;
   $('#btnHideWin').onclick = () => windowAction(false);
   $('#screenImg').onclick = clickScreen;
+  $('#friendsAll').onclick = () => selectAllFriends(true);
+  $('#friendsClear').onclick = () => { $$('#homeFriendChips input[data-home-friend]').forEach((el) => { el.checked = false; }); state.selectedFriends = new Set(); updateFriendsCount(); };
   $('#btnApiDry').onclick = () => apiSendFriend(true);
   $('#btnApiSend').onclick = () => apiSendFriend(false);
   $('#homeEventsRefresh').onclick = loadHomeEvents;
