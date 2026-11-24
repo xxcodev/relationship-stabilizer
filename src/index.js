@@ -58,9 +58,11 @@ async function main() {
       const sub = args[0] || 'list';
       if (sub === 'list') {
         const rows = require('./db').open().prepare('SELECT * FROM accounts ORDER BY id').all();
+        const active = require('./api-session') && repos.getSetting('activeAccount', null);
         for (const a of rows) {
           const n = repos.listSends({ accountId: a.id, limit: 100000 }).length;
-          console.log(`${a.enabled ? '●' : '○'} ${a.label.padEnd(10)} :${String(a.port).padEnd(5)} friend=${a.friend || '-'} sends=${n} profile=${a.profile_dir}`);
+          const friends = repos.listEnabledFriendNames(a.id);
+          console.log(`${a.enabled ? '●' : '○'} ${(a.label === active ? '*' : ' ') + (a.display_name || a.label)}  [${a.label}] :${String(a.port).padEnd(5)} friends=${friends.join('/') || '-'} sends=${n} profile=${a.profile_dir}`);
         }
         if (!rows.length) console.log('(no accounts)');
         break;
@@ -71,16 +73,26 @@ async function main() {
           const i = args.indexOf(name);
           return i > 0 ? args[i + 1] : dflt;
         };
-        if (!label) throw new Error('usage: account add <label> [--port 9334] [--profile PATH] [--friend NAME]');
+        if (!label) throw new Error('usage: account add <label> [--name 显示名] [--port 9334] [--profile PATH] [--friend NAME]');
         const profile = flag('--profile', path.join(require('./env').DATA_DIR, `profile-${label.toLowerCase()}`));
+        const ports = repos.listAccounts().map((a) => Number(a.port));
+        const autoPort = ports.length ? Math.max(9333, ...ports) + 1 : 9334;
         const acc = repos.upsertAccount({
           label,
           profileDir: path.resolve(profile),
-          port: Number(flag('--port', 9334)),
-          friend: flag('--friend', ''),
-          enabled: true,
+          port: Number(flag('--port', autoPort)),
+          friend: '',
+          enabled: false,
         });
-        console.log(`account ${acc.label} ready: port ${acc.port}, profile ${acc.profile_dir}`);
+        repos.updateAccountDisplayName(acc.id, flag('--name', label));
+        repos.replaceBands(acc.id, [
+          { name: '早间', startMin: 9 * 60, endMin: 12 * 60, minCount: 1, maxCount: 2 },
+          { name: '下午', startMin: 14 * 60, endMin: 18 * 60, minCount: 2, maxCount: 4 },
+          { name: '晚间', startMin: 20 * 60, endMin: 23 * 60, minCount: 2, maxCount: 4 },
+        ]);
+        const friend = flag('--friend', '');
+        if (friend) repos.addFriend(acc.id, friend);
+        console.log(`account ${acc.label} ready: name=${acc.display_name || acc.label}, port ${acc.port}, friends=${repos.listEnabledFriendNames(acc.id).join('/') || '-'}, profile ${acc.profile_dir}`);
         console.log('next: start the browser and scan the QR once — `node src/index.js send-once --dry` opens it');
         break;
       }
@@ -112,14 +124,23 @@ async function main() {
         break;
       }
 
+      if (sub === 'rename') {
+        const label = args[1];
+        const name = args.slice(2).join(' ').trim();
+        const acc = repos.getAccount(label);
+        if (!acc) throw new Error(`no account ${label}`);
+        if (!name) throw new Error('usage: account rename <label> <显示名>');
+        repos.updateAccountDisplayName(acc.id, name);
+        console.log(`account ${acc.label} display name = ${name}`);
+        break;
+      }
+
       if (sub === 'switch') {
         const label = args[1];
         const acc = repos.getAccount(label);
         if (!acc) throw new Error(`no account ${label}`);
         repos.setSetting('activeAccount', acc.label);
-        let restarted = null;
-        try { restarted = require('./service').restartScheduler(); } catch (e) {}
-        console.log(`active account = ${acc.label}` + (restarted && restarted.ok ? ' (scheduler restarted)' : ''));
+        console.log(`active account = ${acc.label} (panel only; all enabled accounts keep scheduling)`);
         break;
       }
 
@@ -139,6 +160,7 @@ async function main() {
         const force = args.includes('--force');
         if (sends && !force) throw new Error(`${acc.label} has ${sends} sends; pass --force to delete them too`);
         require('./db').open().prepare('DELETE FROM accounts WHERE id = ?').run(acc.id);
+        try { require('./service').restartScheduler(); } catch (e) {}
         console.log(`removed ${acc.label} (${sends} sends deleted)`);
         break;
       }
@@ -155,6 +177,7 @@ async function main() {
         ok: out.ok,
         file: out.file,
         account: out.account,
+        accountName: out.accountName,
         friend: out.friend,
         keyword: out.keyword,
         friends: out.friends,
@@ -168,12 +191,14 @@ async function main() {
       const repos = require('./repos');
       const apiSession = require('./api-session');
       const acc = repos.getAccount();
-      const session = apiSession.load();
-      const state = apiSession.status(session, acc && acc.friend);
+      const session = acc ? apiSession.load(acc.label) : null;
+      const state = apiSession.status(session, null);
       console.log(JSON.stringify({
-        file: apiSession.FILE,
+        file: acc ? apiSession.pathFor(acc.label) : null,
         present: !!session,
         account: session && session.account,
+        accountName: (session && session.accountName) || (acc && (acc.display_name || acc.label)) || null,
+        accountFriends: acc ? repos.listEnabledFriendNames(acc.id) : [],
         friend: session && session.friend,
         keyword: session && session.keyword,
         createdAt: session && session.createdAt,
@@ -192,19 +217,26 @@ async function main() {
 
     case 'api:clear': {
       dbReady();
-      require('./api-session').clear();
-      console.log('api session cleared');
+      const apiSession = require('./api-session');
+      const acc = require('./repos').getAccount(args[0] || null);
+      if (acc) apiSession.clearAccount(acc.label);
+      apiSession.clearLegacy();
+      console.log('api session cleared' + (acc ? ` for ${acc.label}` : ''));
       break;
     }
 
     case 'api:friends': {
       dbReady();
       const apiSession = require('./api-session');
-      const session = apiSession.load();
+      const acc = require('./repos').getAccount();
+      const session = acc ? apiSession.load(acc.label) : null;
       if (!session) throw new Error('no api session');
       console.log(JSON.stringify({
+        account: acc.label,
+        accountName: session.accountName || acc.display_name || acc.label,
         defaultFriend: session.friend,
-        friends: (session.friends || []).map((f) => f.name),
+        accountFriends: require('./repos').listEnabledFriendNames(acc.id),
+        capturedFriends: (session.friends || []).map((f) => f.name),
         canCreateConversation: !!(session.createTemplate && session.createTemplate.bodyB64),
       }, null, 2));
       break;
@@ -226,18 +258,25 @@ async function main() {
       const repos = require('./repos');
       const acc = repos.getAccount();
       if (!acc) throw new Error('no account configured');
-      const session = apiSession.load();
-      const state = apiSession.status(session, acc.friend);
+      const session = apiSession.load(acc.label);
+      const state = apiSession.status(session, null);
       if (!state.valid) throw new Error(`api session not usable: ${state.reason}`);
       const pool = repos.listPools().find((p) => p.enabled);
       if (!pool) throw new Error('no enabled pool');
       const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: repos.getSetting('banWords', []) });
-      const friend = args.includes('--friend') ? args[args.indexOf('--friend') + 1] : acc.friend;
-      console.log(JSON.stringify({ picked: video.title, pool: pool.name, awemeId: video.awemeId, friend }, null, 2));
+      const raw = args.includes('--friends') ? args[args.indexOf('--friends') + 1]
+        : args.includes('--friend') ? args[args.indexOf('--friend') + 1]
+        : repos.listEnabledFriendNames(acc.id)[0];
+      const targets = String(raw || '').split(',').map((x) => x.trim()).filter(Boolean);
+      console.log(JSON.stringify({ picked: video.title, pool: pool.name, awemeId: video.awemeId, friends: targets }, null, 2));
       if (args.includes('--dry')) break;
-      const res = await apiSender.sendVideo(session, video, { friend });
-      console.log(JSON.stringify(res, null, 2));
-      if (!res.ok) process.exitCode = 1;
+      const results = [];
+      for (const friend of targets) {
+        if (!apiSession.canSendTo(session, friend)) { results.push({ friend, ok: false, error: 'friend not in captured session list' }); continue; }
+        results.push(await apiSender.sendVideo(session, video, { friend }));
+      }
+      console.log(JSON.stringify({ results, allOk: results.every((r) => r.ok) }, null, 2));
+      if (!results.length || !results.every((r) => r.ok)) process.exitCode = 1;
       break;
     }
 

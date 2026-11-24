@@ -138,6 +138,14 @@
   .seg button{border:0;background:transparent;color:var(--dim);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12.5px}
   .seg button.on{background:rgba(91,140,255,.2);color:#dce7ff}
   .rowbtns{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px}
+  .friend-check{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:rgba(255,255,255,.02);color:var(--dim);font-size:12.5px;cursor:pointer}
+  .friend-check:has(input:checked){color:#cfe0ff;border-color:rgba(91,140,255,.55);background:rgba(91,140,255,.12)}
+  .friend-check input{accent-color:var(--acc);margin:0}
+  .friend-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+  .friend-row:last-child{border-bottom:0}
+  .friend-row .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .friend-row .muted{font-size:11.5px}
+  .inline-input{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
   .kv-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
   .field-note{font-size:12px;color:var(--dim2)}
 
@@ -296,9 +304,8 @@
         </div>
         <div class="card">
           <div class="card-head"><div class="eyebrow">快速发送（纯 API）</div><span class="pill blue" id="quickPill">API</span></div>
-          <label class="f">选择好友
-            <select id="homeFriend"><option value="">加载中…</option></select>
-          </label>
+          <div class="eyebrow">发送给（可多选）</div>
+          <div class="chips" id="homeFriendChips" style="margin-top:8px"><span class="muted">加载中…</span></div>
           <div class="rowbtns">
             <button class="btn ghost sm" id="btnApiDry">只试选片</button>
             <button class="btn primary sm" id="btnApiSend">发送给所选好友</button>
@@ -341,15 +348,20 @@
     <section class="view" id="view-accounts" data-view-panel="accounts" hidden>
       <div class="card" style="margin-bottom:16px">
         <div class="card-head">
-          <div><div class="eyebrow">当前账户</div><div style="font-size:20px;font-weight:700;margin-top:3px" id="acctTitle">-</div></div>
+          <div><div class="eyebrow">当前账户</div><div style="font-size:20px;font-weight:700;margin-top:3px" id="acctTitle">-</div><div class="field-note" id="acctLabelSub"></div></div>
           <span class="pill" id="acctPill">…</span>
         </div>
         <div class="kv-grid">
-          <div class="kv"><span>好友</span><b id="acctFriend">-</b></div>
+          <div class="kv"><span>好友（启用）</span><b id="acctFriend">-</b></div>
           <div class="kv"><span>浏览器端口</span><b id="acctPort">-</b></div>
           <div class="kv"><span>时段数</span><b id="acctBands">-</b></div>
           <div class="kv"><span>累计发送</span><b id="acctSends">-</b></div>
           <div class="kv" style="grid-column:1 / -1"><span>浏览器 Profile</span><b id="acctProfile" style="font-size:12px">-</b></div>
+        </div>
+        <div class="inline-input">
+          <input id="acctRename" placeholder="账户显示名称（昵称）" style="min-width:220px">
+          <button class="btn ghost sm" id="acctRenameBtn">保存名称</button>
+          <span class="field-note" id="acctRenameMsg">显示名称会用于面板/托盘，不影响内部数据。</span>
         </div>
         <div class="card-actions">
           <button class="btn success sm" id="acctResume">继续</button>
@@ -368,17 +380,22 @@
       <div class="grid-2">
         <div class="card">
           <div class="eyebrow">添加账户</div>
-          <div class="hint" style="margin-top:8px">在终端执行：</div>
-          <div class="inline-note" style="margin-top:10px">
-            <code>node src/index.js account add &lt;名字&gt; --port 9335 --friend &lt;好友&gt;</code><br>
-            首次发送前会打开浏览器，扫码登录一次即可。账户之间 profile 独立。
+          <div class="form" style="margin-top:10px">
+            <label class="f">账户名称（昵称）<input id="newAcctName" placeholder="例如：小号A"></label>
+            <label class="f">浏览器端口（留空自动）<input id="newAcctPort" type="number" placeholder="留空自动分配"></label>
+            <label class="f">第一个好友（可留空）<input id="newAcctFriend" placeholder="好友昵称"></label>
           </div>
+          <div class="rowbtns">
+            <button class="btn primary sm" id="newAcctAdd">添加账户</button>
+            <span class="field-note" id="newAcctMsg"></span>
+          </div>
+          <div class="field-note" style="margin-top:8px">账户默认暂停：切到该账户 → 打开实时画面扫码登录 → 再点「继续」启用；各账户 profile 独立、可同时排班发送。</div>
         </div>
         <div class="card">
-          <div class="eyebrow">切换账户说明</div>
+          <div class="eyebrow">多账户说明</div>
           <div class="hint" style="margin-top:8px">
-            切换后会自动重启调度，用于新账户的排班与发送；浏览器登录态跟随各账户的 profile。
-            面板数据会立即切换到新账户。
+            所有启用的账户会<b>各自按自己的时段同时发送</b>，互不影响；「切到面板」只是切换这里查看的数据，
+            不会停止其他账户。浏览器登录态跟随各账户的 profile，纯 API 会话也按账户独立保存。
           </div>
         </div>
       </div>
@@ -390,7 +407,6 @@
         <div class="card">
           <div class="card-head"><div class="eyebrow">发送计划</div><span class="field-note" id="configHint"></span></div>
           <div class="form">
-            <label class="f">好友昵称<input id="c_friend" placeholder="好友昵称"></label>
             <label class="f">运行状态<select id="c_enabled"><option value="true">启用</option><option value="false">暂停</option></select></label>
             <label class="f">两条之间最少间隔（分钟）<input id="c_gap" type="number" min="1" max="120"></label>
             <label class="f">每日总条数（下限）<input id="c_tmin" type="number" min="0" max="200"></label>
@@ -414,6 +430,15 @@
         </div>
 
         <div>
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-head"><div class="eyebrow">发送好友（当前账户）</div><span class="pill" id="friendCountPill">-</span></div>
+            <div id="friendList" style="margin-top:4px"><span class="muted">加载中…</span></div>
+            <div class="inline-input">
+              <input id="friendNew" placeholder="好友昵称" style="min-width:180px">
+              <button class="btn ghost sm" id="friendAdd">添加好友</button>
+            </div>
+            <div class="field-note" style="margin-top:8px">排班发送时从启用的好友里随机轮换；纯 API 发送要求好友在导出会话时捕获的列表里，否则回退浏览器。</div>
+          </div>
           <div class="card" style="margin-bottom:16px">
             <div class="card-head"><div class="eyebrow">纯 API 会话</div><span class="pill" id="apiBadge">检查中…</span></div>
             <div class="seg" id="apiModeSeg">
@@ -501,7 +526,7 @@ const state = {
   view: 'home', data: null, status: null, api: null, accounts: null, config: null,
   events: [], records: { search: '', bucket: '', result: '', page: 1, pageSize: 20 },
   sendJobPolling: false, screenTimer: null, apiTimer: null, homeTimer: null,
-  cfgLoaded: false, configDirty: false,
+  cfgLoaded: false, configDirty: false, selectedFriends: new Set(),
 };
 
 function toast(msg, type = 'ok', ms = 4200) {
@@ -517,8 +542,8 @@ async function getJSON(url, opts) {
   if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
   return j;
 }
-async function postJSON(url, body) {
-  return getJSON(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+async function postJSON(url, body, method = 'POST') {
+  return getJSON(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
 }
 
 /* ---------------- navigation ---------------- */
@@ -555,8 +580,9 @@ function setPill(el, text, type = '') {
 function renderSidebar() {
   const d = state.data || {};
   const st = state.status || {};
-  $('#sideAcct').textContent = d.account || '-';
-  $('#sideFriend').textContent = d.friend ? ('→ ' + d.friend) : '未配置好友';
+  $('#sideAcct').textContent = d.accountName || d.account || '-';
+  const friendNames = Array.isArray(d.friends) ? d.friends : (d.friend ? [d.friend] : []);
+  $('#sideFriend').textContent = friendNames.length ? (friendNames.length + ' 位好友 · ' + friendNames.slice(0, 2).join('、') + (friendNames.length > 2 ? '…' : '')) : '未配置好友';
   const dot = $('#sideDot');
   dot.className = 'dot' + (st.enabled && st.scheduler && st.scheduler.running ? ' on' : '');
 }
@@ -578,15 +604,35 @@ function renderTopbar() {
     alert.className = 'alert';
   }
 }
-function fillFriendSelect(api) {
-  const sel = $('#homeFriend');
-  if (!sel || !api || !Array.isArray(api.friends)) return;
-  const cur = sel.value;
-  sel.innerHTML = api.friends.length
-    ? api.friends.map((f) => '<option value="' + esc(f.name) + '">' + esc(f.name) + '</option>').join('')
-    : '<option value="">（会话里没有好友列表）</option>';
-  if (cur && api.friends.some((f) => f.name === cur)) sel.value = cur;
-  else if (api.defaultFriend) sel.value = api.defaultFriend;
+function renderHomeFriendChips() {
+  const box = $('#homeFriendChips');
+  if (!box) return;
+  const api = state.api || {};
+  const data = state.data || {};
+  const captured = new Set((api.friends || []).map((f) => f.name));
+  const candidates = (Array.isArray(data.friends) ? data.friends : []).filter((n) => captured.has(n));
+  const valid = new Set(state.selectedFriends);
+  for (const name of [...valid]) if (!candidates.includes(name)) valid.delete(name);
+  state.selectedFriends = valid;
+  if (!api.valid) {
+    box.innerHTML = '<span class="muted">纯 API 会话不可用；请先在配置页导出会话。</span>';
+    return;
+  }
+  if (!candidates.length) {
+    box.innerHTML = '<span class="muted">当前账户还没有「会话里能发送」的好友；在配置页添加好友并重新导出会话。</span>';
+    return;
+  }
+  box.innerHTML = candidates.map((name) => {
+    const checked = state.selectedFriends.has(name) ? ' checked' : '';
+    return '<label class="friend-check"><input type="checkbox" data-home-friend="' + esc(name) + '"' + checked + '>' + esc(name) + '</label>';
+  }).join('');
+  box.querySelectorAll('input[data-home-friend]').forEach((el) => el.addEventListener('change', () => {
+    if (el.checked) state.selectedFriends.add(el.dataset.homeFriend);
+    else state.selectedFriends.delete(el.dataset.homeFriend);
+  }));
+}
+function selectedHomeFriends() {
+  return [...$$('#homeFriendChips input[data-home-friend]').filter((el) => el.checked)].map((el) => el.dataset.homeFriend);
 }
 function renderHome() {
   const d = state.data || {};
@@ -615,7 +661,7 @@ function renderHome() {
     setPill($('#homeApiPill'), api.valid ? '会话可用' : '会话过期', api.valid ? 'ok' : 'bad');
     $('#homeApiMode').textContent = api.sendMode === 'auto' ? '纯 API 优先' : '仅浏览器';
     $('#homeApiSession').textContent = api.valid ? ('可用 · ' + (api.ageHours ?? '-') + 'h 前') : (api.reason || '不可用');
-    $('#homeApiFriend').textContent = (api.friendCount || 0) + ' 人';
+    $('#homeApiFriend').textContent = (d.friends || []).length + ' 位账户好友 / ' + (api.friendCount || 0) + ' 个会话好友';
   } else {
     setPill($('#homeApiPill'), '未导出', 'warn');
     $('#homeApiMode').textContent = api.sendMode === 'browser' ? '仅浏览器' : '-';
@@ -627,7 +673,7 @@ function renderHome() {
   $('#homeBrowserState').textContent = browser.up ? '运行中' : '未启动';
   $('#homeBrowserLogin').textContent = browser.loggedIn == null ? '-' : (browser.loggedIn ? '已登录' : '未登录');
   $('#homeBrowserChallenge').textContent = browser.challenge ? '需要人机验证' : '正常';
-  fillFriendSelect(api);
+  renderHomeFriendChips();
 
   $('#homeTimeline').innerHTML = d.todayTimeline && d.todayTimeline.length
     ? d.todayTimeline.map((t) => '<span class="chip ' + t.status + '">' + t.time + (t.status === 'done' ? ' ✓' : (t.status === 'failed' ? ' ✗' : '')) + '</span>').join('')
@@ -670,16 +716,27 @@ function renderEvents(events) {
 
 /* quick API send */
 async function apiSendFriend(dry) {
-  const friend = $('#homeFriend').value;
+  const friends = selectedHomeFriends();
   const msg = $('#homeSendMsg');
-  if (!friend) { toast('没有可选好友，先在配置页导出会话', 'warn'); return; }
-  if (!dry && !window.confirm('确认通过纯 API 发送一条视频给「' + friend + '」？')) return;
-  msg.textContent = dry ? '选片中…' : '发送中…';
+  if (!friends.length) { toast('先在上方选择要发送的好友', 'warn'); return; }
+  if (!dry && !window.confirm('确认通过纯 API 发送一条视频给：' + friends.join('、') + '？')) return;
+  msg.textContent = dry ? '选片中…' : ('发送中…（' + friends.length + ' 位好友）');
   try {
-    const r = await postJSON('/api/api-session/send', { friend, dry });
-    if (r.ok && r.dry) { msg.textContent = '选中：' + (r.picked && r.picked.title || ''); toast('已选片（未发送）', 'ok'); }
-    else if (r.ok) { msg.textContent = '已发送给 ' + (r.friend || friend) + '（HTTP API）'; toast('已发送给 ' + (r.friend || friend), 'ok'); loadHome(); }
-    else { msg.textContent = '失败：' + (r.error || '未知错误'); toast('发送失败：' + (r.error || ''), 'bad'); }
+    const r = await postJSON('/api/api-session/send', { friends, dry });
+    if (r.ok && r.dry) {
+      msg.textContent = '选中：' + (r.picked && r.picked.title || '');
+      toast('已选片（未发送）', 'ok');
+    } else if (r.ok) {
+      const okList = (r.results || []).filter((x) => x.ok).map((x) => x.friend);
+      const badList = (r.results || []).filter((x) => !x.ok).map((x) => x.friend + '：' + (x.error || '失败'));
+      msg.textContent = '已发送 ' + okList.length + '/' + friends.length + (badList.length ? '；失败：' + badList.join('，') : '');
+      toast('已发送给 ' + okList.join('、'), 'ok');
+      loadHome();
+    } else {
+      msg.textContent = '失败：' + (r.error || (r.results || []).map((x) => x.friend + ' ' + x.error).join('；') || '未知错误');
+      toast('部分/全部失败，见下方信息', 'bad');
+      loadHome();
+    }
   } catch (e) { msg.textContent = '请求失败：' + e.message; toast('请求失败：' + e.message, 'bad'); }
 }
 
@@ -728,31 +785,43 @@ async function loadAccounts() {
 }
 function renderAccounts() {
   const acc = state.accounts || { accounts: [], active: null };
-  const st = state.status || {};
   const active = acc.accounts.find((a) => a.label === acc.active) || acc.accounts[0];
   if (active) {
-    $('#acctTitle').textContent = active.label;
-    $('#acctFriend').textContent = active.friend || '未配置';
+    $('#acctTitle').textContent = active.name || active.label;
+    $('#acctLabelSub').textContent = (active.friends || []).length + ' 位好友 · ' + active.port + ' 端口 · ' + (active.enabled ? '运行中' : '已暂停');
+    $('#acctFriend').textContent = (active.friends || []).join('、') || '未配置';
     $('#acctPort').textContent = active.port;
     $('#acctBands').textContent = active.bands + ' 个';
     $('#acctSends').textContent = active.sends + ' 条';
     $('#acctProfile').textContent = active.profile || '-';
+    $('#acctRename').value = active.name || active.label;
     setPill($('#acctPill'), active.enabled ? '运行中' : '已暂停', active.enabled ? 'ok' : 'warn');
   }
   const rows = (acc.accounts || []).map((a) => {
     const isActive = a.label === acc.active;
     return '<div class="account-row' + (isActive ? ' active' : '') + '">'
-      + '<div class="avatar">' + esc(a.label.slice(0, 1).toUpperCase()) + '</div>'
-      + '<div class="account-main"><div class="account-name">' + esc(a.label) + (isActive ? ' <span class="pill blue" style="margin-left:6px">当前</span>' : '') + '</div>'
-      + '<div class="account-meta">好友 ' + esc(a.friend || '-') + ' · 端口 ' + a.port + ' · ' + a.bands + ' 时段 · ' + a.sends + ' 条</div></div>'
+      + '<div class="avatar">' + esc(String(a.name || a.label).slice(0, 1).toUpperCase()) + '</div>'
+      + '<div class="account-main"><div class="account-name">' + esc(a.name || a.label) + (isActive ? ' <span class="pill blue" style="margin-left:6px">面板当前</span>' : '')
+      + (a.enabled ? ' <span class="pill ok" style="margin-left:6px">运行中</span>' : ' <span class="pill warn" style="margin-left:6px">已暂停</span>') + '</div>'
+      + '<div class="account-meta">好友 ' + esc((a.friends || []).join('、') || '-') + ' · 端口 ' + a.port + ' · ' + a.bands + ' 时段 · ' + a.sends + ' 条</div></div>'
       + '<div class="account-actions">'
-      + (isActive ? '<button class="btn ghost sm" disabled>已选中</button>'
-        : '<button class="btn sm" data-switch="' + esc(a.label) + '">切换到此账户</button>')
+      + (isActive ? '<button class="btn ghost sm" disabled>面板已选</button>' : '<button class="btn sm" data-switch="' + esc(a.label) + '">切到面板</button>')
+      + '<button class="btn ghost sm" data-acc-enable="' + esc(a.label) + '" data-value="' + (a.enabled ? '0' : '1') + '">' + (a.enabled ? '暂停' : '继续') + '</button>'
       + '</div></div>';
   }).join('');
   $('#acctList').innerHTML = rows || '<div class="empty">还没有账户</div>';
   $$('[data-switch]').forEach((b) => b.addEventListener('click', () => switchAccount(b.dataset.switch)));
+  $$('[data-acc-enable]').forEach((b) => b.addEventListener('click', () => setAccountEnabled(b.dataset.accEnable, b.dataset.value === '1')));
 }
+
+async function setAccountEnabled(label, enabled) {
+  try {
+    await postJSON('/api/accounts/enable', { label, enabled });
+    toast((enabled ? '已启用 ' : '已暂停 ') + label, 'ok');
+    await loadAccounts();
+  } catch (e) { toast('操作失败：' + e.message, 'bad'); }
+}
+
 async function switchAccount(label) {
   if (!window.confirm('切换到账户「' + label + '」并重启调度？')) return;
   try {
@@ -792,7 +861,6 @@ function collectConfig() {
   $$('[data-pool]').forEach((c) => { pools[c.dataset.pool] = c.checked; });
   return {
     enabled: $('#c_enabled').value === 'true',
-    friend: $('#c_friend').value.trim(),
     minGapMinutes: Number($('#c_gap').value),
     totalMin: Number($('#c_tmin').value),
     totalMax: Number($('#c_tmax').value),
@@ -805,7 +873,6 @@ async function loadConfigPage() {
   try {
     const cfg = await getJSON('/api/config');
     state.config = cfg; state.cfgLoaded = true;
-    $('#c_friend').value = cfg.friend || '';
     $('#c_gap').value = cfg.minGapMinutes ?? 5;
     $('#c_tmin').value = cfg.totalMin ?? 0;
     $('#c_tmax').value = cfg.totalMax ?? 0;
@@ -816,6 +883,7 @@ async function loadConfigPage() {
     renderPools(cfg.pools);
     updateHint();
     await loadApiSession();
+    await loadFriends();
     loadCfgEvents();
   } catch (e) { toast('配置加载失败：' + e.message, 'bad'); }
 }
@@ -827,6 +895,28 @@ async function updateApiMode(mode) {
     await loadApiSession(); loadHome();
   } catch (e) { toast('切换失败：' + e.message, 'bad'); }
 }
+async function loadFriends() {
+  try {
+    const d = await getJSON('/api/friends');
+    const friends = d.friends || [];
+    $('#friendCountPill').textContent = friends.filter((f) => f.enabled).length + ' / ' + friends.length + ' 启用';
+    $('#friendList').innerHTML = friends.map((f) => '<div class="friend-row">'
+      + '<label class="friend-check" style="padding:3px 8px"><input type="checkbox" data-friend-toggle="' + f.id + '"' + (f.enabled ? ' checked' : '') + '> ' + (f.enabled ? '启用' : '停用') + '</label>'
+      + '<span class="name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
+      + '<button class="btn ghost sm" data-friend-del="' + f.id + '">删除</button>'
+      + '</div>').join('') || '<div class="empty">还没有好友，添加一个</div>';
+    $$('[data-friend-toggle]').forEach((el) => el.addEventListener('change', async () => {
+      try { await postJSON('/api/friends', { id: Number(el.dataset.friendToggle), enabled: el.checked }, 'PATCH'); await loadFriends(); loadHome(); }
+      catch (e) { toast('修改失败：' + e.message, 'bad'); }
+    }));
+    $$('[data-friend-del]').forEach((el) => el.addEventListener('click', async () => {
+      if (!window.confirm('从当前账户删除这个好友？')) return;
+      try { await getJSON('/api/friends/' + el.dataset.friendDel, { method: 'DELETE' }); await loadFriends(); loadHome(); }
+      catch (e) { toast('删除失败：' + e.message, 'bad'); }
+    }));
+  } catch (e) { $('#friendList').innerHTML = '<span class="bad">' + esc(e.message) + '</span>'; }
+}
+
 async function loadApiSession() {
   try {
     const d = await getJSON('/api/api-session');
@@ -841,7 +931,7 @@ async function loadApiSession() {
     const lines = ['发送模式：' + modeText, '自动刷新：' + (d.autoRefresh ? '开' : '关')];
     if (d.present) {
       lines.push('状态：' + (d.valid ? '可用' : '不可用（' + (d.reason || '') + '）'));
-      lines.push('账号/好友：' + (d.account || '-') + ' → ' + (d.defaultFriend || '-'));
+      lines.push('账户：' + (d.accountName || d.account || '-') + ' · 当前好友 ' + (d.defaultFriend || '-') + ' · 账户好友 ' + ((d.accountFriends || []).length) + ' 人');
       lines.push('抓取于：' + dateTimeOf(d.createdAt) + '（' + (d.ageHours != null ? d.ageHours + 'h 前' : '-') + '，有效期 ' + d.maxAgeHours + 'h）');
       lines.push('模板 ' + d.templateBytes + ' 字符 · cookies ' + d.cookies + ' 条 · 好友 ' + d.friendCount + ' 人' + (d.hasCreateTemplate ? '（支持任意好友）' : ''));
     } else {
@@ -1037,6 +1127,16 @@ function bindConfigActions() {
       $('#cancelBtn').onclick = () => { box.innerHTML = ''; lastPreview = null; };
     } catch (e) { box.innerHTML = '<div class="bad">预览失败：' + esc(e.message) + '</div>'; }
   };
+  $('#friendAdd').onclick = async () => {
+    const name = $('#friendNew').value.trim();
+    if (!name) return;
+    try {
+      await postJSON('/api/friends', { name });
+      $('#friendNew').value = '';
+      await loadFriends(); loadHome();
+      toast('已添加好友 ' + name, 'ok');
+    } catch (e) { toast('添加失败：' + e.message, 'bad'); }
+  };
   $('#btnApiRefresh').onclick = async () => {
     try {
       await postJSON('/api/api-session/refresh');
@@ -1076,6 +1176,28 @@ function bindHomeActions() {
   $('#homeEventsRefresh').onclick = loadHomeEvents;
   $('#footTime').textContent = '最近刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
   $('#acctRefresh').onclick = loadAccounts;
+  $('#acctRenameBtn').onclick = async () => {
+    const name = $('#acctRename').value.trim();
+    if (!name) return;
+    try { await postJSON('/api/accounts/rename', { name }); toast('已更新账户名称', 'ok'); await loadAccounts(); loadHome(); }
+    catch (e) { $('#acctRenameMsg').textContent = '保存失败：' + e.message; }
+  };
+  $('#newAcctAdd').onclick = async () => {
+    const name = $('#newAcctName').value.trim();
+    const msg = $('#newAcctMsg');
+    if (!name) { msg.textContent = '请填写账户名称'; return; }
+    msg.textContent = '添加中…';
+    try {
+      const r = await postJSON('/api/accounts/add', {
+        name,
+        port: Number($('#newAcctPort').value) || undefined,
+        friend: $('#newAcctFriend').value.trim(),
+      });
+      msg.textContent = '已添加 ' + (r.account && r.account.name || name) + '，正在重启调度…';
+      toast('账户已添加，请切换后扫码登录', 'ok');
+      await loadAccounts(); await loadHome();
+    } catch (e) { msg.textContent = '添加失败：' + e.message; }
+  };
   $('#acctPause').onclick = () => control('pause');
   $('#acctResume').onclick = () => control('resume');
   $('#acctRestart').onclick = () => control('restart');

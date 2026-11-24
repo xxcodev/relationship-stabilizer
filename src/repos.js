@@ -39,6 +39,18 @@ function getAccount(label) {
   return row || null;
 }
 
+function updateAccountDisplayName(accountId, name) {
+  db.open().prepare('UPDATE accounts SET display_name = ? WHERE id = ?').run(String(name || '').trim(), accountId);
+}
+
+function listAccounts() {
+  return db.open().prepare('SELECT * FROM accounts ORDER BY id').all();
+}
+
+function setAccountEnabled(accountId, enabled) {
+  db.open().prepare('UPDATE accounts SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, accountId);
+}
+
 function upsertAccount({ label, profileDir, port, friend = '', enabled = true }) {
   const conn = db.open();
   conn
@@ -49,6 +61,50 @@ function upsertAccount({ label, profileDir, port, friend = '', enabled = true })
     )
     .run(label, profileDir, port, friend, enabled ? 1 : 0);
   return getAccount(label);
+}
+
+// ---------- friends ----------
+function listFriends(accountId) {
+  return db
+    .open()
+    .prepare('SELECT * FROM friends WHERE account_id = ? ORDER BY sort, id')
+    .all(accountId);
+}
+
+function listEnabledFriendNames(accountId) {
+  return db
+    .open()
+    .prepare('SELECT name FROM friends WHERE account_id = ? AND enabled = 1 ORDER BY sort, id')
+    .all(accountId)
+    .map((r) => r.name);
+}
+
+function addFriend(accountId, name) {
+  const clean = String(name || '').trim();
+  if (!clean) throw new Error('好友昵称不能为空');
+  db.open()
+    .prepare('INSERT OR IGNORE INTO friends (account_id, name, enabled, sort) VALUES (?, ?, 1, 0)')
+    .run(accountId, clean);
+  syncAccountFriend(accountId);
+  return listFriends(accountId);
+}
+
+function setFriendEnabled(accountId, friendId, enabled) {
+  db.open()
+    .prepare('UPDATE friends SET enabled = ? WHERE id = ? AND account_id = ?')
+    .run(enabled ? 1 : 0, friendId, accountId);
+  syncAccountFriend(accountId);
+}
+
+function removeFriend(accountId, friendId) {
+  db.open().prepare('DELETE FROM friends WHERE id = ? AND account_id = ?').run(friendId, accountId);
+  syncAccountFriend(accountId);
+}
+
+// keep accounts.friend as a compatibility default (first enabled friend)
+function syncAccountFriend(accountId) {
+  const names = listEnabledFriendNames(accountId);
+  db.open().prepare('UPDATE accounts SET friend = ? WHERE id = ?').run(names[0] || '', accountId);
 }
 
 // ---------- pools ----------
@@ -161,7 +217,8 @@ function listEvents(limit = 50) {
 module.exports = {
   nowIso,
   getSetting, setSetting,
-  getAccount, upsertAccount,
+  getAccount, upsertAccount, updateAccountDisplayName, listAccounts, setAccountEnabled,
+  listFriends, listEnabledFriendNames, addFriend, setFriendEnabled, removeFriend, syncAccountFriend,
   listPools, seedPools, setPoolEnabled,
   listBands, replaceBands,
   getPlan, savePlan,

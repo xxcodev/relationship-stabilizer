@@ -119,7 +119,7 @@ function pickKeyword(acc, keyword) {
  * @param {{accountLabel?:string, keyword?:string, logger?:Function}} opts
  */
 async function exportSession({ accountLabel = process.env.ACCOUNT || null, keyword, logger } = {}) {
-  const acc = repos.getAccount(accountLabel);
+  const acc = repos.getAccount(accountLabel || repos.getSetting('activeAccount', null));
   if (!acc) throw new Error('没有账号，请先 init 或导入数据');
   if (!acc.friend) throw new Error('账号还没有配置好友，先在面板里填写好友昵称');
 
@@ -173,9 +173,10 @@ async function exportSession({ accountLabel = process.env.ACCOUNT || null, keywo
       .filter((row) => row && row.name && row.userid)
       .map((row) => ({ name: row.name, userid: String(row.userid) }));
     const session = {
-      version: 2,
+      version: 3,
       createdAt: new Date().toISOString(),
       account: acc.label,
+      accountName: '',
       friend: acc.friend,
       keyword: chosen.keyword,
       pool: chosen.pool,
@@ -191,13 +192,31 @@ async function exportSession({ accountLabel = process.env.ACCOUNT || null, keywo
       friends,
       cookies: bundle.cookies,
     };
-    const file = apiSession.save(session);
+
+    // derive the account nickname from the captured self user id (the second user in the
+    // conversation/create template also appears in the recent-friends list under its nickname)
+    let accountName = '';
+    try {
+      if (session.createTemplate && session.createTemplate.bodyB64) {
+        const { createTemplateUsers } = require('./api-proto');
+        const users = createTemplateUsers(session.createTemplate.bodyB64);
+        const self = friends.find((f) => f.userid === users[1]);
+        if (self) accountName = self.name;
+      }
+    } catch (e) {}
+    session.accountName = accountName || acc.display_name || acc.label;
+    const file = apiSession.save(session, acc.label);
+    if (!acc.display_name && accountName) {
+      repos.updateAccountDisplayName(acc.id, accountName);
+      log(logger, `账户显示名已更新为「${accountName}」`);
+    }
     log(logger, `会话已保存：${file}`);
     log(logger, `账号 ${acc.label} → 好友 ${acc.friend}，模板 ${bundle.lastSend.bodyB64.length} base64 字符，cookies ${bundle.cookies.length} 条`);
     return {
       ok: true,
       file,
       account: acc.label,
+      accountName: accountName || acc.display_name || acc.label,
       friend: acc.friend,
       keyword: chosen.keyword,
       friends: friends.length,

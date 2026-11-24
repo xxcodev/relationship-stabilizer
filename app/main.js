@@ -238,9 +238,15 @@ function apiSessionInfo() {
   try {
     const apiSession = require('../src/api-session');
     const repos = require('../src/repos');
-    const acc = repos.getAccount();
-    const session = apiSession.load();
-    return { file: apiSession.FILE, session, state: apiSession.status(session, acc && acc.friend), friend: acc && acc.friend };
+    const acc = account();
+    const session = acc ? apiSession.load(acc.label) : null;
+    return {
+      file: acc ? apiSession.pathFor(acc.label) : apiSession.FILE,
+      session,
+      state: apiSession.status(session, null),
+      friend: acc ? (repos.listEnabledFriendNames(acc.id)[0] || acc.friend) : '',
+      accountName: session && session.accountName || (acc && (acc.display_name || acc.label)) || null,
+    };
   } catch (e) {
     return { error: e.message };
   }
@@ -260,7 +266,8 @@ function showApiStatus() {
     s
       ? [
           `状态：${st.valid ? '可用' : '不可用（' + st.reason + '）'}`,
-          `账号 / 好友：${s.account || '-'} / ${s.friend || '-'}`,
+          `账号 / 当前好友：${info.accountName || s.accountName || s.account || '-'} / ${s.friend || '-'}`,
+          `好友列表：${(s.friends || []).length} 个捕获好友`,
           `抓取时间：${new Date(s.createdAt).toLocaleString('zh-CN', { hour12: false })}（${st.ageHours}h 前）`,
           `模板 / cookies：${s.template ? s.template.bodyB64.length + ' base64 字符' : '无'} / ${(s.cookies || []).length} 条`,
         ].join('\n')
@@ -269,10 +276,13 @@ function showApiStatus() {
   dialog.showMessageBox({ type: 'info', title: '纯 API 会话', message: `纯 API 会话（${st.valid ? '可用' : '未就绪'}）`, detail: lines.join('\n\n') });
 }
 
-function runApiExport({ auto = false } = {}) {
+function runApiExport({ auto = false, accountLabel = null } = {}) {
   if (apiExportChild) return false;
-  log(`api export: start (${auto ? 'auto' : 'manual'})`);
-  const child = spawn(process.execPath, [path.join(ROOT, 'src', 'index.js'), 'api:export'], {
+  const label = accountLabel || (account() && account().label);
+  log(`api export: start (${auto ? 'auto' : 'manual'}) account=${label || '-'}`);
+  const args = [path.join(ROOT, 'src', 'index.js'), 'api:export'];
+  if (label) args.push('--account', label);
+  const child = spawn(process.execPath, args, {
     cwd: ROOT,
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -326,30 +336,35 @@ async function exportApiSession() {
     cancelId: 1,
   });
   if (ask.response !== 0) return;
-  runApiExport({ auto: false });
+  runApiExport({ auto: false, accountLabel: account() && account().label });
 }
 
-// refresh the session before it expires (12h by default), without disturbing a running send
+// refresh per-account sessions before they expire (12h by default), one export at a time
 function maybeAutoRefreshSession() {
   if (apiExportChild) return;
   if (!apiAutoRefreshEnabled()) return;
-  const info = apiSessionInfo();
-  if (!info.session || info.error) return;
+  const repos = require('../src/repos');
   const apiSession = require('../src/api-session');
   const maxAge = apiSession.DEFAULT_MAX_AGE_HOURS;
-  const state = info.state;
-  const age = state.ageHours == null ? 0 : state.ageHours;
   const before = Number(process.env.API_REFRESH_BEFORE_HOURS || 2);
-  if (state.valid && maxAge - age > before) return;
   if (Date.now() - lastApiRefreshAt < 30 * 60 * 1000) return;
-  const acc = account();
-  if (acc && browserUp(acc.port)) {
-    log('api auto refresh skipped: browser busy');
+  for (const acc of repos.listAccounts()) {
+    const session = apiSession.load(acc.label);
+    if (!session) continue;
+    const state = apiSession.status(session, null);
+    const age = state.ageHours == null ? 0 : state.ageHours;
+    if (state.valid && maxAge - age > before) continue;
+    if (browserUp(acc.port)) {
+      log(`api auto refresh skipped: browser busy for ${acc.label}`);
+      continue;
+    }
+    lastApiRefreshAt = Date.now();
+    log(`api auto refresh: account=${acc.label} age=${age}h valid=${state.valid}`);
+    if (runApiExport({ auto: true, accountLabel: acc.label })) {
+      notify(`${acc.display_name || acc.label} 的纯 API 会话即将过期，正在自动刷新…`);
+    }
     return;
   }
-  lastApiRefreshAt = Date.now();
-  log(`api auto refresh: age=${age}h valid=${state.valid}`);
-  if (runApiExport({ auto: true })) notify('纯 API 会话即将过期，正在自动刷新…');
 }
 
 function showWindow() {

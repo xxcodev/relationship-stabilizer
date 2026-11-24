@@ -71,10 +71,12 @@ node src/index.js api:clear        # 删除会话文件
 **不需要为新好友重新导出**：
 
 ```bash
-node src/index.js api:friends                       # 看导出时捕获的好友列表
-node src/index.js api:send --friend "🖐🏻" --dry     # 只选片
-node src/index.js api:send --friend "🖐🏻"           # 发给该好友
+node src/index.js api:friends                         # 看账户好友 + 捕获好友
+node src/index.js api:send --friend "🖐🏻" --dry       # 只选片
+node src/index.js api:send --friends "Hime,🖐🏻"       # 一次发给多个好友
 ```
+
+脚本按账户使用 `data/api-sessions/<account>.json`；旧版单文件 `data/api-session.json` 会自动迁移。
 
 限制：好友必须在导出时捕获的最近好友列表里（11 个左右）。不在列表里会明确报错并回退浏览器；
 想更新列表，在导出前先和对方在抖音里聊一句，然后重新导出会话即可。
@@ -97,6 +99,7 @@ node src/index.js api:send --friend "🖐🏻"           # 发给该好友
 - 如果浏览器正在使用（发送回退/抖音画面），本轮跳过；
 - 自动刷新失败后 30 分钟内不重试，避免反复拉起浏览器；
 - 开关位置：托盘「纯 API（实验）」→「自动刷新会话」；面板「纯 API 发送」区块也可以切换。
+- 每个账户的会话独立检查、分别刷新。
 
 ## 面板里查看状态
 

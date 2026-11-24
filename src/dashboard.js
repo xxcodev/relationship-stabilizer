@@ -44,7 +44,7 @@ function configFromDb() {
   for (const p of repos.listPools()) pools[p.name] = !!p.enabled;
   return {
     enabled: !!acc.enabled,
-    friend: acc.friend,
+    friend: repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
     minGapMinutes: repos.getSetting('minGapMinutes', 5),
     poolDelayMs: repos.getSetting('poolDelayMs', 2500),
     totalMin: repos.getSetting('totalMin', 0),
@@ -62,8 +62,10 @@ function dataFromDb() {
   const sends = repos.listSends({ accountId: acc.id, limit: 200 });
   return {
     account: acc.label,
+    accountName: acc.display_name || acc.label,
     enabled: !!acc.enabled,
-    friend: acc.friend,
+    friend: repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
+    friends: repos.listEnabledFriendNames(acc.id),
     todayPlan: plan ? plan.times.length : 0,
     todayDone: repos.countSendsByDay(day, acc.id),
     todayTimeline: (plan ? plan.times : []).map((t) => ({
@@ -122,7 +124,13 @@ async function statusFromDb() {
   const acc = currentAccount();
   const sched = service.schedulerStatus();
   const browser = await service.browserStatus(acc.port);
-  return { scheduler: sched, browser, account: acc.label, enabled: !!acc.enabled };
+  return {
+    scheduler: sched,
+    browser,
+    account: acc.label,
+    accountName: acc.display_name || acc.label,
+    enabled: !!acc.enabled,
+  };
 }
 
 function sanitize(input) {
@@ -160,9 +168,8 @@ function persist(cfg) {
   const conn = require('./db').open();
   conn.exec('BEGIN');
   try {
-    conn
-      .prepare('UPDATE accounts SET friend = ?, enabled = ? WHERE id = ?')
-      .run(cfg.friend, cfg.enabled ? 1 : 0, acc.id);
+    conn.prepare('UPDATE accounts SET enabled = ? WHERE id = ?').run(cfg.enabled ? 1 : 0, acc.id);
+    repos.syncAccountFriend(acc.id);
     repos.setSetting('minGapMinutes', cfg.minGapMinutes);
     repos.setSetting('poolDelayMs', cfg.poolDelayMs);
     repos.setSetting('totalMin', cfg.totalMin);
@@ -286,17 +293,19 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
       }
       if (u.pathname === '/api/api-session') {
         const acc = currentAccount();
-        const session = apiSession.load();
-        const state = apiSession.status(session, acc.friend);
+        const session = apiSession.load(acc.label);
+        const state = apiSession.status(session, null);
         return send(res, 200, {
           present: !!session,
           valid: state.valid,
           reason: state.reason || null,
           ageHours: state.ageHours,
           createdAt: (session && session.createdAt) || null,
-          account: (session && session.account) || null,
+          account: (session && session.account) || acc.label,
+          accountName: (session && session.accountName) || acc.display_name || acc.label,
           friend: (session && session.friend) || null,
-          defaultFriend: acc.friend,
+          defaultFriend: (session && session.friend) || repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
+          accountFriends: repos.listEnabledFriendNames(acc.id),
           templateBytes: session && session.template ? session.template.bodyB64.length : 0,
           cookies: session ? (session.cookies || []).length : 0,
           friends: session ? (session.friends || []) : [],
@@ -309,7 +318,8 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
       }
       if (u.pathname === '/api/api-session/refresh' && req.method === 'POST') {
         try {
-          const child = spawn(process.execPath, [path.join(env.ROOT, 'src', 'index.js'), 'api:export'], {
+          const label = currentAccount().label;
+          const child = spawn(process.execPath, [path.join(env.ROOT, 'src', 'index.js'), 'api:export', '--account', label], {
             cwd: env.ROOT,
             env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
             detached: true,
@@ -327,11 +337,14 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         let body = '';
         for await (const c of req) body += c;
         const input = JSON.parse(body || '{}');
-        const friend = String(input.friend || acc.friend || '').trim();
+        const list = Array.isArray(input.friends)
+          ? [...new Set(input.friends.map((f) => String(f || '').trim()).filter(Boolean))]
+          : [String(input.friend || '').trim()].filter(Boolean);
+        if (!list.length) return send(res, 400, { ok: false, error: '没有选择好友' });
         const dry = !!input.dry;
         const apiSender = require('./api-sender');
-        const session = apiSession.load();
-        const state = apiSession.status(session, acc.friend);
+        const session = apiSession.load(acc.label);
+        const state = apiSession.status(session, null);
         if (!state.valid) return send(res, 400, { ok: false, error: `api session 不可用：${state.reason}` });
         const pools = repos.listPools().filter((p) => p.enabled);
         if (!pools.length) return send(res, 400, { ok: false, error: '没有启用的视频池' });
@@ -339,31 +352,40 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         try {
           const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: repos.getSetting('banWords', []) });
           if (dry) {
-            return send(res, 200, { ok: true, dry: true, friend, picked: video });
+            return send(res, 200, { ok: true, dry: true, friends: list, picked: video });
           }
-          const out = await apiSender.sendVideo(session, video, { friend });
-          if (out.ok) {
-            repos.insertSend({
-              accountId: acc.id,
-              ts: new Date().toISOString(),
-              day: today(),
-              bucket: pool.name,
-              title: video.title,
-              author: video.author,
-              likes: video.likes,
-              friend,
-              ok: true,
-              toast: 'HTTP API (panel)',
-              shot: null,
-              videoId: video.awemeId,
-            });
-            repos.logEvent('sent-api', { pool: pool.name, title: video.title, friend, serverMessageId: out.serverMessageId, via: 'panel' });
-          } else {
-            repos.logEvent('api-send-rejected', { statusCode: out.statusCode, statusMessage: out.statusMessage, title: video.title, friend });
+          const results = [];
+          for (const friend of list) {
+            if (!apiSession.canSendTo(session, friend)) {
+              results.push({ friend, ok: false, error: '好友不在会话好友列表里（先在分享面板聊过再导出会话）' });
+              continue;
+            }
+            const out = await apiSender.sendVideo(session, video, { friend }).catch((e) => ({ ok: false, error: e.message }));
+            if (out.ok) {
+              repos.insertSend({
+                accountId: acc.id,
+                ts: new Date().toISOString(),
+                day: today(),
+                bucket: pool.name,
+                title: video.title,
+                author: video.author,
+                likes: video.likes,
+                friend,
+                ok: true,
+                toast: 'HTTP API (panel)',
+                shot: null,
+                videoId: video.awemeId,
+              });
+              repos.logEvent('sent-api', { pool: pool.name, title: video.title, friend, serverMessageId: out.serverMessageId, via: 'panel' });
+            } else {
+              repos.logEvent('api-send-rejected', { statusCode: out.statusCode, statusMessage: out.statusMessage, title: video.title, friend });
+            }
+            results.push({ ...out, friend });
           }
-          return send(res, out.ok ? 200 : 502, out);
+          const ok = results.some((r) => r.ok);
+          return send(res, ok ? 200 : 502, { ok, friends: list, results, video });
         } catch (e) {
-          repos.logEvent('api-send-error', { error: (e.message || '').split('\n')[0], friend });
+          repos.logEvent('api-send-error', { error: (e.message || '').split('\n')[0], friends: list });
           return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
         }
       }
@@ -383,6 +405,83 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         repos.setSetting('apiAutoRefresh', enabled ? '1' : '0');
         return send(res, 200, { ok: true, enabled });
       }
+      if (u.pathname === '/api/friends' && req.method === 'GET') {
+        const acc = currentAccount();
+        return send(res, 200, { account: acc.label, accountName: acc.display_name || acc.label, friends: repos.listFriends(acc.id) });
+      }
+      if (u.pathname === '/api/friends' && req.method === 'POST') {
+        const acc = currentAccount();
+        let body = '';
+        for await (const c of req) body += c;
+        const name = String((JSON.parse(body || '{}') || {}).name || '').trim();
+        if (!name) return send(res, 400, { ok: false, error: '好友昵称不能为空' });
+        repos.addFriend(acc.id, name);
+        repos.logEvent('friend-add', { account: acc.label, name });
+        return send(res, 200, { ok: true, friends: repos.listFriends(acc.id) });
+      }
+      if (u.pathname === '/api/friends' && req.method === 'PATCH') {
+        const acc = currentAccount();
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        repos.setFriendEnabled(acc.id, Number(input.id), input.enabled !== false);
+        return send(res, 200, { ok: true, friends: repos.listFriends(acc.id) });
+      }
+      if (u.pathname.startsWith('/api/friends/') && req.method === 'DELETE') {
+        const acc = currentAccount();
+        const id = Number(u.pathname.split('/').pop());
+        if (!Number.isInteger(id)) return send(res, 400, { ok: false, error: 'bad id' });
+        repos.removeFriend(acc.id, id);
+        repos.logEvent('friend-remove', { account: acc.label, id });
+        return send(res, 200, { ok: true, friends: repos.listFriends(acc.id) });
+      }
+      if (u.pathname === '/api/accounts/add' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        const name = String(input.name || '').trim().slice(0, 40);
+        if (!name) return send(res, 400, { ok: false, error: '账户名称不能为空' });
+        if (repos.getAccount(name)) return send(res, 409, { ok: false, error: `账户「${name}」已存在` });
+        const ports = repos.listAccounts().map((a) => Number(a.port));
+        const port = Number(input.port) || (ports.length ? Math.max(9333, ...ports) + 1 : 9334);
+        const profileDir = path.join(env.DATA_DIR, `profile-${name.replace(/[^\w.-]+/g, '_')}`);
+        const acc = repos.upsertAccount({ label: name, profileDir, port, friend: '', enabled: false });
+        repos.updateAccountDisplayName(acc.id, name);
+        repos.replaceBands(acc.id, [
+          { name: '早间', startMin: 9 * 60, endMin: 12 * 60, minCount: 1, maxCount: 2 },
+          { name: '下午', startMin: 14 * 60, endMin: 18 * 60, minCount: 2, maxCount: 4 },
+          { name: '晚间', startMin: 20 * 60, endMin: 23 * 60, minCount: 2, maxCount: 4 },
+        ]);
+        const friend = String(input.friend || '').trim();
+        if (friend) repos.addFriend(acc.id, friend);
+        repos.setSetting('activeAccount', acc.label);
+        repos.logEvent('account-add', { label: acc.label, port: acc.port });
+        const restarted = service.restartScheduler();
+        return send(res, 200, { ok: true, account: { label: acc.label, name, port: acc.port }, restarted });
+      }
+      if (u.pathname === '/api/accounts/rename' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        const acc = input.label ? repos.getAccount(String(input.label)) : currentAccount();
+        if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
+        const name = String(input.name || '').trim().slice(0, 40);
+        if (!name) return send(res, 400, { ok: false, error: '名称不能为空' });
+        repos.updateAccountDisplayName(acc.id, name);
+        repos.logEvent('account-rename', { label: acc.label, name });
+        return send(res, 200, { ok: true, label: acc.label, name });
+      }
+      if (u.pathname === '/api/accounts/enable' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        const acc = input.label ? repos.getAccount(String(input.label)) : currentAccount();
+        if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
+        repos.setAccountEnabled(acc.id, input.enabled !== false);
+        repos.logEvent(input.enabled === false ? 'account-pause' : 'account-resume', { label: acc.label });
+        // each scheduler child re-reads its account state on the next loop; avoid restarting all accounts
+        return send(res, 200, { ok: true, label: acc.label, enabled: input.enabled !== false, restarted: false });
+      }
       if (u.pathname === '/api/accounts/switch' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
@@ -392,16 +491,18 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const from = currentAccount().label;
         repos.setSetting('activeAccount', target.label);
         repos.logEvent('account-switch', { from, to: target.label });
-        const restarted = service.restartScheduler();
-        return send(res, 200, { ok: true, active: target.label, restarted });
+        // all accounts schedule independently; switching only changes what the panel displays
+        return send(res, 200, { ok: true, active: target.label, restarted: false });
       }
       if (u.pathname === '/api/accounts') {
         const rows = require('./db').open().prepare('SELECT * FROM accounts ORDER BY id').all();
         const accounts = rows.map((a) => ({
           id: a.id,
           label: a.label,
+          name: a.display_name || a.label,
           port: a.port,
-          friend: a.friend,
+          friend: repos.listEnabledFriendNames(a.id)[0] || a.friend,
+          friends: repos.listEnabledFriendNames(a.id),
           enabled: !!a.enabled,
           profile: a.profile_dir,
           bands: repos.listBands(a.id).length,
@@ -428,7 +529,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         } else if (action !== 'restart') {
           return send(res, 400, { ok: false, error: 'unknown action' });
         }
-        const restarted = service.restartScheduler();
+        const restarted = action === 'restart' ? service.restartScheduler() : { ok: true, kind: 'next-loop' };
         return send(res, 200, { ok: true, action, restarted });
       }
       if (u.pathname === '/api/config' && req.method === 'GET') return send(res, 200, configFromDb());

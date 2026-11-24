@@ -42,6 +42,11 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
   cfg.poolDelayMs = repos.getSetting('poolDelayMs', 2500);
   // 'auto' = try the pure-HTTP path first, fall back to the browser; 'browser' = old behavior
   cfg.sendMode = repos.getSetting('sendMode', 'auto');
+  cfg.accountLabel = acc.label;
+  cfg.accountName = acc.display_name || acc.label;
+  cfg.friends = repos.listEnabledFriendNames(acc.id);
+  if (!cfg.friends.length && acc.friend) cfg.friends = [acc.friend];
+  cfg.friend = cfg.friends[0] || acc.friend || '';
   return cfg;
 }
 
@@ -89,22 +94,29 @@ async function stopServer(cfg) {
  */
 async function apiAttempt(cfg, { dryRun = false } = {}) {
   if (cfg.sendMode === 'browser') return null;
-  const session = apiSession.load();
-  const state = apiSession.status(session, cfg.friend);
+  const session = apiSession.load(cfg.accountLabel);
+  const state = apiSession.status(session, null);
   if (!state.valid) {
-    if (session) repos.logEvent('api-session-invalid', { reason: state.reason, ageHours: state.ageHours });
+    if (session) repos.logEvent('api-session-invalid', { account: cfg.accountLabel, reason: state.reason, ageHours: state.ageHours });
     return null;
   }
+  const friends = (cfg.friends || []).filter((f) => apiSession.canSendTo(session, f));
+  if (!friends.length) {
+    repos.logEvent('api-fallback-friend', { account: cfg.accountLabel, friends: cfg.friends });
+    return null;
+  }
+  const friend = friends[Math.floor(Math.random() * friends.length)];
+  cfg.friend = friend;
   const pools = cfg.pools.filter((p) => p.enabled);
   if (!pools.length) return null;
   const pool = pools[Math.floor(Math.random() * pools.length)];
   try {
     const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: cfg.banWords });
     if (dryRun) {
-      repos.logEvent('api-dry-run', { title: video.title, pool: pool.name });
-      return { ok: true, dryRun: true, api: true, title: video.title, video };
+      repos.logEvent('api-dry-run', { account: cfg.accountLabel, friend, title: video.title, pool: pool.name });
+      return { ok: true, dryRun: true, api: true, title: video.title, friend, video };
     }
-    const res = await apiSender.sendVideo(session, video);
+    const res = await apiSender.sendVideo(session, video, { friend });
     if (res.ok) {
       repos.insertSend({
         accountId: cfg.accountId,
@@ -120,18 +132,22 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
         shot: null,
         videoId: video.awemeId,
       });
-      repos.logEvent('sent-api', { pool: pool.name, title: video.title, serverMessageId: res.serverMessageId });
-      return { ok: true, api: true, title: video.title, toast: 'HTTP API', serverMessageId: res.serverMessageId };
+      repos.logEvent('sent-api', { account: cfg.accountLabel, pool: pool.name, friend, title: video.title, serverMessageId: res.serverMessageId });
+      return { ok: true, api: true, title: video.title, friend, toast: 'HTTP API', serverMessageId: res.serverMessageId };
     }
-    repos.logEvent('api-send-rejected', { statusCode: res.statusCode, statusMessage: res.statusMessage, title: video.title });
+    repos.logEvent('api-send-rejected', { statusCode: res.statusCode, statusMessage: res.statusMessage, title: video.title, friend });
     return null;
   } catch (e) {
-    repos.logEvent('api-send-error', { error: (e.message || '').split('\n')[0] });
+    repos.logEvent('api-send-error', { error: (e.message || '').split('\n')[0], friend });
     return null;
   }
 }
 
 async function sendOne(cfg, { dryRun = false } = {}) {
+  if (!Array.isArray(cfg.friends) || !cfg.friends.length) return { ok: false, error: 'no friend configured' };
+  if (Array.isArray(cfg.friends) && cfg.friends.length) {
+    cfg.friend = cfg.friends[Math.floor(Math.random() * cfg.friends.length)];
+  }
   const api = await apiAttempt(cfg, { dryRun });
   if (api) return api;
   const startedHere = !(await serverUp(cfg));
@@ -235,8 +251,11 @@ async function runDay(cfg, day) {
     target.setHours(Math.floor(t / 60), t % 60, Math.floor(Math.random() * 60), 0);
     const lead = target.getTime() - 3 * 60 * 1000;
     if (lead > Date.now()) await sleep(lead - Date.now());
+    const session = apiSession.load(cfg.accountLabel);
     const apiReady =
-      cfg.sendMode !== 'browser' && apiSession.status(apiSession.load(), cfg.friend).valid;
+      cfg.sendMode !== 'browser' &&
+      apiSession.status(session, null).valid &&
+      (cfg.friends || []).some((f) => apiSession.canSendTo(session, f));
     if (!started && !apiReady) {
       started = await startServer(cfg);
       if (!started) return { ok: false, reason: 'server failed' };
@@ -284,6 +303,12 @@ async function runLoop({ once = false } = {}) {
     const now = new Date();
     if (!cfg.enabled) {
       if (once) return { ok: false, reason: 'disabled' };
+      await sleep(5 * 60 * 1000);
+      continue;
+    }
+    if (!Array.isArray(cfg.friends) || !cfg.friends.length) {
+      if (once) return { ok: false, reason: 'no friends configured' };
+      repos.logEvent('no-friends', { account: cfg.accountLabel });
       await sleep(5 * 60 * 1000);
       continue;
     }

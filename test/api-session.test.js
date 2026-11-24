@@ -29,7 +29,7 @@ test('missing session / template / cookies are invalid', () => {
 test('friend mismatch is invalid', () => {
   const state = apiSession.status(session(), 'SomeoneElse');
   assert.strictEqual(state.valid, false);
-  assert.match(state.reason, /friend/);
+  assert.match(state.reason, /好友/);
 });
 
 test('expired sessions are invalid', () => {
@@ -43,6 +43,15 @@ test('valid session returns age', () => {
   const state = apiSession.status(session(), 'Hime');
   assert.strictEqual(state.valid, true);
   assert.ok(state.ageHours >= 0);
+});
+
+test('canSendTo accepts the default friend and captured friends with a create template', () => {
+  const s = session({ friends: [{ name: 'Hime', userid: '1' }, { name: '拍拍', userid: '2' }], createTemplate: { bodyB64: 'AA' } });
+  assert.strictEqual(apiSession.canSendTo(s, 'Hime'), true);
+  assert.strictEqual(apiSession.canSendTo(s, '拍拍'), true);
+  assert.strictEqual(apiSession.canSendTo(s, '别人'), false);
+  const noCreate = session({ friends: [{ name: '拍拍', userid: '2' }] });
+  assert.strictEqual(apiSession.canSendTo(noCreate, '拍拍'), false);
 });
 
 test('save/load/clear round-trip with 0600 permissions', () => {
