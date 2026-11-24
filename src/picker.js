@@ -2,7 +2,8 @@
  * @file Picks candidate videos through the browser-server HTTP API and opens the chosen card.
  */
 // Picks videos through the browser-server HTTP API. No CLI parsing here.
-const { urlFor } = require('./pools');
+const { urlFor, chooseKeyword } = require('./pools');
+const videoPicker = require('./video-picker');
 
 const EXTRACT = `(() => {
   const out = [];
@@ -47,7 +48,7 @@ const OPEN_STEP = (title) => `(() => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function parse(card, pool) {
+function parse(card, pool, source) {
   const m = card.txt.match(/^(\d{1,2}:\d{2})\s+([\d.]+万?)?\s*([\s\S]*)$/);
   const likesRaw = (m && m[2]) || '';
   const likes = likesRaw.endsWith('万') ? parseFloat(likesRaw) * 10000 : parseFloat(likesRaw) || 0;
@@ -59,7 +60,7 @@ function parse(card, pool) {
     likes,
     title: (at > 0 ? body.slice(0, at) : body).trim().slice(0, 120),
     author: at > 0 ? body.slice(at).split('·')[0].trim() : '',
-    source: urlFor(pool),
+    source: source || urlFor(pool),
   };
 }
 
@@ -73,25 +74,28 @@ async function post(base, p, body) {
 }
 
 /** Pick n candidates. `pools` = [{name, keyword, enabled}], banWords = string[]. */
-async function pick({ base, pools, banWords = [], count = 1, scanLimit = 4, poolDelayMs = 2500 }) {
-  const enabled = pools.filter((p) => p.enabled).map((p) => p.name);
+async function pick({ base, pools, banWords = [], excludeTitles = [], count = 1, scanLimit = 4, poolDelayMs = 2500, random = Math.random }) {
+  const enabled = pools.filter((p) => p.enabled && (p.keyword || p.name));
   for (let i = enabled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(random() * (i + 1));
     [enabled[i], enabled[j]] = [enabled[j], enabled[i]];
   }
   const chosen = enabled.slice(0, Math.min(scanLimit, enabled.length));
   const ban = banWords.length ? new RegExp('(' + banWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')') : /$^/;
 
   const byPool = {};
-  for (const name of chosen) {
+  for (const pool of chosen) {
+    const name = pool.name;
+    const keyword = chooseKeyword(pool, random);
+    const source = urlFor(keyword);
     try {
-      await post(base, '/goto', { url: urlFor(name) });
+      await post(base, '/goto', { url: source });
       // results are client-rendered and can take 15-40s; poll instead of a fixed sleep
       let cards = [];
       for (let tick = 0; tick < 9; tick++) {
         await sleep(1600);
         const res = await post(base, '/eval', { js: EXTRACT });
-        cards = (res.out || []).map((c) => parse(c, name)).filter((c) => c.title && !ban.test(c.title + ' ' + c.author));
+        cards = (res.out || []).map((c) => parse(c, name, source)).filter((c) => c.title && !ban.test(c.title + ' ' + c.author));
         if (cards.length >= 3) break;
       }
       if (cards.length) byPool[name] = cards;
@@ -99,20 +103,21 @@ async function pick({ base, pools, banWords = [], count = 1, scanLimit = 4, pool
       /* skip pool */
     }
     // pace the navigation: back-to-back page loads are what triggered the anti-bot challenge
-    await sleep(poolDelayMs + Math.floor(Math.random() * 2000));
+    await sleep(poolDelayMs + Math.floor(random() * 2000));
   }
 
   const poolsLeft = Object.keys(byPool);
   const out = [];
   for (let i = 0; i < count && poolsLeft.length; i++) {
-    const p = poolsLeft[Math.floor(Math.random() * poolsLeft.length)];
-    const cands = byPool[p].sort((a, b) => b.likes - a.likes).slice(0, 8);
-    const c = cands[Math.floor(Math.random() * cands.length)];
+    const p = poolsLeft[Math.floor(random() * poolsLeft.length)];
+    // Every scraped card is a candidate; recent titles are skipped while possible.
+    const c = videoPicker.chooseVideo(byPool[p], { titles: excludeTitles }, random);
+    if (!c) { poolsLeft.splice(poolsLeft.indexOf(p), 1); i--; continue; }
     out.push(c);
     byPool[p] = byPool[p].filter((x) => x !== c);
     if (!byPool[p].length) poolsLeft.splice(poolsLeft.indexOf(p), 1);
   }
-  return { picked: out, scanned: chosen, found: Object.fromEntries(Object.entries(byPool).map(([k, v]) => [k, v.length])) };
+  return { picked: out, scanned: chosen.map((p) => p.name), found: Object.fromEntries(Object.entries(byPool).map(([k, v]) => [k, v.length])) };
 }
 
 /** Open a picked card and return the modal URL (contains modal_id). */

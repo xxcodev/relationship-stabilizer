@@ -8,10 +8,12 @@ const path = require('path');
 const env = require('./env');
 const repos = require('./repos');
 const planner = require('./planner');
+const { chooseKeyword } = require('./pools');
 const picker = require('./picker');
 const apiSender = require('./api-sender');
 const apiSession = require('./api-session');
 const friendPicker = require('./friend-picker');
+const videoPicker = require('./video-picker');
 
 const hm = planner.hm;
 const sleep = picker.sleep;
@@ -61,6 +63,10 @@ const baseOf = (cfg) => `http://127.0.0.1:${cfg.port}`;
 // a second message. When all friends have been used, another evenly spread round starts.
 function chooseFriendToday(cfg, names) {
   return friendPicker.chooseFriend(names, repos.friendSendCounts(cfg.accountId, ymd(new Date())));
+}
+
+function recentVideoHistory(accountId) {
+  return videoPicker.buildHistory(repos.listRecentSentVideos(accountId, videoPicker.DEFAULT_HISTORY_DAYS));
 }
 
 async function serverUp(cfg) {
@@ -132,7 +138,14 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
   if (!pools.length) return null;
   const pool = pools[Math.floor(Math.random() * pools.length)];
   try {
-    const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: cfg.banWords });
+    const history = recentVideoHistory(cfg.accountId);
+    const keyword = chooseKeyword(pool);
+    const video = await apiSender.pick(session, {
+      keyword: keyword.startsWith('@') ? pool.name : keyword,
+      banWords: cfg.banWords,
+      excludeVideoIds: history.ids,
+      excludeTitles: history.titles,
+    });
     if (dryRun) {
       repos.logEvent('api-dry-run', { account: cfg.accountLabel, friend, title: video.title, pool: pool.name });
       return { ok: true, dryRun: true, api: true, title: video.title, friend, video };
@@ -186,10 +199,12 @@ async function sendOneBrowser(cfg, { dryRun = false } = {}) {
     repos.logEvent('captcha-blocked', { port: cfg.port, url: health.url });
     return { ok: false, error: 'captcha' };
   }
+  const history = recentVideoHistory(cfg.accountId);
   const { picked } = await picker.pick({
     base,
     pools: cfg.pools,
     banWords: cfg.banWords,
+    excludeTitles: history.titles,
     count: 1,
     poolDelayMs: cfg.poolDelayMs,
   });

@@ -209,6 +209,18 @@ function friendSendCounts(accountId, day) {
   return counts;
 }
 
+// Recently delivered videos (successful only), used to avoid sending the same clip again.
+function listRecentSentVideos(accountId, days = 30) {
+  const since = new Date(Date.now() - Math.max(1, Number(days) || 30) * 86400000).toISOString();
+  return db.open()
+    .prepare(
+      `SELECT video_id, title, friend, ts FROM sends
+       WHERE account_id = ? AND ok = 1 AND ts >= ?
+       ORDER BY ts DESC`
+    )
+    .all(accountId, since);
+}
+
 function bucketStats(accountId = null) {
   const conn = db.open();
   const sql = accountId
@@ -238,6 +250,6 @@ module.exports = {
   listPools, seedPools, setPoolEnabled,
   listBands, replaceBands,
   getPlan, savePlan,
-  insertSend, listSends, countSendsByDay, friendSendCounts, bucketStats,
+  insertSend, listSends, countSendsByDay, friendSendCounts, listRecentSentVideos, bucketStats,
   logEvent, listEvents,
 };

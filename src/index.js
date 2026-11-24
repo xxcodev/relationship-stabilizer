@@ -261,9 +261,19 @@ async function main() {
       const session = apiSession.load(acc.label);
       const state = apiSession.status(session, null);
       if (!state.valid) throw new Error(`api session not usable: ${state.reason}`);
-      const pool = repos.listPools().find((p) => p.enabled);
-      if (!pool) throw new Error('no enabled pool');
-      const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: repos.getSetting('banWords', []) });
+      const enabledPools = repos.listPools().filter((p) => p.enabled);
+      if (!enabledPools.length) throw new Error('no enabled pool');
+      const pool = enabledPools[Math.floor(Math.random() * enabledPools.length)];
+      const videoPicker = require('./video-picker');
+      const chooseKeyword = require('./pools').chooseKeyword;
+      const history = videoPicker.buildHistory(repos.listRecentSentVideos(acc.id, videoPicker.DEFAULT_HISTORY_DAYS));
+      const keyword = chooseKeyword(pool);
+      const video = await apiSender.pick(session, {
+        keyword: keyword.startsWith('@') ? pool.name : keyword,
+        banWords: repos.getSetting('banWords', []),
+        excludeVideoIds: history.ids,
+        excludeTitles: history.titles,
+      });
       const raw = args.includes('--friends') ? args[args.indexOf('--friends') + 1]
         : args.includes('--friend') ? args[args.indexOf('--friend') + 1]
         : repos.listEnabledFriendNames(acc.id)[0];

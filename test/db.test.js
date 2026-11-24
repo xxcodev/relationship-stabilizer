@@ -72,9 +72,9 @@ test('failed slots are persisted separately from done', () => {
 
 test('sends are recorded and counted per day', () => {
   const acc = repos.getAccount('T');
-  repos.insertSend({ accountId: acc.id, ts: '2026-11-23T09:00:00.000Z', day: '2026-11-23', bucket: '韩剧', title: 'x', friend: 'Hime', ok: true, toast: '分享成功' });
+  repos.insertSend({ accountId: acc.id, ts: '2026-11-23T09:00:00.000Z', day: '2026-11-23', bucket: '韩剧', title: 'x', friend: 'Hime', ok: true, toast: '分享成功', videoId: 'v1' });
   repos.insertSend({ accountId: acc.id, ts: '2026-11-23T10:00:00.000Z', day: '2026-11-23', bucket: '搞笑', title: 'y', friend: 'Hime', ok: false, toast: 'boom' });
-  repos.insertSend({ accountId: acc.id, ts: '2026-11-24T09:00:00.000Z', day: '2026-11-24', bucket: '日番', title: 'z', friend: '拍拍', ok: true, toast: '分享成功' });
+  repos.insertSend({ accountId: acc.id, ts: '2026-11-24T09:00:00.000Z', day: '2026-11-24', bucket: '日番', title: 'z', friend: '拍拍', ok: true, toast: '分享成功', videoId: 'v2' });
   repos.insertSend({ accountId: acc.id, ts: '2026-11-24T10:00:00.000Z', day: '2026-11-24', bucket: '日番', title: 'w', friend: 'Hime', ok: false, toast: 'boom' });
   assert.equal(repos.countSendsByDay('2026-11-23', acc.id), 1); // only ok=1 counts as sent
   const stats = repos.bucketStats(acc.id);
@@ -82,6 +82,19 @@ test('sends are recorded and counted per day', () => {
   assert.equal(repos.listSends({ accountId: acc.id, limit: 10 }).length, 4);
   assert.deepEqual(repos.friendSendCounts(acc.id, '2026-11-23'), { Hime: 1 });
   assert.deepEqual(repos.friendSendCounts(acc.id, '2026-11-24'), { 拍拍: 1 }); // failures don't count
+});
+
+test('recent sent videos only includes successful sends in the window', () => {
+  const acc = repos.getAccount('T');
+  const now = new Date().toISOString();
+  const day = now.slice(0, 10);
+  repos.insertSend({ accountId: acc.id, ts: now, day, bucket: 'test', title: 'recent', friend: 'Hime', ok: true, toast: 'ok', videoId: 'recent-1' });
+  repos.insertSend({ accountId: acc.id, ts: now, day, bucket: 'test', title: 'failed', friend: 'Hime', ok: false, toast: 'no', videoId: 'failed-1' });
+  repos.insertSend({ accountId: acc.id, ts: '2020-01-01T00:00:00.000Z', day: '2020-01-01', bucket: 'test', title: 'old', friend: 'Hime', ok: true, toast: 'ok', videoId: 'old-1' });
+  const rows = repos.listRecentSentVideos(acc.id, 30);
+  assert.ok(rows.some((r) => r.video_id === 'recent-1'));
+  assert.ok(!rows.some((r) => r.video_id === 'failed-1'));
+  assert.ok(!rows.some((r) => r.video_id === 'old-1'));
 });
 
 test('events with the same timestamp are idempotent', () => {

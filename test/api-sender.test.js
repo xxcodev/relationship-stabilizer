@@ -33,3 +33,13 @@ test('sendVideo refuses unknown friends instead of falling back silently', async
   assert.strictEqual(out.ok, false);
   assert.match(out.error, /不在会话好友列表/);
 });
+
+test('buildSearchUrl swaps keywords and starts from the first result page', () => {
+  const s = { searchUrl: 'https://www.douyin.com/aweme/v1/web/general/search/single/?keyword=%E6%97%A5%E6%BC%AB&offset=10&count=10&a_bogus=x&msToken=y' };
+  const u = new URL(apiSender.buildSearchUrl(s, '韩剧推荐'));
+  assert.equal(u.searchParams.get('keyword'), '韩剧推荐');
+  assert.equal(u.searchParams.get('offset'), '0');
+  assert.equal(u.searchParams.get('count'), '10');
+  assert.equal(u.searchParams.has('a_bogus'), false);
+  assert.equal(u.searchParams.has('msToken'), false);
+});

@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const apiProto = require('./api-proto');
 const apiSession = require('./api-session');
+const videoPicker = require('./video-picker');
 
 const UA =
   process.env.API_UA ||
@@ -32,6 +33,8 @@ function buildSearchUrl(session, keyword) {
     }
   }
   if (!replaced) url.searchParams.set('keyword', keyword);
+  // The captured URL can be on page 3+; always start from the top of this keyword.
+  if (url.searchParams.has('offset')) url.searchParams.set('offset', '0');
   return url.toString();
 }
 
@@ -65,13 +68,16 @@ function cardContent(video) {
 }
 
 /** Pick one candidate via the search API. Throws when the session/API is unusable. */
-async function pick(session, { keyword, banWords = [] } = {}) {
+async function pick(session, { keyword, banWords = [], excludeVideoIds = [], excludeTitles = [] } = {}) {
   if (!keyword) throw new Error('missing pool keyword');
   const json = await readJson(buildSearchUrl(session, keyword), session);
+  if (json.status_code != null && json.status_code !== 0) {
+    throw new Error(json.status_msg || `search status_code ${json.status_code}`);
+  }
   const ban = banWords.length
     ? new RegExp('(' + banWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')')
     : /$^/;
-  const candidates = [];
+  const candidates = new Map();
   for (const item of json.data || []) {
     const aweme = item && item.aweme_info;
     if (!aweme || !aweme.aweme_id) continue;
@@ -82,8 +88,10 @@ async function pick(session, { keyword, banWords = [] } = {}) {
     const title = String(aweme.desc || '').trim();
     if (!title) continue;
     if (ban.test(title)) continue;
-    candidates.push({
-      awemeId: String(aweme.aweme_id),
+    const awemeId = String(aweme.aweme_id);
+    if (candidates.has(awemeId)) continue;
+    candidates.set(awemeId, {
+      awemeId,
       title: title.slice(0, 120),
       author: (aweme.author && aweme.author.nickname) || '',
       likes: Number((aweme.statistics && aweme.statistics.digg_count) || 0),
@@ -96,10 +104,13 @@ async function pick(session, { keyword, banWords = [] } = {}) {
       uid: (aweme.author && aweme.author.uid) || '',
     });
   }
-  if (!candidates.length) throw new Error('no candidate from search API');
-  candidates.sort((a, b) => b.likes - a.likes);
-  const pool = candidates.slice(0, 8);
-  return pool[Math.floor(Math.random() * pool.length)];
+  if (!candidates.size) throw new Error('no candidate from search API');
+  const chosen = videoPicker.chooseVideo([...candidates.values()], {
+    ids: excludeVideoIds,
+    titles: excludeTitles,
+  });
+  if (!chosen) throw new Error('no candidate from search API');
+  return chosen;
 }
 
 /** Recent friends captured from the share panel: [{name, userid}]. */

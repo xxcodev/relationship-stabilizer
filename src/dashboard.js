@@ -10,8 +10,10 @@ const path = require('path');
 const env = require('./env');
 const repos = require('./repos');
 const planner = require('./planner');
+const { chooseKeyword } = require('./pools');
 const service = require('./service');
 const apiSession = require('./api-session');
+const videoPicker = require('./video-picker');
 
 function settingOn(key, dflt = '1') {
   const value = repos.getSetting(key, dflt);
@@ -486,7 +488,14 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         if (!pools.length) return send(res, 400, { ok: false, error: '没有启用的视频池' });
         const pool = pools[Math.floor(Math.random() * pools.length)];
         try {
-          const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: repos.getSetting('banWords', []) });
+          const history = videoPicker.buildHistory(repos.listRecentSentVideos(acc.id, videoPicker.DEFAULT_HISTORY_DAYS));
+          const keyword = chooseKeyword(pool);
+          const video = await apiSender.pick(session, {
+            keyword: keyword.startsWith('@') ? pool.name : keyword,
+            banWords: repos.getSetting('banWords', []),
+            excludeVideoIds: history.ids,
+            excludeTitles: history.titles,
+          });
           if (dry) {
             return send(res, 200, { ok: true, dry: true, friends: list, picked: video });
           }
