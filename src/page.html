@@ -55,6 +55,8 @@
   .btn.success{background:linear-gradient(180deg,#2fae62,#248a4d);border-color:#37c274;color:#eafff2}
   .btn.success:hover{background:linear-gradient(180deg,#37c274,#2a9a58)}
   .btn.ghost{background:transparent}
+  .btn.soft{background:rgba(255,255,255,.045);border-color:var(--line2);color:var(--txt)}
+  .btn.soft:hover{background:rgba(255,255,255,.09);border-color:#3b4962}
   .btn.sm{padding:6px 11px;font-size:12px;border-radius:9px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;font-size:12px;border:1px solid var(--line2);
@@ -63,6 +65,13 @@
   .pill.warn{color:#ffd18a;border-color:rgba(245,165,36,.45);background:rgba(245,165,36,.09)}
   .pill.bad{color:#ffb3b3;border-color:rgba(255,93,93,.45);background:rgba(255,93,93,.1)}
   .pill.blue{color:#c7d8ff;border-color:rgba(91,140,255,.45);background:rgba(91,140,255,.12)}
+  .top-actions{row-gap:8px}
+  .top-actions .btn,.top-actions .pill{height:38px;min-height:38px;padding:0 16px;border-radius:10px;font-size:13px;font-weight:500;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+  .top-actions .pill{border-radius:10px;font-variant-numeric:tabular-nums}
+  .top-actions .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.85;flex:0 0 6px}
+  .top-actions .pill.ok::before{background:var(--ok);opacity:1}
+  .top-actions .pill.warn::before{background:var(--warn);opacity:1}
+  .top-actions .pill.bad::before{background:var(--bad);opacity:1}
 
   /* cards / layout */
   .card{background:linear-gradient(180deg,rgba(22,29,43,.92),rgba(17,23,35,.92));border:1px solid var(--line);border-radius:var(--r);
@@ -245,9 +254,9 @@
       </div>
       <div class="top-actions">
         <span class="pill" id="svcPill">检查中…</span>
-        <button class="btn ghost" id="btnPause">暂停</button>
-        <button class="btn success" id="btnResume">继续</button>
-        <button class="btn ghost" id="btnRestart">重启服务</button>
+        <button class="btn soft" id="btnPause">暂停</button>
+        <button class="btn soft" id="btnResume">继续</button>
+        <button class="btn soft" id="btnRestart">重启服务</button>
         <button class="btn primary" id="btnSendNow">立即发送一次</button>
       </div>
     </header>
