@@ -173,4 +173,4 @@ macOS(launchd)与 Linux(systemd --user)的示例配置见 `docs/daemon.md`;
 
 ## 许可
 
-本仓库未声明开源许可,默认保留所有权利。需要对外分发时再补充 LICENSE。
+本项目以 GPL-3.0 许可发布,详见 [LICENSE](LICENSE)。

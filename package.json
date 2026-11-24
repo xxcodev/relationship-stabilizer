@@ -37,7 +37,7 @@
     "dashboard"
   ],
   "author": "wenwu <wenwu@gxshxc.com>",
-  "license": "UNLICENSED",
+  "license": "GPL-3.0-only",
   "main": "app/main.js",
   "bin": {
     "douyin-forwarder": "src/index.js"
