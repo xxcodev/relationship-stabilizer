@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.19.2 — 2026-11-24
+
+- **互关好友分页修正**:网页端 `following/list` 的下一页游标是响应里的 `min_time`，不是 `max_time`。
+  之前回传 `max_time` 只会重复读取列表顶部：测试账号 62 位关注只扫描到 49 位、只识别出 2 位互关；
+  改用 `min_time` 后完整扫描 62 位，识别出 6 位互关。
+- 互关接口响应新增 `complete`（是否扫完全部关注）；分页中断时 `errors` 会带上原因。
+- 接口调研：网页端没有独立的互关/好友列表接口，仍需 `following/list` + `follow_status=2` 过滤；
+  Desktop IM 的 `/aweme/v1/web/familiar/list/` 需要桌面端签名票据，现有网页登录态无法直接调用。
+
+
 ## 0.19.1 — 2026-11-24
 
 - 修复 0.18.0 误删 `updateFriendsCount` / `selectAllFriends` 导致首页快速发送区加载中断：

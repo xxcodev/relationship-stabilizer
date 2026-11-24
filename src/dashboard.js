@@ -147,24 +147,23 @@ async function fetchMutualFriends(acc) {
       const mutual = [];
       const seen = new Set();
       const seenMutual = new Set();
+      // following/list pages are bounded by min_time, not max_time. Passing max_time back
+      // only re-reads the top of the list and silently drops most of the roster.
       let maxTime = 0;
-      let offset = 0;
       let page = 0;
       let scanned = 0;
       let error = null;
       while (page < 30) {
-        const url = '/aweme/v1/web/user/following/list/?' + common + '&sec_user_id=' + sec + '&max_time=' + maxTime + '&offset=' + offset;
+        const url = '/aweme/v1/web/user/following/list/?' + common + '&sec_user_id=' + sec + '&max_time=' + maxTime + '&min_time=0&offset=0';
         const j = await fetch(url, { credentials: 'include', headers: { referer: location.href } })
           .then((r) => r.json()).catch((e) => ({ error: e.message }));
         if (!j || j.status_code !== 0) { error = String((j && (j.status_msg || j.error)) || '接口失败'); break; }
         const list = j.followings || [];
-        let added = 0;
         for (const u of list) {
           const id = String(u.uid || u.sec_uid || '');
           if (!id || seen.has(id)) continue;
           seen.add(id);
           scanned++;
-          added++;
           // follow_status 2 / relation_label 好友 = 互相关注
           if (u.follow_status === 2 || (u.relation_label && String(u.relation_label).includes('好友'))) {
             if (seenMutual.has(id)) continue;
@@ -172,17 +171,23 @@ async function fetchMutualFriends(acc) {
             mutual.push({ name: u.nickname || '', uid: String(u.uid || ''), sec_uid: u.sec_uid || '', unique_id: u.unique_id || '' });
           }
         }
-        if (!j.has_more || !added) break;
-        maxTime = j.max_time || maxTime;
-        offset = 0;
+        if (!j.has_more) break;
+        const nextMaxTime = Number(j.min_time) || 0;
+        if (!nextMaxTime || (maxTime && nextMaxTime >= maxTime)) {
+          error = '关注列表分页游标没有进展';
+          break;
+        }
+        maxTime = nextMaxTime;
         page++;
       }
+      const followingTotal = Number(prof.user.following_count) || scanned;
       return {
         ok: true,
         self: { nickname: prof.user.nickname, uid: String(prof.user.uid || ''), sec_uid: prof.user.sec_uid },
         mutual,
         following: scanned,
-        followingTotal: Number(prof.user.following_count) || scanned,
+        followingTotal,
+        complete: scanned >= followingTotal,
         followers: Number(prof.user.follower_count) || null,
         errors: error ? [error] : [],
       };
