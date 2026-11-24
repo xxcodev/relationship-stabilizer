@@ -9,6 +9,8 @@ const env = require('./env');
 const repos = require('./repos');
 const planner = require('./planner');
 const picker = require('./picker');
+const apiSender = require('./api-sender');
+const apiSession = require('./api-session');
 
 const hm = planner.hm;
 const sleep = picker.sleep;
@@ -38,6 +40,8 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
   cfg.pools = repos.listPools().map((p) => ({ name: p.name, keyword: p.keyword, enabled: !!p.enabled }));
   cfg.banWords = repos.getSetting('banWords', []);
   cfg.poolDelayMs = repos.getSetting('poolDelayMs', 2500);
+  // 'auto' = try the pure-HTTP path first, fall back to the browser; 'browser' = old behavior
+  cfg.sendMode = repos.getSetting('sendMode', 'auto');
   return cfg;
 }
 
@@ -79,7 +83,67 @@ async function stopServer(cfg) {
   return false;
 }
 
+/**
+ * Pure-HTTP attempt. Returns a result object when the API path handled the send, or null to let
+ * the caller fall back to the browser path (no/invalid session, template rejected, network error).
+ */
+async function apiAttempt(cfg, { dryRun = false } = {}) {
+  if (cfg.sendMode === 'browser') return null;
+  const session = apiSession.load();
+  const state = apiSession.status(session, cfg.friend);
+  if (!state.valid) {
+    if (session) repos.logEvent('api-session-invalid', { reason: state.reason, ageHours: state.ageHours });
+    return null;
+  }
+  const pools = cfg.pools.filter((p) => p.enabled);
+  if (!pools.length) return null;
+  const pool = pools[Math.floor(Math.random() * pools.length)];
+  try {
+    const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: cfg.banWords });
+    if (dryRun) {
+      repos.logEvent('api-dry-run', { title: video.title, pool: pool.name });
+      return { ok: true, dryRun: true, api: true, title: video.title, video };
+    }
+    const res = await apiSender.sendVideo(session, video);
+    if (res.ok) {
+      repos.insertSend({
+        accountId: cfg.accountId,
+        ts: new Date().toISOString(),
+        day: ymd(new Date()),
+        bucket: pool.name,
+        title: video.title,
+        author: video.author,
+        likes: video.likes,
+        friend: cfg.friend,
+        ok: true,
+        toast: 'HTTP API',
+        shot: null,
+        videoId: video.awemeId,
+      });
+      repos.logEvent('sent-api', { pool: pool.name, title: video.title, serverMessageId: res.serverMessageId });
+      return { ok: true, api: true, title: video.title, toast: 'HTTP API', serverMessageId: res.serverMessageId };
+    }
+    repos.logEvent('api-send-rejected', { statusCode: res.statusCode, statusMessage: res.statusMessage, title: video.title });
+    return null;
+  } catch (e) {
+    repos.logEvent('api-send-error', { error: (e.message || '').split('\n')[0] });
+    return null;
+  }
+}
+
 async function sendOne(cfg, { dryRun = false } = {}) {
+  const api = await apiAttempt(cfg, { dryRun });
+  if (api) return api;
+  const startedHere = !(await serverUp(cfg));
+  if (startedHere && !(await startServer(cfg))) return { ok: false, error: 'server failed' };
+  try {
+    return await sendOneBrowser(cfg, { dryRun });
+  } finally {
+    if (startedHere) await stopServer(cfg);
+  }
+}
+
+async function sendOneBrowser(cfg, { dryRun = false } = {}) {
   const base = baseOf(cfg);
   const health = await serverUp(cfg);
   if (health && health.challenge) {
@@ -171,7 +235,9 @@ async function runDay(cfg, day) {
     target.setHours(Math.floor(t / 60), t % 60, Math.floor(Math.random() * 60), 0);
     const lead = target.getTime() - 3 * 60 * 1000;
     if (lead > Date.now()) await sleep(lead - Date.now());
-    if (!started) {
+    const apiReady =
+      cfg.sendMode !== 'browser' && apiSession.status(apiSession.load(), cfg.friend).valid;
+    if (!started && !apiReady) {
       started = await startServer(cfg);
       if (!started) return { ok: false, reason: 'server failed' };
     }
@@ -245,4 +311,4 @@ async function runLoop({ once = false } = {}) {
   }
 }
 
-module.exports = { runLoop, runDay, sendOne, runtimeConfig, startServer, stopServer };
+module.exports = { runLoop, runDay, sendOne, sendOneBrowser, apiAttempt, runtimeConfig, startServer, stopServer };

@@ -185,6 +185,106 @@ function account() {
   }
 }
 
+function sendMode() {
+  try {
+    return require('../src/repos').getSetting('sendMode', 'auto');
+  } catch (e) {
+    return 'browser';
+  }
+}
+
+function setSendMode(mode) {
+  try {
+    require('../src/repos').setSetting('sendMode', mode);
+    return true;
+  } catch (e) {
+    log(`setSendMode failed: ${e.message}`);
+    return false;
+  }
+}
+
+function apiSessionInfo() {
+  try {
+    const apiSession = require('../src/api-session');
+    const repos = require('../src/repos');
+    const acc = repos.getAccount();
+    const session = apiSession.load();
+    return { file: apiSession.FILE, session, state: apiSession.status(session, acc && acc.friend), friend: acc && acc.friend };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+function showApiStatus() {
+  const info = apiSessionInfo();
+  if (info.error) {
+    dialog.showErrorBox('纯 API 会话', info.error);
+    return;
+  }
+  const s = info.session;
+  const st = info.state;
+  const lines = [
+    `发送模式：${sendMode() === 'auto' ? '纯 API 优先（失败回退浏览器）' : '仅浏览器'}`,
+    `会话文件：${info.file}`,
+    s
+      ? [
+          `状态：${st.valid ? '可用' : '不可用（' + st.reason + '）'}`,
+          `账号 / 好友：${s.account || '-'} / ${s.friend || '-'}`,
+          `抓取时间：${new Date(s.createdAt).toLocaleString('zh-CN', { hour12: false })}（${st.ageHours}h 前）`,
+          `模板 / cookies：${s.template ? s.template.bodyB64.length + ' base64 字符' : '无'} / ${(s.cookies || []).length} 条`,
+        ].join('\n')
+      : '还没有导出过会话。点「导出/刷新纯 API 会话…」，会短暂启动一个最小化浏览器（不会真的发送）。',
+  ];
+  dialog.showMessageBox({ type: 'info', title: '纯 API 会话', message: `纯 API 会话（${st.valid ? '可用' : '未就绪'}）`, detail: lines.join('\n\n') });
+}
+
+async function exportApiSession() {
+  if (sendMode() !== 'auto') setSendMode('auto');
+  const ask = await dialog.showMessageBox({
+    type: 'question',
+    title: '导出纯 API 会话',
+    message: '导出纯 API 会话？',
+    detail:
+      '会短暂启动一个最小化的 Chrome（不会弹出窗口），走一次「搜索 → 打开视频 → 分享面板 → 点好友」流程，' +
+      '捕获发送请求后立即中断，不会真的发送消息。\n\n需要账号已登录、且当前没有正在运行的抖音画面。',
+    buttons: ['开始导出', '取消'],
+    defaultId: 0,
+    cancelId: 1,
+  });
+  if (ask.response !== 0) return;
+
+  log('api export: start');
+  const child = spawn(process.execPath, [path.join(ROOT, 'src', 'index.js'), 'api:export'], {
+    cwd: ROOT,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let output = '';
+  child.stdout.on('data', (chunk) => {
+    output += chunk;
+    for (const line of String(chunk).split('\n').filter(Boolean)) log(`api export: ${line}`);
+  });
+  child.stderr.on('data', (chunk) => {
+    output += chunk;
+    for (const line of String(chunk).split('\n').filter(Boolean)) log(`api export err: ${line}`);
+  });
+  child.on('exit', (code) => {
+    log(`api export: exited ${code}`);
+    refreshTrayMenu();
+    const tail = output.trim().split('\n').slice(-12).join('\n');
+    if (code === 0) {
+      dialog.showMessageBox({
+        type: 'info',
+        title: '纯 API 会话',
+        message: '纯 API 会话已更新',
+        detail: `${tail}\n\n之后发送会优先走 HTTP；失败会自动回退到浏览器。`,
+      });
+    } else {
+      dialog.showErrorBox('导出纯 API 会话失败', `${tail || '没有输出'}\n\n完整日志见 data/logs/app.log`);
+    }
+  });
+}
+
 function showWindow() {
   if (!win) return createWindow();
   if (win.isMinimized()) win.restore();
@@ -271,6 +371,24 @@ function buildTrayMenu() {
       },
     },
     item('选择数据目录…', () => chooseDataDir()),
+    { type: 'separator' },
+    {
+      label: '纯 API（实验）',
+      submenu: [
+        {
+          label: '纯 API 优先',
+          type: 'checkbox',
+          checked: sendMode() === 'auto',
+          click: async (menuItem) => {
+            setSendMode(menuItem.checked ? 'auto' : 'browser');
+            await api('restart');
+            refreshTrayMenu();
+          },
+        },
+        item('导出/刷新纯 API 会话…', () => exportApiSession()),
+        item('纯 API 会话状态…', () => showApiStatus()),
+      ],
+    },
     { type: 'separator' },
     item(`关于 ${TITLE} v${app.getVersion()}`, () => about()),
     item('退出', () => app.quit(), { accelerator: 'CmdOrCtrl+Q' }),
@@ -429,6 +547,7 @@ function about() {
       `数据目录：${dataDir}\n` +
       `面板端口：${port}\n` +
       `浏览器：${BUNDLED_BROWSER ? '自带 Chromium(独立登录态)' : '系统 Google Chrome'}\n` +
+      `发送模式：${sendMode() === 'auto' ? '纯 API 优先（失败回退浏览器）' : '仅浏览器'}\n` +
       `日志：${logDir}\n` +
       `Electron ${process.versions.electron} / Node ${process.versions.node}`,
   });

@@ -134,6 +134,77 @@ async function main() {
       throw new Error('usage: account list | add | enable <label> | disable <label> | remove <label> [--force]');
     }
 
+    case 'api:export': {
+      dbReady();
+      const out = await require('./api-export').exportSession({
+        accountLabel: args.includes('--account') ? args[args.indexOf('--account') + 1] : process.env.ACCOUNT || null,
+        keyword: args.includes('--keyword') ? args[args.indexOf('--keyword') + 1] : undefined,
+      });
+      console.log(JSON.stringify({ ok: out.ok, file: out.file, account: out.account, friend: out.friend, keyword: out.keyword }, null, 2));
+      break;
+    }
+
+    case 'api:status': {
+      dbReady();
+      const repos = require('./repos');
+      const apiSession = require('./api-session');
+      const acc = repos.getAccount();
+      const session = apiSession.load();
+      const state = apiSession.status(session, acc && acc.friend);
+      console.log(JSON.stringify({
+        file: apiSession.FILE,
+        present: !!session,
+        account: session && session.account,
+        friend: session && session.friend,
+        keyword: session && session.keyword,
+        createdAt: session && session.createdAt,
+        ageHours: state.ageHours,
+        valid: state.valid,
+        reason: state.reason,
+        templateBytes: session && session.template ? session.template.bodyB64.length : 0,
+        cookies: session ? (session.cookies || []).length : 0,
+        sendMode: repos.getSetting('sendMode', 'auto'),
+      }, null, 2));
+      break;
+    }
+
+    case 'api:clear': {
+      dbReady();
+      require('./api-session').clear();
+      console.log('api session cleared');
+      break;
+    }
+
+    case 'api:mode': {
+      dbReady();
+      const mode = args[0];
+      if (!['auto', 'browser'].includes(mode)) throw new Error('usage: node src/index.js api:mode auto|browser');
+      require('./repos').setSetting('sendMode', mode);
+      console.log(`sendMode = ${mode}`);
+      break;
+    }
+
+    case 'api:send': {
+      dbReady();
+      const apiSender = require('./api-sender');
+      const apiSession = require('./api-session');
+      const repos = require('./repos');
+      const acc = repos.getAccount();
+      if (!acc) throw new Error('no account configured');
+      const session = apiSession.load();
+      const state = apiSession.status(session, acc.friend);
+      if (!state.valid) throw new Error(`api session not usable: ${state.reason}`);
+      const pool = repos.listPools().find((p) => p.enabled);
+      if (!pool) throw new Error('no enabled pool');
+      const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: repos.getSetting('banWords', []) });
+      console.log(JSON.stringify({ picked: video.title, pool: pool.name, awemeId: video.awemeId }, null, 2));
+      if (args.includes('--dry')) break;
+      const res = await apiSender.sendVideo(session, video);
+      console.log(JSON.stringify(res, null, 2));
+      if (!res.ok) process.exitCode = 1;
+      break;
+    }
+
     case 'doctor': {
       const rs = await require('./doctor').run();
       for (const r of rs) console.log(`${r.ok ? '✔' : '✖'} ${r.label.padEnd(16)} ${r.detail}`);
@@ -204,13 +275,10 @@ async function main() {
 
     case 'send-once': {
       dbReady();
-      const { runtimeConfig, startServer, stopServer, sendOne } = require('./scheduler');
+      const { runtimeConfig, sendOne } = require('./scheduler');
       const cfg = runtimeConfig();
       const dry = args.includes('--dry');
-      const up = await startServer(cfg);
-      if (!up) throw new Error('browser server failed to start');
       const res = await sendOne(cfg, { dryRun: dry }).catch((e) => ({ ok: false, error: e.message }));
-      await stopServer(cfg);
       console.log(JSON.stringify(res, null, 2));
       break;
     }

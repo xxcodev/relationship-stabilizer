@@ -15,4 +15,4 @@ jobs:
           node-version: 24
       - run: npm install
       # browser-layer tests need a real Chrome/Chromium and are excluded on CI
-      - run: node --test test/planner.test.js test/db.test.js test/importer.test.js
+      - run: node --test test/planner.test.js test/db.test.js test/importer.test.js test/api-proto.test.js test/api-session.test.js

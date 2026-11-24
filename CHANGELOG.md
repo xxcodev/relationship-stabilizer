@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.11.0 — 2026-11-24
+
+- **纯 API 发送模式（实验）**：发送不再必须启动浏览器。
+  - `api:export`：短暂启动一个最小化浏览器，走一次分享流程并**中断发送**，只导出
+    cookies + 一条 protobuf 发送模板（默认 12 小时有效，`API_SESSION_MAX_HOURS` 可调）。
+  - `api-sender`：带 cookies 直接调用只读搜索接口选片，再用模板构造
+    `POST imapi.douyin.com/v1/message/send` 发送视频卡片；整条链路没有浏览器进程。
+  - 调度器 `sendMode`：`auto`（默认，API 优先、失败自动回退浏览器）/ `browser`（旧行为）；
+    回退与失败都会写 events（`api-session-invalid` / `api-send-rejected` / `api-send-error`）。
+  - CLI：`api:export` / `api:status` / `api:send` / `api:mode auto|browser` / `api:clear`；
+    托盘菜单新增「纯 API（实验）」子菜单（优先级开关、导出会话、会话状态）。
+  - 安全：会话文件 `data/api-session.json` 含 cookies/ticket，0600 权限、位于 gitignore 的 data/ 下。
+- 修复 `send-once` 在纯 API 模式下也会先启动浏览器的问题（现在由 sendOne 按需启动）。
+- 文档：`docs/api-mode.md`；`docs/api-poc.md` 记录验证过程与限制。
+
+
 ## 0.10.0 — 2026-11-24
 
 - **自带浏览器版**:`npm run browser:install` 把 Playwright 的 Chromium(Chrome for Testing)

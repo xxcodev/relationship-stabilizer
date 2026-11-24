@@ -50,6 +50,10 @@ npm run dashboard         # http://127.0.0.1:9400
 
 ```bash
 npm run schedule          # 常驻,按数据库里的时段发送
+node src/index.js api:export    # 导出纯 API 会话(短暂开一次最小化浏览器,不发送)
+node src/index.js api:status    # 会话是否可用
+node src/index.js api:mode auto|browser
+
 ```
 
 ## 目录结构
