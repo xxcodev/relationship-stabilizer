@@ -174,7 +174,7 @@ async function main() {
         friends: session ? (session.friends || []).length : 0,
         hasCreateTemplate: !!(session && session.createTemplate),
         sendMode: repos.getSetting('sendMode', 'auto'),
-        autoRefresh: repos.getSetting('apiAutoRefresh', '1') === '1',
+        autoRefresh: !(repos.getSetting('apiAutoRefresh', '1') === 0 || repos.getSetting('apiAutoRefresh', '1') === '0' || repos.getSetting('apiAutoRefresh', '1') === false),
       }, null, 2));
       break;
     }

@@ -12,6 +12,11 @@ const planner = require('./planner');
 const service = require('./service');
 const apiSession = require('./api-session');
 
+function settingOn(key, dflt = '1') {
+  const value = repos.getSetting(key, dflt);
+  return !(value === 0 || value === '0' || value === false);
+}
+
 const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
 
 const hm = planner.hm;
@@ -290,7 +295,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           friends: session ? (session.friends || []).length : 0,
           hasCreateTemplate: !!(session && session.createTemplate),
           sendMode: repos.getSetting('sendMode', 'auto'),
-          autoRefresh: repos.getSetting('apiAutoRefresh', '1') !== '0',
+          autoRefresh: settingOn('apiAutoRefresh'),
           maxAgeHours: apiSession.DEFAULT_MAX_AGE_HOURS,
         });
       }

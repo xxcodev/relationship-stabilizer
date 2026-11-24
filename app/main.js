@@ -207,7 +207,8 @@ function setSendMode(mode) {
 
 function apiAutoRefreshEnabled() {
   try {
-    return require('../src/repos').getSetting('apiAutoRefresh', '1') !== '0';
+    const value = require('../src/repos').getSetting('apiAutoRefresh', '1');
+    return !(value === 0 || value === '0' || value === false);
   } catch (e) {
     return false;
   }
