@@ -91,16 +91,14 @@ async function runSendJob({ dry = false } = {}) {
   sendJob.result = null;
   sendJob.dry = dry;
   try {
-    const started = await scheduler.startServer(cfg);
-    if (!started) throw new Error('浏览器启动失败');
+    // sendOne decides whether the browser is needed (pure-API mode skips it entirely) and
+    // starts/stops the browser itself on the fallback path.
     const res = await scheduler.sendOne(cfg, { dryRun: dry }).catch((e) => ({ ok: false, error: e.message }));
-    await scheduler.stopServer(cfg);
     sendJob.result = res;
     sendJob.status = res && res.ok ? 'done' : 'failed';
   } catch (e) {
     sendJob.result = { ok: false, error: e.message.split('\n')[0] };
     sendJob.status = 'failed';
-    try { await scheduler.stopServer(cfg); } catch (err) {}
   }
   repos.logEvent('manual-send', { dry, status: sendJob.status, result: sendJob.result });
   return sendJob;
