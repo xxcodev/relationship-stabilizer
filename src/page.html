@@ -823,7 +823,7 @@ async function setAccountEnabled(label, enabled) {
 }
 
 async function switchAccount(label) {
-  if (!window.confirm('切换到账户「' + label + '」并重启调度？')) return;
+  if (!window.confirm('把面板切换到账户「' + label + '」查看？其他账户会继续按各自排班发送。')) return;
   try {
     const r = await postJSON('/api/accounts/switch', { label });
     toast('已切换到 ' + r.active, 'ok');
