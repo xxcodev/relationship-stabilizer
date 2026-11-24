@@ -1099,7 +1099,7 @@ async function loadMutualFriends() {
     if (!r.ok) throw new Error(r.error || '读取失败');
     mutualCache = r;
     const existing = new Set(((state.accounts && state.accounts.accounts) || []).find((a) => a.label === r.label)?.friends || []);
-    info.textContent = (r.self && r.self.nickname ? ('账户 ' + r.self.nickname + ' · ') : '') + '关注 ' + r.following + ' · 粉丝 ' + r.followers + ' · 互关 ' + r.mutual.length;
+    info.textContent = (r.self && r.self.nickname ? ('账户 ' + r.self.nickname + ' · ') : '') + '关注 ' + (r.followingTotal ?? r.following) + ' · 粉丝 ' + (r.followers ?? '-') + ' · 互关 ' + r.mutual.length + (r.followingTotal > r.following ? '（已扫描 ' + r.following + '）' : '');
     document.getElementById('mutualList').innerHTML = r.mutual.length
       ? r.mutual.map((u, i) => '<label class="friend-check"><input type="checkbox" data-mutual="' + i + '"' + (existing.has(u.name) ? '' : ' checked') + '> ' + esc(u.name) + (existing.has(u.name) ? ' <span class="muted">已有</span>' : '') + '</label>').join('')
       : '<span class="muted">没有互关好友（或对方列表不可见）</span>';

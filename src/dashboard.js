@@ -144,43 +144,47 @@ async function fetchMutualFriends(acc) {
         .then((r) => r.json()).catch((e) => ({ error: e.message }));
       if (!prof || !prof.user || !prof.user.sec_uid) return { ok: false, error: (prof && prof.status_msg) || '未登录' };
       const sec = encodeURIComponent(prof.user.sec_uid);
-      async function collect(path, key) {
-        const items = []; const seen = new Set(); let maxTime = 0; let offset = 0; let page = 0; let error = null;
-        while (page < 30) {
-          const url = path + '?' + common + '&sec_user_id=' + sec + '&max_time=' + maxTime + '&offset=' + offset;
-          const j = await fetch(url, { credentials: 'include', headers: { referer: location.href } })
-            .then((r) => r.json()).catch((e) => ({ error: e.message }));
-          if (!j || j.status_code !== 0) { error = String((j && (j.status_msg || j.error)) || '接口失败'); break; }
-          const list = j[key] || [];
-          let added = 0;
-          for (const u of list) {
-            const id = String(u.uid || u.sec_uid || '');
-            if (!id || seen.has(id)) continue;
-            seen.add(id);
-            items.push({ name: u.nickname || '', uid: String(u.uid || ''), sec_uid: u.sec_uid || '', unique_id: u.unique_id || '' });
-            added++;
+      const mutual = [];
+      const seen = new Set();
+      const seenMutual = new Set();
+      let maxTime = 0;
+      let offset = 0;
+      let page = 0;
+      let scanned = 0;
+      let error = null;
+      while (page < 30) {
+        const url = '/aweme/v1/web/user/following/list/?' + common + '&sec_user_id=' + sec + '&max_time=' + maxTime + '&offset=' + offset;
+        const j = await fetch(url, { credentials: 'include', headers: { referer: location.href } })
+          .then((r) => r.json()).catch((e) => ({ error: e.message }));
+        if (!j || j.status_code !== 0) { error = String((j && (j.status_msg || j.error)) || '接口失败'); break; }
+        const list = j.followings || [];
+        let added = 0;
+        for (const u of list) {
+          const id = String(u.uid || u.sec_uid || '');
+          if (!id || seen.has(id)) continue;
+          seen.add(id);
+          scanned++;
+          added++;
+          // follow_status 2 / relation_label 好友 = 互相关注
+          if (u.follow_status === 2 || (u.relation_label && String(u.relation_label).includes('好友'))) {
+            if (seenMutual.has(id)) continue;
+            seenMutual.add(id);
+            mutual.push({ name: u.nickname || '', uid: String(u.uid || ''), sec_uid: u.sec_uid || '', unique_id: u.unique_id || '' });
           }
-          if (!j.has_more || !added) break;
-          maxTime = j.max_time || maxTime;
-          offset = (Number(j.offset) || offset) + list.length;
-          page++;
         }
-        return { items, error };
+        if (!j.has_more || !added) break;
+        maxTime = j.max_time || maxTime;
+        offset = 0;
+        page++;
       }
-      const [a, b] = await Promise.all([
-        collect('/aweme/v1/web/user/following/list/', 'followings'),
-        collect('/aweme/v1/web/user/follower/list/', 'followers'),
-      ]);
-      const fmap = new Map();
-      for (const u of a.items || []) if (u.uid) fmap.set(u.uid, u);
-      const mutual = (b.items || []).filter((u) => fmap.has(u.uid));
       return {
         ok: true,
         self: { nickname: prof.user.nickname, uid: String(prof.user.uid || ''), sec_uid: prof.user.sec_uid },
         mutual,
-        following: (a.items || []).length,
-        followers: (b.items || []).length,
-        errors: [a.error, b.error].filter(Boolean),
+        following: scanned,
+        followingTotal: Number(prof.user.following_count) || scanned,
+        followers: Number(prof.user.follower_count) || null,
+        errors: error ? [error] : [],
       };
     })()
   `;
