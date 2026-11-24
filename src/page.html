@@ -1082,6 +1082,18 @@ function renderHomeFriendChips() {
   updateFriendsCount();
 }
 
+function updateFriendsCount() {
+  const n = state.selectedFriends.size;
+  const el = $('#friendsCount');
+  if (el) el.textContent = n ? ('已选 ' + n + ' 位') : '可以勾选多个好友';
+}
+
+function selectAllFriends(checked) {
+  $$('#homeFriendChips input[data-home-friend]').forEach((el) => { el.checked = checked; });
+  state.selectedFriends = new Set(checked ? $$('#homeFriendChips input[data-home-friend]').map((el) => el.dataset.homeFriend) : []);
+  updateFriendsCount();
+}
+
 function selectedHomeFriends() {
   return [...$$('#homeFriendChips input[data-home-friend]').filter((el) => el.checked)].map((el) => el.dataset.homeFriend);
 }
