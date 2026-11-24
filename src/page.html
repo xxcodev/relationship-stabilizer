@@ -88,6 +88,12 @@
         <button class="btn" id="btnBrowserMode">仅浏览器</button>
         <span id="apiMsg" class="muted"></span>
       </div>
+      <div class="rowbtns" style="margin-top:10px">
+        <select id="apiFriend" style="min-width:180px;padding:6px 10px;border-radius:7px;border:1px solid var(--line);background:#1d222c;color:var(--fg)"></select>
+        <button class="btn" id="btnApiDry">只试选片</button>
+        <button class="btn primary" id="btnApiSend">发送给所选好友</button>
+        <span id="apiSendMsg" class="muted"></span>
+      </div>
     </div>
   </details>
 
@@ -430,11 +436,18 @@ async function loadApiSession(){
       parts.push('状态：' + (d.valid ? '可用' : ('不可用（' + (d.reason || '') + '）')));
       parts.push('账号/好友：' + (d.account || '-') + ' → ' + (d.defaultFriend || '-'));
       parts.push('抓取于：' + new Date(d.createdAt).toLocaleString('zh-CN', { hour12: false }) + '（' + (d.ageHours != null ? d.ageHours + 'h 前' : '-') + '，有效期 ' + d.maxAgeHours + 'h）');
-      parts.push('模板/cookies/好友：' + d.templateBytes + ' 字符 / ' + d.cookies + ' 条 / ' + d.friends + ' 人' + (d.hasCreateTemplate ? '（支持任意好友）' : ''));
+      parts.push('模板/cookies/好友：' + d.templateBytes + ' 字符 / ' + d.cookies + ' 条 / ' + d.friendCount + ' 人' + (d.hasCreateTemplate ? '（支持任意好友）' : ''));
     } else {
       parts.push('还没有导出会话；点「导出 / 刷新会话」会短暂启动一个最小化浏览器（不会发送消息）。');
     }
     line.innerHTML = parts.join('<br>');
+    const sel = document.getElementById('apiFriend');
+    if (sel && Array.isArray(d.friends)) {
+      const current = sel.value;
+      sel.innerHTML = d.friends.map((f) => '<option value="' + f.name.replace(/"/g, '&quot;') + '">' + f.name + '</option>').join('');
+      if (current && d.friends.some((f) => f.name === current)) sel.value = current;
+      else if (d.defaultFriend) sel.value = d.defaultFriend;
+    }
   } catch (e) {
     line.textContent = '读取失败：' + e.message;
     badge.textContent = '读取失败';
@@ -472,6 +485,30 @@ document.getElementById('btnBrowserMode').onclick = async () => {
 };
 loadApiSession();
 setInterval(loadApiSession, 20000);
+
+async function apiSendFriend(dry){
+  const sel = document.getElementById('apiFriend');
+  const friend = sel && sel.value;
+  const msg = document.getElementById('apiSendMsg');
+  if (!friend) { msg.className='bad'; msg.textContent='没有可选好友'; return; }
+  if (!dry && !window.confirm('确认通过纯 API 发送一条视频给「' + friend + '」？')) return;
+  msg.className='muted'; msg.textContent = (dry ? '选片中…' : '发送中…');
+  try {
+    const r = await apiPost('/api/api-session/send', { friend, dry });
+    if (r.ok && r.dry) {
+      msg.className='ok'; msg.textContent = '选中：' + (r.picked && r.picked.title || '');
+    } else if (r.ok) {
+      msg.className='ok'; msg.textContent = '已发送给 ' + (r.friend || friend) + '（HTTP API），message id ' + (r.serverMessageId || '-');
+    } else {
+      msg.className='bad'; msg.textContent = '失败：' + (r.error || '未知错误');
+    }
+  } catch (e) {
+    msg.className='bad'; msg.textContent = '请求失败：' + e.message;
+  }
+  setTimeout(loadApiSession, 1500);
+}
+document.getElementById('btnApiDry').onclick = () => apiSendFriend(true);
+document.getElementById('btnApiSend').onclick = () => apiSendFriend(false);
 
 async function loadAccount(){
   try {

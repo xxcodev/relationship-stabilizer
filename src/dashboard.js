@@ -292,7 +292,8 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           defaultFriend: acc.friend,
           templateBytes: session && session.template ? session.template.bodyB64.length : 0,
           cookies: session ? (session.cookies || []).length : 0,
-          friends: session ? (session.friends || []).length : 0,
+          friends: session ? (session.friends || []) : [],
+          friendCount: session ? (session.friends || []).length : 0,
           hasCreateTemplate: !!(session && session.createTemplate),
           sendMode: repos.getSetting('sendMode', 'auto'),
           autoRefresh: settingOn('apiAutoRefresh'),
@@ -311,6 +312,51 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           child.unref();
           return send(res, 202, { ok: true, started: true });
         } catch (e) {
+          return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/api-session/send' && req.method === 'POST') {
+        const acc = currentAccount();
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        const friend = String(input.friend || acc.friend || '').trim();
+        const dry = !!input.dry;
+        const apiSender = require('./api-sender');
+        const session = apiSession.load();
+        const state = apiSession.status(session, acc.friend);
+        if (!state.valid) return send(res, 400, { ok: false, error: `api session 不可用：${state.reason}` });
+        const pools = repos.listPools().filter((p) => p.enabled);
+        if (!pools.length) return send(res, 400, { ok: false, error: '没有启用的视频池' });
+        const pool = pools[Math.floor(Math.random() * pools.length)];
+        try {
+          const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: repos.getSetting('banWords', []) });
+          if (dry) {
+            return send(res, 200, { ok: true, dry: true, friend, picked: video });
+          }
+          const out = await apiSender.sendVideo(session, video, { friend });
+          if (out.ok) {
+            repos.insertSend({
+              accountId: acc.id,
+              ts: new Date().toISOString(),
+              day: today(),
+              bucket: pool.name,
+              title: video.title,
+              author: video.author,
+              likes: video.likes,
+              friend,
+              ok: true,
+              toast: 'HTTP API (panel)',
+              shot: null,
+              videoId: video.awemeId,
+            });
+            repos.logEvent('sent-api', { pool: pool.name, title: video.title, friend, serverMessageId: out.serverMessageId, via: 'panel' });
+          } else {
+            repos.logEvent('api-send-rejected', { statusCode: out.statusCode, statusMessage: out.statusMessage, title: video.title, friend });
+          }
+          return send(res, out.ok ? 200 : 502, out);
+        } catch (e) {
+          repos.logEvent('api-send-error', { error: (e.message || '').split('\n')[0], friend });
           return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
         }
       }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.1 — 2026-11-24
+
+- 面板「⚡ 纯 API 发送」新增**好友选择器**：展示导出时捕获的好友列表，可选择任意好友
+  「只试选片」或「发送给所选好友」；新增 `POST /api/api-session/send {friend, dry}`，
+  通过纯 API 建会话并发送（成功写入 sends，toast 为 HTTP API (panel)）。
+- `GET /api/api-session` 返回完整好友列表（`friends: [{name, userid}]`）与 `friendCount`。
+- 已用「拍拍」实测：纯 API 建会话 + 发送成功（服务端返回 message id）。
+
+
 ## 0.12.0 — 2026-11-24
 
 - **任意好友**:会话导出时额外捕获 `conversation/create` 模板与分享面板最近好友列表；
