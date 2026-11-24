@@ -57,7 +57,7 @@ fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
 const cli = path.join(ROOT, 'node_modules', 'electron-builder', 'cli.js');
 const platformFlag = { mac: '--mac', win: '--win', dir: '--dir' }[platform];
-const result = spawnSync(process.execPath, [cli, platformFlag, '--config', configPath], {
+const result = spawnSync(process.execPath, [cli, platformFlag, '--publish', 'never', '--config', configPath], {
   cwd: ROOT,
   stdio: 'inherit',
   env: { ...process.env },
