@@ -1,0 +1,85 @@
+# Changelog
+
+## 0.8.0 — 2026-11-24
+
+- **自包含**:浏览器配置目录从 `browser-test/profile-B` 迁到 `douyin-forwarder/data/profile-B`,
+  数据库里的 `profile_dir` 同步更新。迁移后实测 `loggedIn=true`、无验证页。
+  整个程序现在只依赖自己目录内的 `data/`。
+- 修复 `account move-profile` 未传 `--to` 时把子命令名当成路径的问题(会落到 `./move-profile`)。
+- 面板 `ACCOUNT=<label>` 环境变量可指定展示/操作的账号(多账号时用)。
+- 清理:删除临时测试账号与 572MB 的 profile 副本,关闭测试用面板实例。
+
+
+## 0.7.0 — 2026-11-24
+
+- `docs/architecture.md`:分层与依赖方向、browser-server 的 HTTP 契约、扩展点、失败模型、测试策略。
+- `GET /api/accounts`:账号列表(端口/好友/时段数/累计发送/配置目录),面板头部显示当前账号概要。
+- `account move-profile`:安全搬移浏览器配置目录,带锁检测(端口在监听或存在 `SingletonLock` 直接拒绝)。
+- 实测:`move-profile` 正常搬移并在数据库更新路径;锁定时正确拒绝且不动文件。
+
+
+## 0.6.0 — 2026-11-24
+
+- **浏览器层测试**:新增 `test/picker.test.js`,用本地 fixture 页面验证卡片提取与标题定位,
+  不访问抖音。5 个用例覆盖 `EXTRACT` / `parse` / `OPEN_STEP` 命中与未命中。
+- **导入保护**:重复导入不再覆盖「今天正在执行的计划」(除非 `--force`),避免像之前那样
+  把已发/失败状态和时间表一起冲掉。`migrate` 新增 `--force`。
+- `picker.js` 导出 `EXTRACT` / `OPEN_STEP` / `parse` 以便测试。
+- 测试总数 25。
+
+
+## 0.5.0 — 2026-11-24
+
+- **导航节流**:每个池子扫描后随机停顿(默认 2500ms + 0–2000ms 抖动),对应人机验证的根因——
+  连续页面加载。可在面板「池间延迟」调整(0–30000ms)。
+- 面板新增「最近事件」折叠区,直接读 `events` 表,排障不用再开终端。
+- `GET /api/events?limit=N` 接口。
+- `settings.poolDelayMs` 进入配置往返。
+- 多账号 CLI:`account list / add / enable / disable / remove`,每账号独立 profile + 端口。
+- 事件去重:迁移 `003` 给 `events(ts,event,payload)` 建唯一索引;旧数据导入保留原始时间戳,
+  重复导入不再产生重复行(修掉了面板里同一事件重复三四次的问题)。
+- 修复:重复导入旧数据会把 `accounts.enabled` 重置成旧 `config.json` 的值,等于偷偷把暂停开关打开了。
+  现在 `enabled` 只在新账号创建时初始化,导入不再覆盖。
+
+
+## 0.4.0 — 2026-11-24
+
+- `npm run verify`:15 项冒烟检查(环境/表结构/账号/时段/池子/排班/4 个 HTTP 接口),
+  面板用临时端口启动,不影响正在跑的服务。当前 14/14 通过。
+- `npm run backup`:`VACUUM INTO` 导出一致性快照到 `data/backups/`,并回读校验表数与发送数。
+- 面板新增「安全模式」:一键把每天条数改成 6–8、间隔 ≥15 分钟,用于风控收紧时降载。
+- `dashboard.startServer` 支持 `port: 0`,方便测试时随机端口启动。
+
+
+## 0.3.0 — 2026-11-24
+
+- 面板新增控制条:**暂停 / 继续 / 重启服务**,直接改 `accounts.enabled` 并重启 launchd 服务。
+- 面板新增服务状态:`/api/status` 返回调度进程状态 + 浏览器窗口状态(是否停在验证页)。
+- 人机验证:`/state` 增加 `challenge` 字段,`sendOne` 检测到验证页直接返回 `captcha` 错误,
+  记录 `captcha-blocked` 并停手,不再盲重试。
+- 时刻表支持三种状态:已发(绿)、失败(红)、待发(灰)。
+- `src/service.js`:launchd / systemd 的查询与重启封装,非 macOS/Linux 降级为提示。
+- 修复 `/api/control` 请求体解析(`for of` → `for await`)。
+- 文档:README 增加控制说明,`docs/incidents.md` 记录人机验证事件。
+
+
+## 0.2.0 — 2026-11-24
+
+**切换上线**:launchd 任务从旧脚本(`com.dsh.douyin-forward`)切到新程序
+(`com.dsh.douyin-forwarder` → `src/index.js schedule`),旧 plist 保留可回滚。
+
+新增/变更:
+
+- `failed_json`:每个时刻记录失败状态,失败后不再无限重试(迁移 `002`)。
+- 唤醒策略:机器睡过晨间时段后不再整日跳过,而是从当前时刻开始排剩余时段;
+  只有距窗口结束不足 45 分钟才放弃当天。
+- 补发保护:唤醒后发现某时刻已过去 25 分钟以上,记为 `slot-missed` 跳过,避免连发。
+- `npm run doctor`:Node / node:sqlite / 数据目录 / playwright / 浏览器 / 端口 / 账号 七项自检。
+- 选片池 20 个,每次随机扫描其中 6 个(可在面板逐项开关)。
+- 文档:`docs/cutover.md`、`docs/incidents.md`、`docs/daemon.md`。
+
+## 0.1.0 — 2026-11-23
+
+- 从 `browser-test/` 的单机脚本抽成独立程序:SQLite 存储、迁移系统、repos 层、
+  纯函数排班、CLI、DB 驱动的面板、旧数据导入器、17 个单测。
+- 端到端 `send-once --dry` 在真实账号上跑通(选片 → 打开 → 分享面板 → 精确命中好友)。

@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>抖音转发记录</title>
+<style>
+  :root{--bg:#0e1116;--card:#161b22;--line:#232a33;--txt:#e6edf3;--dim:#8b949e;--ok:#3fb950;--bad:#f85149;--acc:#2f81f7}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;padding:28px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:12px;margin-bottom:18px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .card .k{color:var(--dim);font-size:12px}
+  .card .v{font-size:26px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;font-variant-numeric:tabular-nums}
+  .chip.done{border-color:rgba(63,185,80,.45);color:var(--ok);background:rgba(63,185,80,.08)}
+  .chip.pending{color:var(--dim)}
+  .chip.failed{border-color:rgba(248,81,73,.5);color:var(--bad);background:rgba(248,81,73,.08)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--dim);font-weight:500;border-bottom:1px solid var(--line);padding:8px 10px}
+  td{border-bottom:1px solid var(--line);padding:9px 10px;vertical-align:top}
+  tr:hover td{background:rgba(255,255,255,.02)}
+  .b{display:inline-block;border-radius:6px;padding:1px 8px;font-size:12px;border:1px solid var(--line);color:var(--dim)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  a{color:var(--acc);text-decoration:none} a:hover{text-decoration:underline}
+  .muted{color:var(--dim)}
+  .wrap{max-width:1180px;margin:0 auto}
+  .title{max-width:520px;overflow:hidden;text-overflow:ellipsis}
+  details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 16px;margin-bottom:20px}
+  summary{cursor:pointer;padding:14px 0;font-weight:600;outline:none}
+  .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding-bottom:8px}
+  label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim)}
+  input,select,textarea{background:#0d1117;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px}
+  input[type=number]{width:100%}
+  textarea{min-height:70px;resize:vertical}
+  .bandrow{display:grid;grid-template-columns:1.2fr 1fr 1fr .8fr .8fr 40px;gap:8px;align-items:end;margin-bottom:8px}
+  .btn{background:#21262d;border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px}
+  .btn:hover{background:#2b333d}
+  .btn.primary{background:#238636;border-color:#2ea043}
+  .btn.primary:hover{background:#2ea043}
+  .btn.danger{padding:6px 10px}
+  .rowbtns{display:flex;gap:10px;align-items:center;margin:14px 0 18px}
+  .pools{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--txt)}
+  .pools label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  #msg{font-size:13px;margin-left:6px}
+  .sw{display:flex;align-items:center;gap:8px;font-size:13px}
+</style></head>
+<body><div class="wrap">
+  <h1>抖音转发记录</h1>
+  <div class="sub">账号 <b id="acct">B</b> → <span id="friend">-</span> · <span id="enabledPill"></span> · <span id="acctMeta" class="muted"></span> · 每 20 秒自动刷新 · <span id="gen"></span></div>
+
+  <div id="alert" style="display:none;margin-bottom:14px" class="card bad"></div>
+
+  <div class="rowbtns" style="margin-bottom:16px">
+    <span class="chip" id="svcState">服务状态…</span>
+    <button class="btn" id="btnPause">暂停</button>
+    <button class="btn primary" id="btnResume">继续</button>
+    <button class="btn" id="btnRestart">重启服务</button>
+    <button class="btn primary" id="btnSendNow">立即分享一次</button>
+    <span id="svcMsg" class="muted"></span>
+    <span id="sendMsg" class="muted" style="width:100%"></span>
+  </div>
+
+  <div class="grid">
+    <div class="card"><div class="k">今日计划 <button class="btn" id="replan" style="float:right;padding:2px 8px;font-size:11px">重排</button></div><div class="v" id="plan">-</div></div>
+    <div class="card"><div class="k">今日已发</div><div class="v ok" id="done">-</div></div>
+    <div class="card"><div class="k">今日剩余</div><div class="v" id="left">-</div></div>
+    <div class="card"><div class="k">累计发送</div><div class="v" id="total">-</div></div>
+  </div>
+
+  <div class="sub" style="margin-bottom:6px">今天的时刻表</div>
+  <div class="chips" id="timeline"></div>
+
+  <div class="sub" style="margin-bottom:6px">分类分布</div>
+  <div class="chips" id="buckets"></div>
+
+  <details id="settings">
+    <summary>⚙ 参数设置（改完点保存，下一轮生效）</summary>
+    <div class="form">
+      <label class="f">好友昵称<input id="c_friend" placeholder="Hime"></label>
+      <label class="f">两条之间最少间隔（分钟）<input id="c_gap" type="number" min="1" max="120"></label>
+      <label class="f">每日总条数（下限）<input id="c_tmin" type="number" min="0" max="200"></label>
+      <label class="f">每日总条数（上限）<input id="c_tmax" type="number" min="0" max="200"></label>
+      <label class="f">池间延迟（毫秒，越大越慢越安全）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
+      <label class="f sw">运行状态
+        <select id="c_enabled"><option value="true">启用</option><option value="false">暂停</option></select>
+      </label>
+    </div>
+
+    <div class="sub" style="margin:14px 0 6px">时段与条数</div>
+    <div id="bands"></div>
+    <div class="rowbtns"><button class="btn" id="addBand">+ 添加时段</button>
+      <span id="sumHint" class="muted"></span></div>
+
+    <div class="sub" style="margin:8px 0 6px">视频池</div>
+    <div class="pools" id="pools"></div>
+
+    <div class="sub" style="margin:14px 0 6px">屏蔽词（每行一个，命中标题或作者就跳过）</div>
+    <textarea id="c_ban" style="width:100%"></textarea>
+
+    <div id="previewBox" class="chips" style="margin:10px 0 0"></div>
+    <div class="rowbtns">
+      <button class="btn primary" id="save">保存设置</button>
+      <button class="btn" id="preview">预览一次</button>
+      <button class="btn" id="btnSafe" title="把总条数调到 6-8、间隔 15 分钟,降低风控概率">安全模式</button>
+      <span id="msg" class="muted"></span>
+    </div>
+  </details>
+
+  <details id="events"><summary>最近事件（排障用）</summary><div id="eventList" class="muted" style="padding-bottom:14px;font-size:12px;line-height:1.9"></div></details>
+
+  <table><thead><tr>
+    <th style="width:150px">时间</th><th style="width:76px">分类</th><th>标题</th><th style="width:120px">作者</th><th style="width:70px">赞</th><th style="width:80px">结果</th><th style="width:56px">截图</th>
+  </tr></thead><tbody id="rows"></tbody></table>
+</div>
+<script>
+const fmt = (n) => n >= 10000 ? (n/10000).toFixed(1)+'万' : String(n);
+const POOLS = __POOL_NAMES__;
+let cfg = null;
+
+function bandRow(b){
+  return '<div class="bandrow">'
+    + '<input value="'+(b.name||'')+'" data-k="name" placeholder="名称">'
+    + '<input value="'+(b.from||'')+'" data-k="from" placeholder="07:00">'
+    + '<input value="'+(b.to||'')+'" data-k="to" placeholder="10:00">'
+    + '<input type="number" value="'+(b.min??1)+'" data-k="min" placeholder="最少">'
+    + '<input type="number" value="'+(b.max??3)+'" data-k="max" placeholder="最多">'
+    + '<button class="btn danger delband">删</button>'
+    + '</div>';
+}
+function updateHint(){
+  const rows = [...document.querySelectorAll('.bandrow')];
+  let lo = 0, hi = 0;
+  rows.forEach(r => { lo += Number(r.querySelector('[data-k="min"]').value)||0; hi += Number(r.querySelector('[data-k="max"]').value)||0; });
+  document.getElementById('sumHint').textContent = '各时段下限之和 ' + lo + '，上限之和 ' + hi + '；总条数超出这个范围时会自动按比例放宽或收紧';
+}
+
+function renderBands(bands){
+  document.getElementById('bands').innerHTML = (bands||[]).map(bandRow).join('');
+}
+function renderPools(pools){
+  document.getElementById('pools').innerHTML = POOLS.map(p =>
+    '<label><input type="checkbox" data-pool="'+p+'" '+((pools&&pools[p]===false)?'':'checked')+'> '+p+'</label>').join('');
+}
+function collect(){
+  const bands = [...document.querySelectorAll('.bandrow')].map(r => {
+    const g = k => r.querySelector('[data-k="'+k+'"]').value;
+    return { name:g('name'), from:g('from'), to:g('to'), min:Number(g('min')), max:Number(g('max')) };
+  });
+  const pools = {};
+  document.querySelectorAll('[data-pool]').forEach(c => pools[c.dataset.pool] = c.checked);
+  return {
+    enabled: document.getElementById('c_enabled').value === 'true',
+    friend: document.getElementById('c_friend').value.trim(),
+    minGapMinutes: Number(document.getElementById('c_gap').value),
+    totalMin: Number(document.getElementById('c_tmin').value),
+    totalMax: Number(document.getElementById('c_tmax').value),
+    poolDelayMs: Number(document.getElementById('c_pdelay').value),
+    bands, pools,
+    banWords: document.getElementById('c_ban').value.split('\n').map(s=>s.trim()).filter(Boolean),
+  };
+}
+
+async function loadConfig(){
+  cfg = await (await fetch('/api/config')).json();
+  document.getElementById('c_friend').value = cfg.friend || '';
+  document.getElementById('c_gap').value = cfg.minGapMinutes || 5;
+  document.getElementById('c_tmin').value = cfg.totalMin ?? 0;
+  document.getElementById('c_tmax').value = cfg.totalMax ?? 0;
+  document.getElementById('c_pdelay').value = cfg.poolDelayMs ?? 2500;
+  document.getElementById('c_enabled').value = cfg.enabled === false ? 'false' : 'true';
+  document.getElementById('c_ban').value = (cfg.banWords||[]).join('\n');
+  renderBands(cfg.bands);
+  renderPools(cfg.pools);
+  updateHint();
+}
+
+async function load(){
+  const d = await (await fetch('/api/data')).json();
+  document.getElementById('plan').textContent = d.todayPlan;
+  document.getElementById('done').textContent = d.todayDone;
+  document.getElementById('left').textContent = Math.max(0, d.todayPlan - d.todayDone);
+  document.getElementById('total').textContent = d.totalSends;
+  document.getElementById('gen').textContent = '更新于 ' + new Date(d.generatedAt).toLocaleTimeString('zh-CN',{hour12:false});
+  document.getElementById('friend').textContent = d.friend || '-';
+  document.getElementById('enabledPill').innerHTML = d.enabled
+    ? '<span class="chip done">运行中</span>' : '<span class="chip pending">已暂停</span>';
+  document.getElementById('timeline').innerHTML = d.todayTimeline.length
+    ? d.todayTimeline.map(t=>'<span class="chip '+t.status+'">'+t.time+(t.status==='done'?' ✓':(t.status==='failed'?' ✗':''))+'</span>').join('')
+    : '<span class="muted">今天还没有计划（暂停中或未到窗口）</span>';
+  document.getElementById('buckets').innerHTML = Object.entries(d.bucketStats)
+    .sort((a,b)=>b[1]-a[1]).map(([k,v])=>'<span class="chip">'+k+' · '+v+'</span>').join('') || '<span class="muted">暂无记录</span>';
+  document.getElementById('rows').innerHTML = d.sends.map(s=>'<tr>'
+    +'<td class="muted">'+s.local+'</td>'
+    +'<td><span class="b">'+s.bucket+'</span></td>'
+    +'<td class="title" title="'+String(s.title).replace(/"/g,'&quot;')+'">'+s.title+'</td>'
+    +'<td class="muted">'+(s.author||'').replace(/^@/,'')+'</td>'
+    +'<td class="muted">'+fmt(s.likes)+'</td>'
+    +'<td class="'+(s.ok?'ok':'bad')+'">'+(s.ok?(s.toast||'成功'):(s.toast||'失败'))+'</td>'
+    +'<td>'+(s.shot?'<a href="/shot/'+s.shot+'" target="_blank">看</a>':'<span class="muted">-</span>')+'</td>'
+    +'</tr>').join('') || '<tr><td colspan="7" class="muted">还没有发送记录</td></tr>';
+}
+
+document.getElementById('replan').onclick = async () => {
+  if (!confirm('按当前设置重新随机今天的时刻表？已发送的记录不会重复发，也不会撤回。')) return;
+  const msg = document.getElementById('msg');
+  msg.className='muted'; msg.textContent='重排中…';
+  const out = await (await fetch('/api/today/regenerate', {method:'POST'})).json();
+  if (out.ok) { msg.className='ok'; msg.textContent='已重排：今天 '+out.count+' 条，第一条 '+out.times[0]; load(); }
+  else { msg.className='bad'; msg.textContent='重排失败：'+(out.error||''); }
+};
+
+let lastPreview = null;
+
+document.getElementById('btnSafe').onclick = async () => {
+  document.getElementById('c_tmin').value = 6;
+  document.getElementById('c_tmax').value = 8;
+  document.getElementById('c_gap').value = 15;
+  const msg = document.getElementById('msg');
+  msg.className='muted'; msg.textContent='应用中…';
+  const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collect()) });
+  const out = await res.json();
+  if (out.ok) { msg.className='ok'; msg.textContent='已切到安全模式:每天 6-8 条,间隔 ≥15 分钟'; loadConfig(); load(); }
+  else { msg.className='bad'; msg.textContent='失败:'+(out.error||''); }
+};
+
+document.getElementById('preview').onclick = async () => {
+  const box = document.getElementById('previewBox');
+  box.innerHTML = '<span class="muted">生成中…</span>';
+  const res = await fetch('/api/preview', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collect()) });
+  const out = await res.json();
+  if (!out.ok) { box.innerHTML = '<span class="bad">预览失败：'+out.error+'</span>'; return; }
+  lastPreview = out;
+  const short = out.count < out.requested ? '<span class="bad"> 时段容量不足，只排下 '+out.count+'/'+out.requested+' 条</span>' : '';
+  let html = '<div style="width:100%" class="muted">共 '+out.count+' 条 · 窗口 '+out.window+'（再点一次重新抽）'+short+'</div>';
+  (out.notes||[]).forEach(n => { html += '<div style="width:100%" class="muted">· '+n+'</div>'; });
+  html += '<table style="margin-top:10px"><thead><tr><th style="width:90px">时段</th><th style="width:120px">范围</th><th style="width:60px">条数</th><th>时刻</th></tr></thead><tbody>';
+  out.bands.forEach(b => {
+    html += '<tr><td>'+b.name+'</td><td class="muted">'+b.from+'-'+b.to+'</td><td>'+b.n+'</td><td class="muted">'+b.times.join(' ')+'</td></tr>';
+  });
+  html += '</tbody></table>';
+  html += '<div class="rowbtns" style="width:100%"><button class="btn primary" id="applyBtn">保存并生效</button><button class="btn" id="cancelBtn">取消</button><span id="applyMsg" class="muted"></span></div>';
+  box.innerHTML = html;
+  document.getElementById('applyBtn').onclick = async () => {
+    const msg = document.getElementById('applyMsg');
+    msg.className = 'muted'; msg.textContent = '应用中…';
+    const r = await fetch('/api/apply', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ config: collect(), times: lastPreview.times }) });
+    const o = await r.json();
+    if (o.ok) {
+      msg.className = 'ok';
+      msg.textContent = '已生效：今天 '+o.applied+' 条' + (o.skippedPast ? '（跳过已过时刻 '+o.skippedPast+' 个）' : '') + (o.restarted ? '，调度已重载' : '，下次发送前自动生效');
+      load();
+    } else { msg.className = 'bad'; msg.textContent = '失败：'+o.error; }
+  };
+  document.getElementById('cancelBtn').onclick = () => {
+    box.innerHTML = '';
+    lastPreview = null;
+    document.getElementById('msg').textContent = '';
+  };
+};
+
+document.getElementById('bands').addEventListener('click', (e) => {
+  if (e.target && e.target.classList.contains('delband')) e.target.closest('.bandrow').remove();
+});
+
+document.getElementById('addBand').onclick = () => {
+  document.getElementById('bands').insertAdjacentHTML('beforeend',
+    bandRow({name:'时段', from:'15:00', to:'17:00', min:1, max:2}));
+};
+document.getElementById('save').onclick = async () => {
+  const msg = document.getElementById('msg');
+  msg.className = 'muted'; msg.textContent = '保存中…';
+  const res = await fetch('/api/config', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(collect()) });
+  const out = await res.json();
+  if (out.ok) { msg.className = 'ok'; msg.textContent = '已保存，下一轮生成计划时生效'; loadConfig(); load(); }
+  else { msg.className = 'bad'; msg.textContent = '保存失败：' + (out.error||'未知错误'); }
+};
+
+async function status(){
+  try {
+    const s = await (await fetch('/api/status')).json();
+    const pill = document.getElementById('svcState');
+    const alertBox = document.getElementById('alert');
+    const running = s.scheduler && s.scheduler.running;
+    if (!running) {
+      pill.className = 'chip bad'; pill.textContent = '服务未运行';
+    } else if (!s.enabled) {
+      pill.className = 'chip pending'; pill.textContent = '已暂停';
+    } else {
+      pill.className = 'chip done'; pill.textContent = '运行中';
+    }
+    if (s.browser && s.browser.challenge) {
+      alertBox.style.display = 'block';
+      alertBox.textContent = '抖音要求人机验证:请在打开的浏览器窗口里完成验证,然后点「继续」。';
+    } else if (!s.browser || !s.browser.up) {
+      alertBox.style.display = 'none';
+    } else {
+      alertBox.style.display = 'none';
+    }
+  } catch (e) {}
+}
+
+async function control(action){
+  const msg = document.getElementById('svcMsg');
+  msg.className='muted'; msg.textContent='执行中…';
+  const out = await (await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})})).json();
+  if (out.ok) {
+    msg.className='ok';
+    msg.textContent = {pause:'已暂停',resume:'已继续',restart:'服务已重启'}[action] + (out.restarted && out.restarted.ok ? '' : '(需手动重启)');
+    status(); load();
+  } else { msg.className='bad'; msg.textContent = out.error || '失败'; }
+}
+
+async function pollSend(){
+  const msg = document.getElementById('sendMsg');
+  try {
+    const d = await (await fetch('/api/send-now')).json();
+    const j = d.job || {};
+    if (j.status === 'running') {
+      msg.className='muted'; msg.textContent='正在发送…(选片 → 打开 → 分享,约 1 分钟)';
+      setTimeout(pollSend, 3000);
+    } else if (j.status === 'done') {
+      const t = (j.result && j.result.target && j.result.target.name) || '';
+      msg.className='ok'; msg.textContent='已发送' + (t ? '给 ' + t : '') + ' · ' + ((j.result && j.result.toast) || '成功');
+      load();
+    } else if (j.status === 'failed') {
+      msg.className='bad'; msg.textContent='失败:' + ((j.result && (j.result.error || j.result.reason)) || '未知原因');
+    }
+  } catch (e) {}
+}
+
+document.getElementById('btnSendNow').onclick = async () => {
+  const msg = document.getElementById('sendMsg');
+  msg.className='muted'; msg.textContent='已触发,正在启动浏览器…';
+  const r = await fetch('/api/send-now', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+  const out = await r.json();
+  if (!out.ok) { msg.className='bad'; msg.textContent = out.error || '触发失败'; return; }
+  pollSend();
+};
+
+document.getElementById('btnPause').onclick = () => control('pause');
+document.getElementById('btnResume').onclick = () => control('resume');
+document.getElementById('btnRestart').onclick = () => control('restart');
+
+async function loadAccount(){
+  try {
+    const d = await (await fetch('/api/accounts')).json();
+    const a = (d.accounts||[]).find(x => x.label === d.active) || (d.accounts||[])[0];
+    if (!a) return;
+    document.getElementById('acct').textContent = a.label;
+    document.getElementById('acctMeta').textContent = 'port ' + a.port + ' · ' + a.bands + ' 个时段 · 累计 ' + a.sends + ' 条';
+  } catch (e) {}
+}
+
+async function loadEvents(){
+  const d = await (await fetch('/api/events?limit=40')).json();
+  document.getElementById('eventList').innerHTML = (d.events||[]).map(e =>
+    '<div>' + e.ts.slice(5,19).replace('T',' ') + '  <b>' + e.event + '</b>  ' + String(e.payload||'').slice(0,110) + '</div>').join('') || '暂无事件';
+}
+
+document.getElementById('events').addEventListener('toggle', () => { if (document.getElementById('events').open) loadEvents(); });
+
+loadConfig(); load(); status(); loadAccount();
+fetch('/api/send-now').then(r=>r.json()).then(d=>{ if(d.job && d.job.status==='running') pollSend(); }).catch(()=>{});
+setInterval(() => { load(); status(); }, 20000);
+</script></body></html>

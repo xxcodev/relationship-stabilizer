@@ -1,0 +1,171 @@
+# douyin-forwarder
+
+把「定时从抖音挑视频 → 转发给好友」做成一个可移植、数据落在 SQLite 里的后台程序。
+
+它不是一个网页爬虫,而是一个**受控的浏览器代理**:用 Playwright 驱动本机 Chrome,
+按数据库里配置的时段和数量,挑选视频并发给指定好友。所有可调参数、计划、发送记录、
+事件流水都在 SQLite 里,并提供本地控制面板。
+
+```
+ ┌──────────────┐   排班   ┌───────────────┐   HTTP   ┌──────────────────┐
+ │  scheduler   │ ───────▶ │ browser-server│ ───────▶ │ Chrome(登录态)  │
+ │  (SQLite)    │ ◀─────── │  (Playwright) │ ◀─────── │  抖音网页版      │
+ └──────┬───────┘  结果回写 └───────────────┘          └──────────────────┘
+        │
+ ┌──────▼───────┐
+ │  dashboard   │  http://127.0.0.1:9400  只读统计 + 参数配置 + 立即发送
+ └──────────────┘
+```
+
+## 特性
+
+- **按数据库排班**:时段、每天条数、最小间隔、视频池开关、屏蔽词全部存在 SQLite,改完即生效
+- **总数优先的分配**:设定「每天 10–18 条」后按时段容量加权随机拆分,超限自动放宽、不足自动收紧
+- **选片来源可配**:20 个视频池(日番/韩剧/沙雕/发癫/鬼畜/整活/搞笑/二次元/萌宠/美食/…),每次随机扫描其中若干
+- **精确投递**:按昵称 + `data-userid` 双重校验命中好友,不靠坐标猜
+- **可观测**:控制面板、`events` 事件流水、发送截图、`npm run verify` 跨层冒烟
+- **可运维**:暂停/继续/重启服务、失败重试一次后跳过、验证码检测后停手、每日自检
+- **可移植**:`doctor` 环境自检、迁移系统、空目录一键初始化
+
+## 快速开始
+
+要求:Node.js ≥ 22.5(使用内置 `node:sqlite`,无原生依赖)、本机安装 Chrome。
+
+```bash
+git clone <this repo> && cd douyin-forwarder
+npm install
+cp .env.example .env      # 可选,默认值即可跑
+
+npm run doctor            # 环境自检:Node / sqlite / 数据目录 / 浏览器 / 端口
+npm run init              # 建库 + 灌入 20 个视频池 + 默认账号与时段
+npm run verify            # 跨层冒烟(14 项,不碰调度和浏览器)
+npm run dashboard         # http://127.0.0.1:9400
+```
+
+首次使用某个账号需要在弹出的 Chrome 窗口里**扫码登录一次**,登录态留在该账号的
+`profile_dir`(Playwright 的 user data dir),之后无需重复扫码。
+
+启动调度:
+
+```bash
+npm run schedule          # 常驻,按数据库里的时段发送
+```
+
+## 目录结构
+
+```
+src/
+  index.js           CLI 入口
+  env.js             环境变量与路径解析
+  db.js              SQLite 连接 + 迁移执行器
+  repos.js           所有 SQL 集中于此
+  planner.js         纯函数排班(可单测)
+  pools.js           视频池种子数据
+  picker.js          选片(经 browser-server)
+  browser-server.js  Playwright 控制服务
+  scheduler.js       调度循环
+  dashboard.js       控制面板 + HTTP API
+  service.js         launchd / systemd 封装
+  doctor.js          环境自检
+  verify.js          跨层冒烟
+  importer.js        旧数据导入
+  backup.js          数据库快照
+  page.html          面板前端(无构建链)
+schema/              编号迁移(001、002、…)
+test/                单元测试(node --test)
+docs/                架构、部署、切换、事故记录
+deploy/              launchd plist 模板
+```
+
+## 配置
+
+所有配置都可通过 `.env` 覆盖,也可在面板里编辑并写入数据库。
+
+| 变量 | 默认 | 说明 |
+|---|---|---|
+| `DATA_DIR` | `data` | 数据库与浏览器配置的根目录 |
+| `DB_FILE` | `data/app.db` | SQLite 文件位置 |
+| `DASH_HOST` / `DASH_PORT` | `127.0.0.1` / `9400` | 面板监听地址 |
+| `BROWSER_CHANNEL` | `chrome` | `chrome` 用系统安装的 Chrome,`chromium` 用 Playwright 自带 |
+| `BROWSER_EXECUTABLE` | — | 显式指定浏览器可执行文件 |
+| `BROWSER_HEADLESS` | `false` | 无头模式(注意:抖音对无头更敏感) |
+| `SHOTS_DIR` | `data/shots` | 发送截图目录 |
+
+## 数据模型
+
+| 表 | 作用 |
+|---|---|
+| `accounts` | 发送账号:配置目录、端口、好友、启用状态 |
+| `settings` | 全局参数:总条数区间、最小间隔、池间延迟、屏蔽词 |
+| `pools` | 视频来源:名称、搜索词、开关 |
+| `bands` | 每个账号的时段区间与条数上下限 |
+| `plans` | 每天的时刻表 + 已发 / 失败 / 跳过 |
+| `sends` | 每次发送的结果(分类、标题、作者、赞、toast、截图、视频 id) |
+| `events` | 计划、重排、失败、验证码、人工操作等流水 |
+
+## 命令
+
+```bash
+npm run init            # 初始化数据库与默认配置
+npm run migrate -- DIR  # 从旧版 JSON/JSONL 导入(幂等;--force 才覆盖当日计划)
+npm run status          # 当前账号 / 计划 / 今日已发
+npm run plan            # 今天的计划(有则读库,无则现场生成)
+npm run dashboard       # 启动面板
+npm run schedule        # 启动调度(前台)
+npm run doctor          # 环境自检
+npm run verify          # 跨层冒烟
+npm run backup          # 数据库快照到 data/backups/
+npm test                # 单元测试
+```
+
+多账号:
+
+```bash
+node src/index.js account list
+node src/index.js account add work --port 9335 --friend 某人
+node src/index.js account enable|disable|remove work
+node src/index.js account move-profile work --to data/profile-work
+```
+
+## HTTP 接口
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/data` | 面板数据:今日计划/已发/时间线/历史 |
+| GET | `/api/config` | 当前配置 |
+| POST | `/api/config` | 保存配置 |
+| GET | `/api/status` | 服务与浏览器状态(含验证页检测) |
+| POST | `/api/control` | `pause` / `resume` / `restart` |
+| POST | `/api/send-now` | 立即分享一次(后台任务) |
+| GET | `/api/send-now` | 任务进度 |
+| POST | `/api/preview` | 按当前参数试算一份计划,不落库 |
+| POST | `/api/apply` | 保存配置并采用预览结果 |
+| POST | `/api/today/regenerate` | 重排今日剩余时刻 |
+| GET | `/api/accounts` | 账号列表 |
+| GET | `/api/events` | 最近事件 |
+
+## 测试
+
+```bash
+npm test        # 数据库 / 排班 / 导入 / 浏览器层(本地 fixture,不访问抖音)
+npm run verify  # 环境 + 表结构 + HTTP 接口冒烟
+```
+
+`test/picker.test.js` 需要一个真实 Chrome;CI 里只跑其余三个文件(见 `.github/workflows/ci.yml`)。
+
+## 部署
+
+macOS(launchd)与 Linux(systemd --user)的示例配置见 `docs/daemon.md`;
+从旧版脚本切换与回滚见 `docs/cutover.md`。
+
+## 已知限制
+
+- 抖音网页端是前端渲染的,搜索结果可能延迟 15–40 秒才出现;程序用轮询等待,但仍受平台可用性影响。
+- 自动化请求密度过高会触发人机验证或网关 502;程序会记录 `captcha-blocked` / 限流事件并停手,
+  恢复需要人工在浏览器窗口完成验证。
+- 同一账号被多个进程同时驱动会锁冲突;面板与调度会互相避让(端口/锁检测)。
+- 平台若调整 DOM 结构,需要更新 `picker.js` 里的选择器,并跑 `test/picker.test.js`。
+
+## 许可
+
+本仓库未声明开源许可,默认保留所有权利。需要对外分发时再补充 LICENSE。

@@ -1,0 +1,257 @@
+/**
+ * @file Playwright control service: owns the Chrome window, exposes /state /goto /click /openshare /send /quit.
+ */
+// Multi-account Douyin control server.
+// Usage: node serve.js <profileDir> <port>
+const http = require('http');
+const path = require('path');
+const { chromium } = require('playwright-core');
+
+const env = require('./env');
+const argOf = (name, fallback) => {
+  const i = process.argv.indexOf(name);
+  return i > 0 ? process.argv[i + 1] : fallback;
+};
+const PROFILE = argOf('--profile', 'profile-b');
+const PORT = Number(argOf('--port', '9334'));
+const POS = argOf('--pos', env.browser.windowPosition);
+const fs = require('fs');
+const TAG = path.basename(PROFILE);
+const SHOT_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
+fs.mkdirSync(SHOT_DIR, { recursive: true });
+
+let ctx, page;
+
+async function cur() {
+  const pages = ctx.pages().filter((p) => !p.isClosed());
+  page = pages.find((p) => /douyin/.test(p.url())) || pages[0];
+  if (!page) page = await ctx.newPage();
+  return page;
+}
+
+function readBody(req) {
+  return new Promise((resolve) => {
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => resolve(b));
+  });
+}
+
+// Injected helpers: locate share panel / friend rows by structure, not by hash classes.
+const HELPERS = `
+window.__dy = window.__dy || {
+  panel() {
+    const cands = [...document.querySelectorAll('div')];
+    return cands.find((e) => {
+      const t = e.textContent || '';
+      const r = e.getBoundingClientRect();
+      return t.includes('分享给朋友') && t.includes('复制链接') && r.width > 200 && r.width < 420;
+    }) || null;
+  },
+  rows() {
+    const p = this.panel();
+    if (!p) return [];
+    return [...p.querySelectorAll('[data-userid]')].map((btn) => {
+      const row = btn.parentElement;
+      const sp = row ? row.querySelector('span') : null;
+      const b = btn.getBoundingClientRect();
+      return {
+        name: sp ? (sp.textContent || '').trim() : '',
+        userid: btn.getAttribute('data-userid'),
+        x: Math.round(b.x + b.width / 2),
+        y: Math.round(b.y + b.height / 2),
+      };
+    });
+  },
+  find(name) {
+    const r = this.rows();
+    const exact = r.filter((x) => x.name === name);
+    if (exact.length === 1) return { match: 'exact', item: exact[0], count: r.length };
+    if (exact.length > 1) return { match: 'ambiguous', items: exact, count: r.length };
+    const partial = r.filter((x) => x.name.includes(name));
+    if (partial.length === 1) return { match: 'partial', item: partial[0], count: r.length };
+    return { match: partial.length ? 'ambiguous' : 'none', items: partial, count: r.length, names: r.map((x) => x.name) };
+  },
+};
+true;
+`;
+
+const server = http.createServer(async (req, res) => {
+  const u = new URL(req.url, 'http://127.0.0.1');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  try {
+    if (u.pathname === '/state') {
+      const p = await cur();
+      const text = (await p.innerText('body').catch(() => '')).replace(/\s+/g, ' ');
+      return res.end(JSON.stringify({
+        profile: PROFILE,
+        url: p.url(),
+        title: await p.title(),
+        loggedIn: !text.includes('登录后免费畅享'),
+        challenge: /点击两个形状相同的物体|请完成下列验证|完成验证后继续|滑块/.test(text),
+        pages: ctx.pages().length,
+        text: text.slice(0, 200),
+      }));
+    }
+    if (u.pathname === '/shot') {
+      const p = await cur();
+      const file = path.join(SHOT_DIR, `shot-${TAG}-${Date.now()}.png`);
+      await p.screenshot({ path: file });
+      return res.end(JSON.stringify({ file }));
+    }
+    if (u.pathname === '/goto' && req.method === 'POST') {
+      const { url } = JSON.parse(await readBody(req));
+      const p = await cur();
+      await p.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      await p.waitForTimeout(2500);
+      return res.end(JSON.stringify({ ok: true, url: p.url() }));
+    }
+    if (u.pathname === '/click' && req.method === 'POST') {
+      const { x, y } = JSON.parse(await readBody(req));
+      const p = await cur();
+      await p.mouse.click(x, y);
+      return res.end(JSON.stringify({ ok: true, clicked: [x, y] }));
+    }
+    if (u.pathname === '/move' && req.method === 'POST') {
+      const { x, y } = JSON.parse(await readBody(req));
+      const p = await cur();
+      await p.mouse.move(x, y, { steps: 12 });
+      return res.end(JSON.stringify({ ok: true }));
+    }
+    if (u.pathname === '/press' && req.method === 'POST') {
+      const { key } = JSON.parse(await readBody(req));
+      const p = await cur();
+      await p.keyboard.press(key);
+      return res.end(JSON.stringify({ ok: true, key }));
+    }
+    if (u.pathname === '/eval' && req.method === 'POST') {
+      const { js } = JSON.parse(await readBody(req));
+      const p = await cur();
+      return res.end(JSON.stringify({ ok: true, out: await p.evaluate(js) }));
+    }
+    if (u.pathname === '/openshare' && req.method === 'POST') {
+      const p = await cur();
+      const tut = p.getByText('我知道了', { exact: true });
+      if (await tut.count()) {
+        await tut.first().click({ timeout: 3000 }).catch(() => {});
+        await p.waitForTimeout(900);
+      }
+      const already = await p.evaluate(() => document.body.innerText.includes('分享给朋友'));
+      if (!already) {
+        const pt = await p.evaluate(() => {
+          const vis = [...document.querySelectorAll('[data-e2e="video-player-share"]')]
+            .map((e) => e.getBoundingClientRect())
+            .filter((r) => r.width > 0 && r.height > 0 && r.top >= 0 && r.top < window.innerHeight);
+          if (vis.length) {
+            const r = vis[0];
+            return { x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) };
+          }
+          return null;
+        });
+        if (pt) {
+          await p.mouse.move(pt.x - 4, pt.y, { steps: 8 });
+          await p.waitForTimeout(300);
+          await p.mouse.click(pt.x, pt.y);
+        }
+        await p.waitForTimeout(1600);
+      }
+      const rows = await p.evaluate(() => [...document.querySelectorAll('[data-userid]')].map((b) => {
+        const row = b.parentElement;
+        const sp = row ? row.querySelector('span') : null;
+        const r = b.getBoundingClientRect();
+        return {
+          name: sp ? (sp.textContent || '').trim() : '',
+          userid: b.getAttribute('data-userid'),
+          x: Math.round(r.x + r.width / 2),
+          y: Math.round(r.y + r.height / 2),
+        };
+      }));
+      const open = await p.evaluate(() => document.body.innerText.includes('分享给朋友'));
+      if (!open) {
+        const file = path.join(SHOT_DIR, `sharefail-${TAG}-${Date.now()}.png`);
+        await p.screenshot({ path: file });
+        return res.end(JSON.stringify({ ok: false, error: 'share panel did not open', shot: file }));
+      }
+      return res.end(JSON.stringify({ ok: true, panelOpen: true, count: rows.length, rows }));
+    }
+    if (u.pathname === '/friends') {
+      const p = await cur();
+      await p.evaluate(HELPERS);
+      const rows = await p.evaluate(() => window.__dy.rows());
+      return res.end(JSON.stringify({ ok: true, rows }));
+    }
+    if (u.pathname === '/send' && req.method === 'POST') {
+      const { name, confirm } = JSON.parse(await readBody(req));
+      const p = await cur();
+      let rows = [];
+      for (let attempt = 0; attempt < 12; attempt++) {
+        rows = await p.evaluate(() => [...document.querySelectorAll('[data-userid]')].map((b) => {
+        const row = b.parentElement;
+        const sp = row ? row.querySelector('span') : null;
+        const r = b.getBoundingClientRect();
+        return {
+          name: sp ? (sp.textContent || '').trim() : '',
+          userid: b.getAttribute('data-userid'),
+          x: Math.round(r.x + r.width / 2),
+          y: Math.round(r.y + r.height / 2),
+        };
+      }));
+        if (rows.length) break;
+        await p.waitForTimeout(900);
+      }
+      const exact = rows.filter((r) => r.name === name);
+      const partial = rows.filter((r) => r.name.includes(name));
+      const pool = exact.length ? exact : partial;
+      if (!pool.length) {
+        return res.end(JSON.stringify({ ok: false, error: 'friend not found', visible: rows.map((r) => r.name) }));
+      }
+      if (pool.length > 1) {
+        return res.end(JSON.stringify({ ok: false, error: 'ambiguous name', candidates: pool }));
+      }
+      const target = pool[0];
+      if (!confirm) {
+        return res.end(JSON.stringify({ ok: true, dryRun: true, target, match: exact.length ? 'exact' : 'partial' }));
+      }
+      await p.mouse.click(target.x, target.y);
+      await p.waitForTimeout(2500);
+      const text = (await p.innerText('body').catch(() => '')).replace(/\s+/g, ' ');
+      const toast = text.match(/(分享成功|已分享|发送成功|已发送)/);
+      const file = path.join(SHOT_DIR, `sent-${TAG}-${Date.now()}.png`);
+      await p.screenshot({ path: file });
+      return res.end(JSON.stringify({ ok: true, sent: true, target, toast: toast ? toast[1] : null, shot: file }));
+    }
+    if (u.pathname === '/quit') {
+      res.end(JSON.stringify({ ok: true, closing: true }));
+      setTimeout(async () => {
+        try { await ctx.close(); } catch (e) {}
+        process.exit(0);
+      }, 150);
+      return;
+    }
+    res.statusCode = 404;
+    res.end(JSON.stringify({ error: 'not found' }));
+  } catch (e) {
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: e.message.split('\n')[0] }));
+  }
+});
+
+(async () => {
+  const launch = {
+    headless: env.browser.headless,
+    viewport: { width: env.browser.viewportWidth, height: env.browser.viewportHeight },
+    locale: env.browser.locale,
+    args: [`--window-position=${POS}`],
+  };
+  if (env.browser.executablePath) launch.executablePath = env.browser.executablePath;
+  else launch.channel = env.browser.channel;
+  ctx = await chromium.launchPersistentContext(PROFILE, launch);
+  page = ctx.pages()[0] || (await ctx.newPage());
+  await page.goto('https://www.douyin.com/', { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(5000);
+  console.log(`READY profile=${PROFILE} port=${PORT} url=${page.url()}`);
+  server.listen(PORT, '127.0.0.1', () => console.log(`control listening ${PORT}`));
+})().catch((e) => {
+  console.error('FAILED:', e.message.split('\n')[0]);
+  process.exit(1);
+});

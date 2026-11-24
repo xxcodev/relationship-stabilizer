@@ -1,0 +1,18 @@
+# runtime data (database, browser profiles, screenshots, backups)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# dependencies
+node_modules/
+
+# logs and local env
+*.log
+.env
+.env.local
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
