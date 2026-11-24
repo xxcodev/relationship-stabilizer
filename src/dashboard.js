@@ -3,6 +3,7 @@
  */
 // Dashboard backed by SQLite. Same UI as the prototype, but every value comes from the DB.
 const http = require('http');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -118,6 +119,22 @@ async function runSendJob({ dry = false } = {}) {
   }
   repos.logEvent('manual-send', { dry, status: sendJob.status, result: sendJob.result });
   return sendJob;
+}
+
+function profileDirFor(label) {
+  const slug = String(label || 'account').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 16) || 'account';
+  const hash = crypto.createHash('sha1').update(String(label)).digest('hex').slice(0, 6);
+  return path.join(env.DATA_DIR, `profile-${slug}-${hash}`);
+}
+
+function startBrowserFor(acc) {
+  const child = spawn(
+    process.execPath,
+    [path.join(env.ROOT, 'src', 'browser-server.js'), '--profile', env.browserProfileDir(acc.profile_dir), '--port', String(acc.port)],
+    { cwd: env.ROOT, env: process.env, detached: true, stdio: 'ignore', windowsHide: true }
+  );
+  child.unref();
+  return true;
 }
 
 async function statusFromDb() {
@@ -249,12 +266,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const state = await service.browserStatus(acc.port);
         if (state.up) return send(res, 200, { ok: true, already: true, url: state.url || null });
         try {
-          const child = spawn(
-            process.execPath,
-            [path.join(env.ROOT, 'src', 'browser-server.js'), '--profile', env.browserProfileDir(acc.profile_dir), '--port', String(acc.port)],
-            { cwd: env.ROOT, env: process.env, detached: true, stdio: 'ignore', windowsHide: true }
-          );
-          child.unref();
+          startBrowserFor(acc);
           repos.logEvent('browser-start', { account: acc.label });
           return send(res, 200, { ok: true, started: true });
         } catch (e) {
@@ -461,7 +473,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         if (repos.getAccount(name)) return send(res, 409, { ok: false, error: `账户「${name}」已存在` });
         const ports = repos.listAccounts().map((a) => Number(a.port));
         const port = Number(input.port) || (ports.length ? Math.max(9333, ...ports) + 1 : 9334);
-        const profileDir = path.join(env.DATA_DIR, `profile-${name.replace(/[^\w.-]+/g, '_')}`);
+        const profileDir = profileDirFor(name);
         const acc = repos.upsertAccount({ label: name, profileDir, port, friend: '', enabled: false });
         repos.updateAccountDisplayName(acc.id, name);
         repos.replaceBands(acc.id, [
@@ -498,6 +510,84 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         repos.logEvent(input.enabled === false ? 'account-pause' : 'account-resume', { label: acc.label });
         // each scheduler child re-reads its account state on the next loop; avoid restarting all accounts
         return send(res, 200, { ok: true, label: acc.label, enabled: input.enabled !== false, restarted: false });
+      }
+      if (u.pathname === '/api/accounts/add-qr' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        const wanted = String(input.name || '').trim().slice(0, 40);
+        const existing = repos.listAccounts();
+        let name = wanted;
+        if (!name) {
+          let n = existing.length + 1;
+          do { name = `新账户${n++}`; } while (repos.listAccounts().some((a) => a.display_name === name || a.label === name));
+        }
+        let label = name;
+        let suffix = 2;
+        while (repos.getAccount(label)) label = `${name}-${suffix++}`;
+        const ports = existing.map((a) => Number(a.port));
+        const port = Number(input.port) || (ports.length ? Math.max(9333, ...ports) + 1 : 9334);
+        const profileDir = profileDirFor(label);
+        const acc = repos.upsertAccount({ label, profileDir, port, friend: '', enabled: false });
+        repos.updateAccountDisplayName(acc.id, name);
+        repos.replaceBands(acc.id, [
+          { name: '早间', startMin: 9 * 60, endMin: 12 * 60, minCount: 1, maxCount: 2 },
+          { name: '下午', startMin: 14 * 60, endMin: 18 * 60, minCount: 2, maxCount: 4 },
+          { name: '晚间', startMin: 20 * 60, endMin: 23 * 60, minCount: 2, maxCount: 4 },
+        ]);
+        const friend = String(input.friend || '').trim();
+        if (friend) repos.addFriend(acc.id, friend);
+        repos.setSetting('activeAccount', acc.label);
+        repos.logEvent('account-add-qr', { label: acc.label, port: acc.port });
+        try { startBrowserFor(acc); } catch (e) {}
+        const restarted = service.restartScheduler();
+        return send(res, 200, {
+          ok: true,
+          account: { label: acc.label, name, port: acc.port, profile: acc.profile_dir },
+          restarted,
+        });
+      }
+      if (u.pathname === '/api/accounts/detect-name' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        const acc = input.label ? repos.getAccount(String(input.label)) : currentAccount();
+        if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
+        const state = await service.browserStatus(acc.port);
+        if (!state.up) return send(res, 200, { ok: true, loggedIn: false, reason: '浏览器尚未启动' });
+        let profile = null;
+        try {
+          const js = "fetch('/aweme/v1/web/user/profile/self/?device_platform=webapp&aid=6383&channel=channel_pc_web&publish_video_strategy_type=2&source=channel_pc_web',{credentials:'include',headers:{referer:location.href}}).then(r=>r.json()).then(j=>({status:j.status_code,nickname:j.user&&j.user.nickname,uid:j.user&&j.user.uid})).catch(e=>({error:e.message}))";
+          const r = await fetch(`http://127.0.0.1:${acc.port}/eval`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ js }),
+            signal: AbortSignal.timeout(8000),
+          });
+          const out = await r.json();
+          profile = out.out || null;
+        } catch (e) {
+          return send(res, 200, { ok: true, loggedIn: false, reason: '读取登录状态失败：' + e.message.split('\n')[0] });
+        }
+        if (!profile || profile.status !== 0 || !profile.nickname) {
+          return send(res, 200, { ok: true, loggedIn: false, reason: profile && profile.error ? profile.error : '尚未登录' });
+        }
+        const auto = !acc.display_name || /^新账户/.test(acc.display_name) || acc.display_name === acc.label;
+        let renamed = false;
+        if (auto) {
+          repos.updateAccountDisplayName(acc.id, profile.nickname);
+          renamed = true;
+          repos.logEvent('account-detected', { label: acc.label, nickname: profile.nickname, uid: profile.uid });
+        }
+        return send(res, 200, {
+          ok: true,
+          loggedIn: true,
+          nickname: profile.nickname,
+          uid: profile.uid,
+          renamed,
+          label: acc.label,
+          accountName: repos.getAccount(acc.label).display_name || acc.label,
+        });
       }
       if (u.pathname === '/api/accounts/switch' && req.method === 'POST') {
         let body = '';

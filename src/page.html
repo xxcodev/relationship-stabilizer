@@ -581,6 +581,7 @@
           <button class="btn ghost sm" id="acctPause">暂停</button>
           <button class="btn ghost sm" id="acctRestart">重启服务</button>
           <button class="btn ghost sm" id="acctOpenScreen">打开实时画面</button>
+          <button class="btn ghost sm" id="acctDetectName">识别抖音昵称</button>
           <button class="btn ghost sm" id="acctOpenViewer">新窗口打开 ↗</button>
         </div>
       </div>
@@ -594,15 +595,16 @@
         <div class="card">
           <div class="eyebrow">添加账户</div>
           <div class="form" style="margin-top:10px">
-            <label class="f">账户名称（昵称）<input id="newAcctName" placeholder="例如：小号A"></label>
+            <label class="f">账户名称（可留空，扫码后自动识别昵称）<input id="newAcctName" placeholder="留空 = 自动用抖音昵称"></label>
             <label class="f">浏览器端口（留空自动）<input id="newAcctPort" type="number" placeholder="留空自动分配"></label>
             <label class="f">第一个好友（可留空）<input id="newAcctFriend" placeholder="好友昵称"></label>
           </div>
           <div class="rowbtns">
-            <button class="btn primary sm" id="newAcctAdd">添加账户</button>
+            <button class="btn primary sm" id="newAcctQr">扫码添加账户</button>
+            <button class="btn ghost sm" id="newAcctAdd">仅创建（不扫码）</button>
             <span class="field-note" id="newAcctMsg"></span>
           </div>
-          <div class="field-note" style="margin-top:8px">账户默认暂停：切到该账户 → 打开实时画面扫码登录 → 再点「继续」启用；各账户 profile 独立、可同时排班发送。</div>
+          <div class="field-note" style="margin-top:8px">「扫码添加」会自动创建账户并打开浏览器窗口：手机扫码登录后自动识别抖音昵称；账户默认暂停，添加好友后点「继续」启用。</div>
         </div>
         <div class="card">
           <div class="eyebrow">多账户说明</div>
@@ -1079,6 +1081,89 @@ async function setAccountEnabled(label, enabled) {
   } catch (e) { toast('操作失败：' + e.message, 'bad'); }
 }
 
+let loginPollTimer = null;
+async function detectAccountName(label) {
+  try {
+    const r = await postJSON('/api/accounts/detect-name', { label });
+    if (r.loggedIn) {
+      toast('已识别：' + (r.nickname || r.accountName || label), 'ok', 5000);
+      await loadAccounts();
+      await loadHome();
+    } else {
+      toast(r.reason || '尚未登录', 'warn');
+    }
+    return r;
+  } catch (e) {
+    toast('识别失败：' + e.message, 'bad');
+    return { ok: false, error: e.message };
+  }
+}
+
+function pollAccountLogin(label) {
+  if (loginPollTimer) clearInterval(loginPollTimer);
+  let ticks = 0;
+  const msg = document.getElementById('newAcctMsg');
+  loginPollTimer = setInterval(async () => {
+    ticks++;
+    try {
+      const d = await postJSON('/api/accounts/detect-name', { label });
+      if (d.loggedIn) {
+        clearInterval(loginPollTimer);
+        loginPollTimer = null;
+        if (msg) msg.textContent = '登录成功：' + (d.nickname || d.accountName || label) + '（账户已添加）';
+        toast('扫码成功：' + (d.nickname || d.accountName || label), 'ok', 7000);
+        await loadAccounts();
+        await loadHome();
+        return;
+      }
+    } catch (e) { /* ignore */ }
+    if (ticks % 4 === 0 && msg) msg.textContent = '等待扫码登录…（也可以点「识别抖音昵称」手动检测）';
+    if (ticks >= 100) {
+      clearInterval(loginPollTimer);
+      loginPollTimer = null;
+      if (msg) msg.textContent = '未检测到登录，可在账户页点「识别抖音昵称」重试';
+      toast('等待登录超时，可稍后手动识别昵称', 'warn', 6000);
+    }
+  }, 3000);
+}
+
+async function qrAddAccount() {
+  const msg = document.getElementById('newAcctMsg');
+  const name = document.getElementById('newAcctName').value.trim();
+  const friend = document.getElementById('newAcctFriend').value.trim();
+  msg.textContent = '正在创建账户并打开浏览器…';
+  try {
+    const r = await postJSON('/api/accounts/add-qr', { name, friend, port: Number(document.getElementById('newAcctPort').value) || undefined });
+    if (!r.ok) throw new Error(r.error || '创建失败');
+    msg.textContent = '已创建「' + (r.account.name || r.account.label) + '」，等待浏览器启动…';
+    await loadAccounts();
+    // wait for browser to come up, then bring it to front and show live screen
+    let up = false;
+    for (let i = 0; i < 25; i++) {
+      await new Promise((res) => setTimeout(res, 1000));
+      try {
+        const st = await getJSON('/api/status');
+        if (st.browser && st.browser.up) { up = true; break; }
+      } catch (e) {}
+    }
+    if (up) {
+      await windowAction(true).catch(() => {});
+      navigate('home');
+      setTimeout(() => showScreen(true), 500);
+      msg.textContent = '请在浏览器窗口用手机扫码登录，登录后会自动识别昵称…';
+      toast('已打开扫码窗口，请用抖音 App 扫码登录', 'ok', 8000);
+      pollAccountLogin(r.account.label);
+    } else {
+      msg.textContent = '浏览器启动较慢或未启动；请切到该账户点「打开实时画面」再扫码';
+      toast('浏览器未就绪，可稍后点「打开实时画面」', 'warn', 6000);
+    }
+    await loadHome();
+  } catch (e) {
+    msg.textContent = '扫码添加失败：' + e.message;
+    toast('扫码添加失败：' + e.message, 'bad');
+  }
+}
+
 async function switchAccount(label) {
   if (!window.confirm('把面板切换到账户「' + label + '」查看？其他账户会继续按各自排班发送。')) return;
   try {
@@ -1448,6 +1533,11 @@ function bindHomeActions() {
     if (!name) return;
     try { await postJSON('/api/accounts/rename', { name }); toast('已更新账户名称', 'ok'); await loadAccounts(); loadHome(); }
     catch (e) { $('#acctRenameMsg').textContent = '保存失败：' + e.message; }
+  };
+  $('#newAcctQr').onclick = qrAddAccount;
+  $('#acctDetectName').onclick = async () => {
+    const active = state.accounts && state.accounts.active;
+    if (active) await detectAccountName(active);
   };
   $('#newAcctAdd').onclick = async () => {
     const name = $('#newAcctName').value.trim();
