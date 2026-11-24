@@ -84,6 +84,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "artifactName": "douyin-forwarder-${version}-${arch}.${ext}"
   }
 }

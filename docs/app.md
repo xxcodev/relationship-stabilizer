@@ -7,7 +7,8 @@
 
 ## 安装（macOS）
 
-1. 打开 `dist/抖音转发-0.8.0-arm64.dmg`，把「抖音转发」拖进「应用程序」；
+1. 从 [GitHub Releases](https://github.com/xxcodev/relationship-stabilizer/releases) 下载
+   `douyin-forwarder-0.8.0-arm64.dmg`（或使用本地 `dist/` 里的同名文件），把「抖音转发」拖进「应用程序」；
 2. 首次启动选数据目录：
    - **新建**：默认在 `~/Library/Application Support/抖音转发/data`；
    - **使用已有目录**：指向原来 `douyin-forwarder/data`，可复用数据库、截图和 Chrome 登录态（免重新扫码）；
