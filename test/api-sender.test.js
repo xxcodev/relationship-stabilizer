@@ -31,5 +31,5 @@ test('createConversation fails cleanly when the session has no create template',
 test('sendVideo refuses unknown friends instead of falling back silently', async () => {
   const out = await apiSender.sendVideo(session, { title: 'x', awemeId: '1' }, { friend: '不存在的人' });
   assert.strictEqual(out.ok, false);
-  assert.match(out.error, /不在导出时捕获的最近好友列表/);
+  assert.match(out.error, /不在会话好友列表/);
 });
