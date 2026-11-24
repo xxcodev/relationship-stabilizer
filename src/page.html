@@ -719,7 +719,7 @@
               <input id="friendNew" placeholder="好友昵称" style="min-width:180px">
               <button class="btn ghost sm" id="friendAdd">添加好友</button>
             </div>
-            <div class="field-note" style="margin-top:8px">排班发送时从启用的好友里随机轮换；纯 API 发送要求好友在导出会话时捕获的列表里，否则回退浏览器。</div>
+            <div class="field-note" style="margin-top:8px">排班发送时优先选当天成功发送次数最少的好友（先每人一轮，再开始下一轮）；纯 API 发送要求好友在导出会话时捕获的列表里，否则回退浏览器。</div>
           </div>
           <div class="card" style="margin-bottom:16px">
             <div class="card-head"><div class="eyebrow">纯 API 会话</div><span class="pill" id="apiBadge">检查中…</span></div>

@@ -11,6 +11,7 @@ const planner = require('./planner');
 const picker = require('./picker');
 const apiSender = require('./api-sender');
 const apiSession = require('./api-session');
+const friendPicker = require('./friend-picker');
 
 const hm = planner.hm;
 const sleep = picker.sleep;
@@ -55,6 +56,12 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
 }
 
 const baseOf = (cfg) => `http://127.0.0.1:${cfg.port}`;
+
+// Rotate friends by their successful sends today: everyone gets a turn before anyone gets
+// a second message. When all friends have been used, another evenly spread round starts.
+function chooseFriendToday(cfg, names) {
+  return friendPicker.chooseFriend(names, repos.friendSendCounts(cfg.accountId, ymd(new Date())));
+}
 
 async function serverUp(cfg) {
   try {
@@ -114,10 +121,13 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
     repos.logEvent('api-fallback-friend', { account: cfg.accountLabel, friends: cfg.friends });
     return null;
   }
-  const row = rows[Math.floor(Math.random() * rows.length)];
+  const apiNames = rows.map((row) => row.name);
+  const picked = apiNames.includes(cfg.friend) ? cfg.friend : chooseFriendToday(cfg, apiNames);
+  if (!picked) return null;
+  cfg.friend = picked;
+  const row = rows.find((r) => r.name === picked) || rows[0];
   const friend = row.name;
   const toUserId = row.userid || null;
-  cfg.friend = friend;
   const pools = cfg.pools.filter((p) => p.enabled);
   if (!pools.length) return null;
   const pool = pools[Math.floor(Math.random() * pools.length)];
@@ -156,9 +166,8 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
 
 async function sendOne(cfg, { dryRun = false } = {}) {
   if (!Array.isArray(cfg.friends) || !cfg.friends.length) return { ok: false, error: 'no friend configured' };
-  if (Array.isArray(cfg.friends) && cfg.friends.length) {
-    cfg.friend = cfg.friends[Math.floor(Math.random() * cfg.friends.length)];
-  }
+  const picked = chooseFriendToday(cfg, cfg.friends);
+  if (picked) cfg.friend = picked;
   const api = await apiAttempt(cfg, { dryRun });
   if (api) return api;
   const startedHere = !(await serverUp(cfg));

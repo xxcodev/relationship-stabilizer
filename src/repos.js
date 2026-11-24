@@ -199,6 +199,16 @@ function countSendsByDay(day, accountId = null) {
   return row ? row.c : 0;
 }
 
+// Successful sends today per friend, used to rotate friends fairly.
+function friendSendCounts(accountId, day) {
+  const rows = db.open()
+    .prepare('SELECT friend, COUNT(*) n FROM sends WHERE account_id = ? AND day = ? AND ok = 1 GROUP BY friend')
+    .all(accountId, day);
+  const counts = {};
+  for (const row of rows) counts[row.friend] = row.n;
+  return counts;
+}
+
 function bucketStats(accountId = null) {
   const conn = db.open();
   const sql = accountId
@@ -228,6 +238,6 @@ module.exports = {
   listPools, seedPools, setPoolEnabled,
   listBands, replaceBands,
   getPlan, savePlan,
-  insertSend, listSends, countSendsByDay, bucketStats,
+  insertSend, listSends, countSendsByDay, friendSendCounts, bucketStats,
   logEvent, listEvents,
 };

@@ -74,10 +74,14 @@ test('sends are recorded and counted per day', () => {
   const acc = repos.getAccount('T');
   repos.insertSend({ accountId: acc.id, ts: '2026-11-23T09:00:00.000Z', day: '2026-11-23', bucket: '韩剧', title: 'x', friend: 'Hime', ok: true, toast: '分享成功' });
   repos.insertSend({ accountId: acc.id, ts: '2026-11-23T10:00:00.000Z', day: '2026-11-23', bucket: '搞笑', title: 'y', friend: 'Hime', ok: false, toast: 'boom' });
+  repos.insertSend({ accountId: acc.id, ts: '2026-11-24T09:00:00.000Z', day: '2026-11-24', bucket: '日番', title: 'z', friend: '拍拍', ok: true, toast: '分享成功' });
+  repos.insertSend({ accountId: acc.id, ts: '2026-11-24T10:00:00.000Z', day: '2026-11-24', bucket: '日番', title: 'w', friend: 'Hime', ok: false, toast: 'boom' });
   assert.equal(repos.countSendsByDay('2026-11-23', acc.id), 1); // only ok=1 counts as sent
   const stats = repos.bucketStats(acc.id);
-  assert.equal(stats.length, 2);
-  assert.equal(repos.listSends({ accountId: acc.id, limit: 10 }).length, 2);
+  assert.equal(stats.length, 3);
+  assert.equal(repos.listSends({ accountId: acc.id, limit: 10 }).length, 4);
+  assert.deepEqual(repos.friendSendCounts(acc.id, '2026-11-23'), { Hime: 1 });
+  assert.deepEqual(repos.friendSendCounts(acc.id, '2026-11-24'), { 拍拍: 1 }); // failures don't count
 });
 
 test('events with the same timestamp are idempotent', () => {
