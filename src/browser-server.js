@@ -27,6 +27,7 @@ const POC_CAPTURE_DIR = process.env.POC_CAPTURE_DIR || null;
 const POC_ABORT_SEND = process.env.POC_ABORT_SEND === '1';
 const POC_FILE = POC_CAPTURE_DIR ? path.join(POC_CAPTURE_DIR, 'all.jsonl') : null;
 let pocLastSend = null;
+let pocLastCreate = null;
 function pocCap(kind, data) {
   if (!POC_FILE) return;
   try {
@@ -54,6 +55,7 @@ function pocWire(ctx, page) {
     };
     pocCap('request', item);
     if (/imapi\.douyin\.com\/v1\/message\/send/.test(req.url())) pocLastSend = item;
+    if (/imapi\.douyin\.com\/v2\/conversation\/create/.test(req.url())) pocLastCreate = item;
   });
   ctx.on('response', async (res) => {
     const req = res.request();
@@ -302,7 +304,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify(out));
     }
     if (POC_CAPTURE_DIR && u.pathname === '/poc/bundle') {
-      return res.end(JSON.stringify({ cookies: await ctx.cookies(), lastSend: pocLastSend }));
+      return res.end(JSON.stringify({ cookies: await ctx.cookies(), lastSend: pocLastSend, lastCreate: pocLastCreate }));
     }
     if (u.pathname === '/quit') {
       res.end(JSON.stringify({ ok: true, closing: true }));

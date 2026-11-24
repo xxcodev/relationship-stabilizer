@@ -102,14 +102,79 @@ async function pick(session, { keyword, banWords = [] } = {}) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+/** Recent friends captured from the share panel: [{name, userid}]. */
+function friends(session) {
+  return Array.isArray(session.friends) ? session.friends : [];
+}
+
+function resolveFriend(session, name) {
+  const wanted = String(name || '').trim();
+  return friends(session).find((f) => f.name === wanted) || null;
+}
+
+/**
+ * Create (or fetch) the conversation with another friend via the captured
+ * POST /v2/conversation/create template. Returns {ok, conversationId, conversationShortId}.
+ */
+async function createConversation(session, toUserId) {
+  if (!session.createTemplate || !session.createTemplate.bodyB64) {
+    return { ok: false, error: 'session has no conversation-create template' };
+  }
+  const users = apiProto.createTemplateUsers(session.createTemplate.bodyB64);
+  const fromUserId = users[1];
+  const body = apiProto.buildCreateBody(session.createTemplate.bodyB64, { toUserId, fromUserId });
+  const res = await fetch(session.createTemplate.url, {
+    method: 'POST',
+    headers: {
+      accept: 'application/x-protobuf',
+      'content-type': 'application/x-protobuf',
+      'cache-control': 'no-cache',
+      origin: 'https://www.douyin.com',
+      pragma: 'no-cache',
+      referer: 'https://www.douyin.com/',
+      'user-agent': UA,
+      cookie: cookieHeader(session),
+    },
+    body,
+    signal: AbortSignal.timeout(20000),
+  });
+  const buf = Buffer.from(await res.arrayBuffer());
+  if (res.status !== 200) return { ok: false, error: `create HTTP ${res.status}` };
+  const parsed = apiProto.parseCreateResponse(buf);
+  if (!parsed.conversationId || !parsed.conversationShortId) {
+    return { ok: false, error: parsed.error || 'conversation id missing in response', parsed };
+  }
+  return { ok: true, conversationId: parsed.conversationId, conversationShortId: parsed.conversationShortId };
+}
+
 /** Send the video card over HTTP. Returns {ok, statusCode, statusMessage, ...}. */
-async function sendVideo(session, video) {
+async function sendVideo(session, video, { friend } = {}) {
+  const target = String(friend || session.friend || '').trim();
+  let conversationId;
+  let conversationShortId;
+  if (target && session.friend && target !== session.friend) {
+    const row = resolveFriend(session, target);
+    if (!row) {
+      return {
+        ok: false,
+        error: `好友「${target}」不在导出时捕获的最近好友列表里，请先在分享面板里和 TA 聊过/换回浏览器发送`,
+        video,
+        friend: target,
+      };
+    }
+    const conv = await createConversation(session, row.userid);
+    if (!conv.ok) return { ok: false, error: conv.error, video, friend: target };
+    conversationId = conv.conversationId;
+    conversationShortId = conv.conversationShortId;
+  }
   const clientMessageId = crypto.randomUUID();
   const stime = `${Date.now()}.${Math.floor(Math.random() * 9000 + 1000)}`;
   const body = apiProto.buildSendBody(session.template.bodyB64, {
     content: cardContent(video),
     clientMessageId,
     stime,
+    conversationId,
+    conversationShortId,
   });
 
   const res = await fetch(session.template.url, {
@@ -155,6 +220,7 @@ async function sendVideo(session, video) {
     error: ok ? null : parsed.statusMessage || `status_code ${parsed.statusCode}`,
     responseB64: ok ? undefined : buf.toString('base64'),
     video,
+    friend: target || undefined,
   };
 }
 
@@ -163,4 +229,14 @@ function usable(session, friend, opts) {
   return apiSession.status(session, friend, opts);
 }
 
-module.exports = { pick, sendVideo, buildSearchUrl, cardContent, cookieHeader, usable };
+module.exports = {
+  pick,
+  sendVideo,
+  createConversation,
+  friends,
+  resolveFriend,
+  buildSearchUrl,
+  cardContent,
+  cookieHeader,
+  usable,
+};

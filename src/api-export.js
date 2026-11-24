@@ -77,15 +77,16 @@ async function driveShare({ port, friend, keyword, logger }) {
   }
   if (!opened) throw new Error('视频详情没有打开');
 
+  let share = null;
   for (let i = 0; i < 5; i++) {
-    const share = await postJson(base, '/openshare');
+    share = await postJson(base, '/openshare');
     if (share.ok) break;
     await sleep(2000);
   }
   log(logger, `点击好友「${friend}」（发送请求会被捕获并中断）`);
   const sent = await postJson(base, '/send', { name: friend, confirm: true });
   await sleep(1500);
-  return sent;
+  return { sent, friends: (share && share.rows) || [] };
 }
 
 function findSearchUrl(captureDir) {
@@ -155,7 +156,7 @@ async function exportSession({ accountLabel = process.env.ACCOUNT || null, keywo
     if (!state) throw new Error('浏览器启动失败（profile 可能被占用，或需要先扫码登录）');
     if (!state.loggedIn) log(logger, '提示：当前浏览器看起来未登录，如果流程失败请先在应用里扫码登录');
 
-    await driveShare({ port: acc.port, friend: acc.friend, keyword: chosen.keyword, logger });
+    const drive = await driveShare({ port: acc.port, friend: acc.friend, keyword: chosen.keyword, logger });
 
     const bundleRes = await fetch(base + '/poc/bundle', { signal: AbortSignal.timeout(10000) });
     const bundle = await bundleRes.json();
@@ -168,8 +169,11 @@ async function exportSession({ accountLabel = process.env.ACCOUNT || null, keywo
     const searchUrl = findSearchUrl(captureDir);
     if (!searchUrl) throw new Error('没有捕获到搜索请求（只读 API 将不可用）');
 
+    const friends = (drive.friends || [])
+      .filter((row) => row && row.name && row.userid)
+      .map((row) => ({ name: row.name, userid: String(row.userid) }));
     const session = {
-      version: 1,
+      version: 2,
       createdAt: new Date().toISOString(),
       account: acc.label,
       friend: acc.friend,
@@ -181,12 +185,25 @@ async function exportSession({ accountLabel = process.env.ACCOUNT || null, keywo
         headers: bundle.lastSend.headers,
         bodyB64: bundle.lastSend.bodyB64,
       },
+      createTemplate: bundle.lastCreate
+        ? { url: bundle.lastCreate.url, headers: bundle.lastCreate.headers, bodyB64: bundle.lastCreate.bodyB64 }
+        : null,
+      friends,
       cookies: bundle.cookies,
     };
     const file = apiSession.save(session);
     log(logger, `会话已保存：${file}`);
     log(logger, `账号 ${acc.label} → 好友 ${acc.friend}，模板 ${bundle.lastSend.bodyB64.length} base64 字符，cookies ${bundle.cookies.length} 条`);
-    return { ok: true, file, account: acc.label, friend: acc.friend, keyword: chosen.keyword, session };
+    return {
+      ok: true,
+      file,
+      account: acc.label,
+      friend: acc.friend,
+      keyword: chosen.keyword,
+      friends: friends.length,
+      hasCreateTemplate: !!session.createTemplate,
+      session,
+    };
   } finally {
     await fetch(base + '/quit', { method: 'POST', signal: AbortSignal.timeout(3000) }).catch(() => {});
     await sleep(500);

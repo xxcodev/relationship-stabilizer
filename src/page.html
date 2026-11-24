@@ -77,6 +77,20 @@
     </div>
   </details>
 
+  <details id="apiBox" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 16px;margin-bottom:18px">
+    <summary style="cursor:pointer;padding:14px 0;font-weight:600">⚡ 纯 API 发送 <span id="apiBadge" class="muted" style="font-weight:400">检查中…</span></summary>
+    <div style="padding-bottom:16px">
+      <div id="apiLine" class="muted" style="line-height:1.7">检查中…</div>
+      <div class="rowbtns" style="margin-top:10px">
+        <button class="btn" id="btnApiRefresh">导出 / 刷新会话</button>
+        <button class="btn" id="btnApiAuto">切换自动刷新</button>
+        <button class="btn" id="btnApiMode">切换到纯 API 优先</button>
+        <button class="btn" id="btnBrowserMode">仅浏览器</button>
+        <span id="apiMsg" class="muted"></span>
+      </div>
+    </div>
+  </details>
+
   <div class="grid">
     <div class="card"><div class="k">今日计划 <button class="btn" id="replan" style="float:right;padding:2px 8px;font-size:11px">重排</button></div><div class="v" id="plan">-</div></div>
     <div class="card"><div class="k">今日已发</div><div class="v ok" id="done">-</div></div>
@@ -399,6 +413,65 @@ document.getElementById('screenImg').onclick = async (ev) => {
   m.textContent = r.ok ? '已点击 ('+x+', '+y+')' : ('点击失败:' + (r.error||''));
   setTimeout(screenRefresh, 800);
 };
+
+async function loadApiSession(){
+  const line = document.getElementById('apiLine');
+  const badge = document.getElementById('apiBadge');
+  try {
+    const d = await (await fetch('/api/api-session', { cache: 'no-store' })).json();
+    const mode = d.sendMode === 'auto' ? '纯 API 优先（失败回退浏览器）' : '仅浏览器';
+    badge.textContent = d.valid ? '会话可用' : (d.present ? '会话不可用' : '未导出');
+    badge.className = d.valid ? 'ok' : 'bad';
+    const parts = [
+      '发送模式：<b>' + mode + '</b>',
+      '自动刷新：' + (d.autoRefresh ? '开' : '关'),
+    ];
+    if (d.present) {
+      parts.push('状态：' + (d.valid ? '可用' : ('不可用（' + (d.reason || '') + '）')));
+      parts.push('账号/好友：' + (d.account || '-') + ' → ' + (d.defaultFriend || '-'));
+      parts.push('抓取于：' + new Date(d.createdAt).toLocaleString('zh-CN', { hour12: false }) + '（' + (d.ageHours != null ? d.ageHours + 'h 前' : '-') + '，有效期 ' + d.maxAgeHours + 'h）');
+      parts.push('模板/cookies/好友：' + d.templateBytes + ' 字符 / ' + d.cookies + ' 条 / ' + d.friends + ' 人' + (d.hasCreateTemplate ? '（支持任意好友）' : ''));
+    } else {
+      parts.push('还没有导出会话；点「导出 / 刷新会话」会短暂启动一个最小化浏览器（不会发送消息）。');
+    }
+    line.innerHTML = parts.join('<br>');
+  } catch (e) {
+    line.textContent = '读取失败：' + e.message;
+    badge.textContent = '读取失败';
+  }
+}
+
+async function apiPost(path, body){
+  const r = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body || {}) });
+  return r.json();
+}
+
+document.getElementById('btnApiRefresh').onclick = async () => {
+  const m = document.getElementById('apiMsg'); m.className='muted'; m.textContent='已启动导出…';
+  const r = await apiPost('/api/api-session/refresh').catch((e) => ({ ok:false, error:e.message }));
+  m.className = r.ok ? 'ok' : 'bad';
+  m.textContent = r.ok ? '导出已启动（最小化浏览器，不会发送消息）' : ('启动失败：' + (r.error || ''));
+  setTimeout(loadApiSession, 8000);
+  setTimeout(loadApiSession, 25000);
+};
+document.getElementById('btnApiAuto').onclick = async () => {
+  const d = await (await fetch('/api/api-session', { cache:'no-store' })).json();
+  const r = await apiPost('/api/api-session/auto-refresh', { enabled: !d.autoRefresh });
+  document.getElementById('apiMsg').textContent = r.ok ? ('自动刷新已' + (r.enabled ? '开启' : '关闭')) : '切换失败';
+  loadApiSession();
+};
+document.getElementById('btnApiMode').onclick = async () => {
+  const r = await apiPost('/api/api-session/mode', { mode: 'auto' });
+  document.getElementById('apiMsg').textContent = r.ok ? '已切换到纯 API 优先（调度已重启）' : '切换失败';
+  loadApiSession();
+};
+document.getElementById('btnBrowserMode').onclick = async () => {
+  const r = await apiPost('/api/api-session/mode', { mode: 'browser' });
+  document.getElementById('apiMsg').textContent = r.ok ? '已切换为仅浏览器' : '切换失败';
+  loadApiSession();
+};
+loadApiSession();
+setInterval(loadApiSession, 20000);
 
 async function loadAccount(){
   try {

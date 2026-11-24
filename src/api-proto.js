@@ -17,6 +17,16 @@ function encodeVarint(value) {
   out.push(n & 0x7f);
   return Buffer.from(out);
 }
+function encodeVarintBig(value) {
+  let n = typeof value === 'bigint' ? value : BigInt(value);
+  const out = [];
+  while (n >= 0x80n) {
+    out.push(Number((n & 0x7fn) | 0x80n));
+    n >>= 7n;
+  }
+  out.push(Number(n));
+  return Buffer.from(out);
+}
 const tag = (field) => encodeVarint(field * 8 + 2);
 function readVarintIndex(buf, i) {
   let result = 0;
@@ -60,7 +70,7 @@ function encodeRaw(fields) {
   const parts = [];
   for (const item of fields) {
     if (item.replace !== undefined) parts.push(tag(item.f), encodeVarint(item.replace.length), item.replace);
-    else if (item.w === 0) parts.push(item.keyRaw, item.rawVarint);
+    else if (item.w === 0) parts.push(item.keyRaw, item.rawVarintReplace !== undefined ? item.rawVarintReplace : item.rawVarint);
     else parts.push(tag(item.f), encodeVarint(item.v.length), item.v);
   }
   return Buffer.concat(parts);
@@ -88,7 +98,7 @@ function contentJson(template) {
   return field.v.toString('utf8');
 }
 
-function buildSendBody(templateB64, { content, clientMessageId, stime }) {
+function buildSendBody(templateB64, { content, clientMessageId, stime, conversationId, conversationShortId } = {}) {
   const top = parseRaw(Buffer.from(templateB64, 'base64'));
   const bodyField = findRaw(top, 8);
   if (!bodyField) throw new Error(`${POC_ERR}: missing send_message_body`);
@@ -97,6 +107,10 @@ function buildSendBody(templateB64, { content, clientMessageId, stime }) {
   if (!contentField) throw new Error(`${POC_ERR}: missing send_message_content`);
   const message = parseRaw(contentField.v);
   for (const item of message) {
+    if (item.f === 1 && item.w === 2 && conversationId) item.replace = Buffer.from(String(conversationId));
+    if (item.f === 3 && item.w === 0 && conversationShortId !== undefined && conversationShortId !== null) {
+      item.rawVarintReplace = encodeVarintBig(conversationShortId);
+    }
     if (item.f === 4 && item.w === 2) item.replace = Buffer.from(content);
     if (item.f === 8 && item.w === 2) item.replace = Buffer.from(clientMessageId);
     if (item.f === 5 && item.w === 2) {
@@ -141,4 +155,79 @@ function parseSendResponse(buf) {
   return out;
 }
 
-module.exports = { parseRaw, encodeRaw, buildSendBody, contentJson, parseSendResponse };
+/** Users embedded in a captured conversation/create request: [toUserId, fromUserId]. */
+function createTemplateUsers(templateB64) {
+  const top = parseRaw(Buffer.from(templateB64, 'base64'));
+  const body = findRaw(top, 8);
+  if (!body) throw new Error(`${POC_ERR}: create template missing body`);
+  const create = findRaw(parseRaw(body.v), 609);
+  if (!create) throw new Error(`${POC_ERR}: create template missing create_session_request`);
+  const users = parseRaw(create.v).filter((x) => x.f === 2 && x.w === 0);
+  if (users.length < 2) throw new Error(`${POC_ERR}: create template users missing`);
+  return users.map((x) => varintBig(x.rawVarint));
+}
+
+/** Rebuild a conversation/create request for another user pair. */
+function buildCreateBody(templateB64, { toUserId, fromUserId } = {}) {
+  const top = parseRaw(Buffer.from(templateB64, 'base64'));
+  const body = findRaw(top, 8);
+  if (!body) throw new Error(`${POC_ERR}: create template missing body`);
+  const bodyFields = parseRaw(body.v);
+  const create = findRaw(bodyFields, 609);
+  if (!create) throw new Error(`${POC_ERR}: create template missing create_session_request`);
+  const createFields = parseRaw(create.v);
+  const users = createFields.filter((x) => x.f === 2 && x.w === 0);
+  if (!users.length) throw new Error(`${POC_ERR}: create template users missing`);
+  users[0].rawVarintReplace = encodeVarintBig(toUserId);
+  if (users[1] && fromUserId !== undefined) users[1].rawVarintReplace = encodeVarintBig(fromUserId);
+  create.replace = encodeRaw(createFields);
+  body.replace = encodeRaw(bodyFields);
+  return encodeRaw(top);
+}
+
+/** Walk every length-delimited message looking for {field1: "0:1:x:y", field2: <id>}. */
+function parseCreateResponse(buf) {
+  const out = { ok: false, conversationId: null, conversationShortId: null, statusCode: null, error: null };
+  const top = parseRaw(buf);
+  const envelope = findRaw(top, 4);
+  if (envelope && envelope.v.toString('utf8') === 'OK') out.ok = true;
+  const visit = (fields) => {
+    const idField = fields.find((x) => (x.f === 1 || x.f === 2) && x.w === 2 && /^\d+:\d+:\d+:\d+$/.test(x.v.toString('utf8')));
+    if (idField) {
+      out.conversationId = idField.v.toString('utf8');
+      const shortField = fields.find((x) => x.w === 0 && x.f === idField.f + 1);
+      if (shortField) out.conversationShortId = varintBig(shortField.rawVarint);
+    }
+    for (const item of fields) {
+      if (item.w === 2) {
+        try {
+          visit(parseRaw(item.v));
+        } catch (e) {}
+      }
+    }
+  };
+  visit(top);
+  const latin = buf.toString('latin1');
+  const status = latin.match(/\{[^{}]{0,400}"status_code"[^{}]{0,400}\}/);
+  if (status) {
+    try {
+      const parsed = JSON.parse(status[0]);
+      out.statusCode = parsed.status_code;
+      const msg = parsed.status_msg;
+      out.error = (msg && msg.msg_content && msg.msg_content.tips) || parsed.tips || '';
+      if (parsed.status_code !== 0) out.ok = false;
+    } catch (e) {}
+  }
+  return out;
+}
+
+module.exports = {
+  parseRaw,
+  encodeRaw,
+  buildSendBody,
+  buildCreateBody,
+  createTemplateUsers,
+  parseCreateResponse,
+  contentJson,
+  parseSendResponse,
+};

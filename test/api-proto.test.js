@@ -102,3 +102,51 @@ test('parseSendResponse reads a rejection (no server message id)', () => {
   assert.strictEqual(parsed.serverMessageId, null);
   assert.match(parsed.statusMessage, /群聊/);
 });
+
+function buildCreateTemplate() {
+  const create = Buffer.concat([
+    varintField(1, 1),
+    varintField(2, 102092647640n),
+    varintField(2, 2892143345565097n),
+  ]);
+  const body = lenField(609, create);
+  return Buffer.concat([varintField(1, 609), varintField(2, 7), lenField(8, body)]).toString('base64');
+}
+
+test('buildCreateBody swaps the target user and keeps the sender int64 intact', () => {
+  const template = buildCreateTemplate();
+  const rebuilt = apiProto.buildCreateBody(template, { toUserId: 93188024801n });
+  const top = apiProto.parseRaw(rebuilt);
+  const body = apiProto.parseRaw(top.find((f) => f.f === 8 && f.w === 2).v);
+  const create = apiProto.parseRaw(body.find((f) => f.f === 609 && f.w === 2).v);
+  const users = create.filter((f) => f.f === 2 && f.w === 0).map((f) => f.rawVarint.toString('hex'));
+  assert.deepStrictEqual(users, [varint(93188024801n).toString('hex'), varint(2892143345565097n).toString('hex')]);
+  assert.deepStrictEqual(apiProto.createTemplateUsers(template), ['102092647640', '2892143345565097']);
+});
+
+test('parseCreateResponse finds conversation id and short id', () => {
+  const message = Buffer.concat([
+    lenField(1, '0:1:93188024801:2892143345565097'),
+    varintField(2, 7589260987161739816n),
+    varintField(3, 1),
+  ]);
+  const top = Buffer.concat([varintField(1, 609), lenField(4, 'OK'), lenField(6, lenField(100, message))]);
+  const parsed = apiProto.parseCreateResponse(top);
+  assert.strictEqual(parsed.ok, true);
+  assert.strictEqual(parsed.conversationId, '0:1:93188024801:2892143345565097');
+  assert.strictEqual(parsed.conversationShortId, '7589260987161739816');
+});
+
+test('buildSendBody can override conversation id + short id for another friend', () => {
+  const { templateB64 } = buildTemplate();
+  const rebuilt = apiProto.buildSendBody(templateB64, {
+    content: JSON.stringify({ aweType: 800, itemId: '333' }),
+    clientMessageId: 'client-x',
+    stime: '1.2',
+    conversationId: '0:1:93188024801:2892143345565097',
+    conversationShortId: 7589260987161739816n,
+  });
+  const { message } = messageFields(rebuilt.toString('base64'));
+  assert.strictEqual(message.find((f) => f.f === 1).v.toString('utf8'), '0:1:93188024801:2892143345565097');
+  assert.strictEqual(message.find((f) => f.f === 3).rawVarint.toString('hex'), varint(7589260987161739816n).toString('hex'));
+});

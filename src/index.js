@@ -140,7 +140,15 @@ async function main() {
         accountLabel: args.includes('--account') ? args[args.indexOf('--account') + 1] : process.env.ACCOUNT || null,
         keyword: args.includes('--keyword') ? args[args.indexOf('--keyword') + 1] : undefined,
       });
-      console.log(JSON.stringify({ ok: out.ok, file: out.file, account: out.account, friend: out.friend, keyword: out.keyword }, null, 2));
+      console.log(JSON.stringify({
+        ok: out.ok,
+        file: out.file,
+        account: out.account,
+        friend: out.friend,
+        keyword: out.keyword,
+        friends: out.friends,
+        hasCreateTemplate: out.hasCreateTemplate,
+      }, null, 2));
       break;
     }
 
@@ -163,7 +171,10 @@ async function main() {
         reason: state.reason,
         templateBytes: session && session.template ? session.template.bodyB64.length : 0,
         cookies: session ? (session.cookies || []).length : 0,
+        friends: session ? (session.friends || []).length : 0,
+        hasCreateTemplate: !!(session && session.createTemplate),
         sendMode: repos.getSetting('sendMode', 'auto'),
+        autoRefresh: repos.getSetting('apiAutoRefresh', '1') === '1',
       }, null, 2));
       break;
     }
@@ -172,6 +183,19 @@ async function main() {
       dbReady();
       require('./api-session').clear();
       console.log('api session cleared');
+      break;
+    }
+
+    case 'api:friends': {
+      dbReady();
+      const apiSession = require('./api-session');
+      const session = apiSession.load();
+      if (!session) throw new Error('no api session');
+      console.log(JSON.stringify({
+        defaultFriend: session.friend,
+        friends: (session.friends || []).map((f) => f.name),
+        canCreateConversation: !!(session.createTemplate && session.createTemplate.bodyB64),
+      }, null, 2));
       break;
     }
 
@@ -197,9 +221,10 @@ async function main() {
       const pool = repos.listPools().find((p) => p.enabled);
       if (!pool) throw new Error('no enabled pool');
       const video = await apiSender.pick(session, { keyword: pool.keyword, banWords: repos.getSetting('banWords', []) });
-      console.log(JSON.stringify({ picked: video.title, pool: pool.name, awemeId: video.awemeId }, null, 2));
+      const friend = args.includes('--friend') ? args[args.indexOf('--friend') + 1] : acc.friend;
+      console.log(JSON.stringify({ picked: video.title, pool: pool.name, awemeId: video.awemeId, friend }, null, 2));
       if (args.includes('--dry')) break;
-      const res = await apiSender.sendVideo(session, video);
+      const res = await apiSender.sendVideo(session, video, { friend });
       console.log(JSON.stringify(res, null, 2));
       if (!res.ok) process.exitCode = 1;
       break;

@@ -6,7 +6,7 @@
  *
  * The two long-lived processes stay in src/host.js, so CLI usage and the app share one model.
  */
-const { app, BrowserWindow, Tray, Menu, dialog, shell, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, dialog, shell, nativeImage, screen, Notification } = require('electron');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const net = require('net');
@@ -51,6 +51,8 @@ let viewerWin = null;
 let viewerPort = null;
 let viewerStarted = false;
 let viewerChild = null;
+let apiExportChild = null;
+let lastApiRefreshAt = 0;
 let quitting = false;
 
 function settingsFile() {
@@ -203,6 +205,32 @@ function setSendMode(mode) {
   }
 }
 
+function apiAutoRefreshEnabled() {
+  try {
+    return require('../src/repos').getSetting('apiAutoRefresh', '1') !== '0';
+  } catch (e) {
+    return false;
+  }
+}
+
+function setApiAutoRefresh(enabled) {
+  try {
+    require('../src/repos').setSetting('apiAutoRefresh', enabled ? '1' : '0');
+    return true;
+  } catch (e) {
+    log(`setApiAutoRefresh failed: ${e.message}`);
+    return false;
+  }
+}
+
+function notify(body) {
+  try {
+    new Notification({ title: TITLE, body }).show();
+  } catch (e) {
+    log(`notification failed: ${e.message}`);
+  }
+}
+
 function apiSessionInfo() {
   try {
     const apiSession = require('../src/api-session');
@@ -238,6 +266,49 @@ function showApiStatus() {
   dialog.showMessageBox({ type: 'info', title: '纯 API 会话', message: `纯 API 会话（${st.valid ? '可用' : '未就绪'}）`, detail: lines.join('\n\n') });
 }
 
+function runApiExport({ auto = false } = {}) {
+  if (apiExportChild) return false;
+  log(`api export: start (${auto ? 'auto' : 'manual'})`);
+  const child = spawn(process.execPath, [path.join(ROOT, 'src', 'index.js'), 'api:export'], {
+    cwd: ROOT,
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  apiExportChild = child;
+  let output = '';
+  child.stdout.on('data', (chunk) => {
+    output += chunk;
+    for (const line of String(chunk).split('\n').filter(Boolean)) log(`api export: ${line}`);
+  });
+  child.stderr.on('data', (chunk) => {
+    output += chunk;
+    for (const line of String(chunk).split('\n').filter(Boolean)) log(`api export err: ${line}`);
+  });
+  child.on('exit', (code) => {
+    apiExportChild = null;
+    lastApiRefreshAt = Date.now();
+    log(`api export: exited ${code}`);
+    refreshTrayMenu();
+    const tail = output.trim().split('\n').slice(-12).join('\n');
+    if (auto) {
+      if (code === 0) notify('纯 API 会话已自动刷新');
+      else notify('纯 API 会话自动刷新失败，可在托盘里手动导出');
+      return;
+    }
+    if (code === 0) {
+      dialog.showMessageBox({
+        type: 'info',
+        title: '纯 API 会话',
+        message: '纯 API 会话已更新',
+        detail: `${tail}\n\n之后发送会优先走 HTTP；失败会自动回退到浏览器。`,
+      });
+    } else {
+      dialog.showErrorBox('导出纯 API 会话失败', `${tail || '没有输出'}\n\n完整日志见 data/logs/app.log`);
+    }
+  });
+  return true;
+}
+
 async function exportApiSession() {
   if (sendMode() !== 'auto') setSendMode('auto');
   const ask = await dialog.showMessageBox({
@@ -252,37 +323,30 @@ async function exportApiSession() {
     cancelId: 1,
   });
   if (ask.response !== 0) return;
+  runApiExport({ auto: false });
+}
 
-  log('api export: start');
-  const child = spawn(process.execPath, [path.join(ROOT, 'src', 'index.js'), 'api:export'], {
-    cwd: ROOT,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  let output = '';
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    for (const line of String(chunk).split('\n').filter(Boolean)) log(`api export: ${line}`);
-  });
-  child.stderr.on('data', (chunk) => {
-    output += chunk;
-    for (const line of String(chunk).split('\n').filter(Boolean)) log(`api export err: ${line}`);
-  });
-  child.on('exit', (code) => {
-    log(`api export: exited ${code}`);
-    refreshTrayMenu();
-    const tail = output.trim().split('\n').slice(-12).join('\n');
-    if (code === 0) {
-      dialog.showMessageBox({
-        type: 'info',
-        title: '纯 API 会话',
-        message: '纯 API 会话已更新',
-        detail: `${tail}\n\n之后发送会优先走 HTTP；失败会自动回退到浏览器。`,
-      });
-    } else {
-      dialog.showErrorBox('导出纯 API 会话失败', `${tail || '没有输出'}\n\n完整日志见 data/logs/app.log`);
-    }
-  });
+// refresh the session before it expires (12h by default), without disturbing a running send
+function maybeAutoRefreshSession() {
+  if (apiExportChild) return;
+  if (!apiAutoRefreshEnabled()) return;
+  const info = apiSessionInfo();
+  if (!info.session || info.error) return;
+  const apiSession = require('../src/api-session');
+  const maxAge = apiSession.DEFAULT_MAX_AGE_HOURS;
+  const state = info.state;
+  const age = state.ageHours == null ? 0 : state.ageHours;
+  const before = Number(process.env.API_REFRESH_BEFORE_HOURS || 2);
+  if (state.valid && maxAge - age > before) return;
+  if (Date.now() - lastApiRefreshAt < 30 * 60 * 1000) return;
+  const acc = account();
+  if (acc && browserUp(acc.port)) {
+    log('api auto refresh skipped: browser busy');
+    return;
+  }
+  lastApiRefreshAt = Date.now();
+  log(`api auto refresh: age=${age}h valid=${state.valid}`);
+  if (runApiExport({ auto: true })) notify('纯 API 会话即将过期，正在自动刷新…');
 }
 
 function showWindow() {
@@ -382,6 +446,15 @@ function buildTrayMenu() {
           click: async (menuItem) => {
             setSendMode(menuItem.checked ? 'auto' : 'browser');
             await api('restart');
+            refreshTrayMenu();
+          },
+        },
+        {
+          label: '自动刷新会话',
+          type: 'checkbox',
+          checked: apiAutoRefreshEnabled(),
+          click: (menuItem) => {
+            setApiAutoRefresh(menuItem.checked);
             refreshTrayMenu();
           },
         },
@@ -548,6 +621,7 @@ function about() {
       `面板端口：${port}\n` +
       `浏览器：${BUNDLED_BROWSER ? '自带 Chromium(独立登录态)' : '系统 Google Chrome'}\n` +
       `发送模式：${sendMode() === 'auto' ? '纯 API 优先（失败回退浏览器）' : '仅浏览器'}\n` +
+      `自动刷新会话：${apiAutoRefreshEnabled() ? '开' : '关'}\n` +
       `日志：${logDir}\n` +
       `Electron ${process.versions.electron} / Node ${process.versions.node}`,
   });
@@ -599,6 +673,8 @@ async function boot() {
   await host.start();
   createWindow();
   createTray();
+  setTimeout(maybeAutoRefreshSession, 60 * 1000);
+  setInterval(maybeAutoRefreshSession, 5 * 60 * 1000);
   if (process.env.DF_OPEN_VIEWER === '1') {
     openViewer().catch((e) => log(`openViewer failed: ${e.message}`));
   }

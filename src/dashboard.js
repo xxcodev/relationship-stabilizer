@@ -3,12 +3,14 @@
  */
 // Dashboard backed by SQLite. Same UI as the prototype, but every value comes from the DB.
 const http = require('http');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const env = require('./env');
 const repos = require('./repos');
 const planner = require('./planner');
 const service = require('./service');
+const apiSession = require('./api-session');
 
 const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
 
@@ -269,6 +271,59 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         } catch (e) {
           return send(res, 502, { ok: false, error: 'browser not running' });
         }
+      }
+      if (u.pathname === '/api/api-session') {
+        const acc = currentAccount();
+        const session = apiSession.load();
+        const state = apiSession.status(session, acc.friend);
+        return send(res, 200, {
+          present: !!session,
+          valid: state.valid,
+          reason: state.reason || null,
+          ageHours: state.ageHours,
+          createdAt: (session && session.createdAt) || null,
+          account: (session && session.account) || null,
+          friend: (session && session.friend) || null,
+          defaultFriend: acc.friend,
+          templateBytes: session && session.template ? session.template.bodyB64.length : 0,
+          cookies: session ? (session.cookies || []).length : 0,
+          friends: session ? (session.friends || []).length : 0,
+          hasCreateTemplate: !!(session && session.createTemplate),
+          sendMode: repos.getSetting('sendMode', 'auto'),
+          autoRefresh: repos.getSetting('apiAutoRefresh', '1') !== '0',
+          maxAgeHours: apiSession.DEFAULT_MAX_AGE_HOURS,
+        });
+      }
+      if (u.pathname === '/api/api-session/refresh' && req.method === 'POST') {
+        try {
+          const child = spawn(process.execPath, [path.join(env.ROOT, 'src', 'index.js'), 'api:export'], {
+            cwd: env.ROOT,
+            env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: true,
+          });
+          child.unref();
+          return send(res, 202, { ok: true, started: true });
+        } catch (e) {
+          return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/api-session/mode' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const mode = (JSON.parse(body || '{}') || {}).mode;
+        if (!['auto', 'browser'].includes(mode)) return send(res, 400, { ok: false, error: 'mode must be auto|browser' });
+        repos.setSetting('sendMode', mode);
+        const restarted = service.restartScheduler();
+        return send(res, 200, { ok: true, mode, restarted });
+      }
+      if (u.pathname === '/api/api-session/auto-refresh' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const enabled = !!(JSON.parse(body || '{}') || {}).enabled;
+        repos.setSetting('apiAutoRefresh', enabled ? '1' : '0');
+        return send(res, 200, { ok: true, enabled });
       }
       if (u.pathname === '/api/accounts') {
         const rows = require('./db').open().prepare('SELECT * FROM accounts ORDER BY id').all();
