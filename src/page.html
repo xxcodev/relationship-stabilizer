@@ -204,6 +204,32 @@
   .friend-check{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:rgba(255,255,255,.02);color:var(--dim);font-size:12.5px;cursor:pointer}
   .friend-check:has(input:checked){color:#cfe0ff;border-color:rgba(91,140,255,.55);background:rgba(91,140,255,.12)}
   .friend-check input{accent-color:var(--acc);margin:0}
+
+  /* quick-send mutual-friend dropdown */
+  .card.quick-card{overflow:visible;position:relative;z-index:6}
+  .friend-select{position:relative;margin-top:8px}
+  .friend-select-btn{display:flex;align-items:center;gap:8px;width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;
+    background:rgba(255,255,255,.03);color:var(--txt);font:inherit;font-size:13px;text-align:left;cursor:pointer;transition:.15s}
+  .friend-select-btn:hover{background:rgba(255,255,255,.07);border-color:#3a475e}
+  .friend-select-btn[aria-expanded="true"]{background:rgba(91,140,255,.1);border-color:rgba(160,170,255,.55)}
+  .friend-select-summary{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .friend-select-caret{color:var(--dim2);font-size:11px;flex:0 0 auto;transition:transform .18s}
+  .friend-select-btn[aria-expanded="true"] .friend-select-caret{transform:rotate(180deg)}
+  .friend-select-pop{position:absolute;left:0;right:0;bottom:calc(100% + 7px);z-index:40;padding:11px;border:1px solid var(--line2);border-radius:12px;
+    background:linear-gradient(180deg,var(--card2),var(--card));box-shadow:0 20px 44px rgba(0,0,0,.45);animation:acctMenuIn .16s ease-out}
+  .friend-select-pop[hidden]{display:none}
+  .friend-select-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .friend-select-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:9px 0}
+  .friend-select-tools input{flex:1;min-width:120px;height:32px;padding:5px 9px;font-size:12px;border-radius:8px}
+  .friend-select-list{display:flex;flex-direction:column;gap:2px;max-height:min(220px,28vh);overflow:auto;overscroll-behavior:contain}
+  .friend-option{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--txt)}
+  .friend-option:hover{background:rgba(255,255,255,.05)}
+  .friend-option input{accent-color:var(--acc);margin:0;flex:0 0 auto}
+  .friend-option .avatar{width:24px;height:24px;border-radius:7px;font-size:11px;flex:0 0 24px}
+  .friend-option .friend-name{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .friend-select-empty{padding:16px 8px;text-align:center;color:var(--dim2);font-size:12px;line-height:1.6}
+  .friend-select-empty .btn{margin-top:8px}
+  .friend-select-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;padding-top:8px;border-top:1px solid var(--line)}
   .friend-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
   .friend-row:last-child{border-bottom:0}
   .friend-row .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -295,7 +321,8 @@
   .btn:hover{transform:translateY(-1px)}
   .btn:active{transform:translateY(0) scale(.985)}
   .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,
-  .side-account:focus-visible,.acct-menu-item:focus-visible,.acct-menu-more:focus-visible{outline:2px solid rgba(91,140,255,.65);outline-offset:2px}
+  .side-account:focus-visible,.acct-menu-item:focus-visible,.acct-menu-more:focus-visible,
+  .friend-select-btn:focus-visible{outline:2px solid rgba(91,140,255,.65);outline-offset:2px}
   .btn.primary{box-shadow:0 6px 18px rgba(63,111,232,.28),inset 0 1px 0 rgba(255,255,255,.14)}
   .btn.primary:hover{box-shadow:0 9px 26px rgba(63,111,232,.38),inset 0 1px 0 rgba(255,255,255,.18)}
 
@@ -411,6 +438,11 @@
   html[data-theme="light"] .chip.failed{color:#b42318;border-color:rgba(217,45,32,.3);background:rgba(217,45,32,.06)}
   html[data-theme="light"] .friend-check{background:#fff;border-color:var(--line2);color:var(--dim)}
   html[data-theme="light"] .friend-check:has(input:checked){color:#1f49b8;border-color:rgba(47,107,255,.5);background:rgba(47,107,255,.08)}
+  html[data-theme="light"] .friend-select-btn{background:#fff;border-color:var(--line2)}
+  html[data-theme="light"] .friend-select-btn:hover{background:#f7f9fd;border-color:#b9c6d8}
+  html[data-theme="light"] .friend-select-btn[aria-expanded="true"]{background:rgba(47,107,255,.06);border-color:rgba(47,107,255,.35)}
+  html[data-theme="light"] .friend-select-pop{background:#fff;border-color:var(--line2);box-shadow:0 20px 44px rgba(31,53,89,.18)}
+  html[data-theme="light"] .friend-option:hover{background:rgba(23,32,51,.05)}
   html[data-theme="light"] .tag{background:#f7f9fd;border-color:var(--line2);color:var(--dim)}
 
   html[data-theme="light"] input,html[data-theme="light"] select,html[data-theme="light"] textarea{background:#fff;border-color:#cfd8e6;color:var(--txt)}
@@ -458,7 +490,8 @@
     .side-foot{display:flex;flex-direction:row;align-items:center;gap:8px;margin:0 0 0 auto}
     .side-acct,.side-link{display:none}
     .side-theme{width:auto;padding:8px 10px;white-space:nowrap}
-    .main{padding:20px 16px 40px}
+    .friend-select-pop{top:calc(100% + 7px);bottom:auto}
+    .main{width:100%;max-width:100%;margin:0;padding:20px 16px 40px}
     .hero-grid{grid-template-columns:1fr}
     .top-actions{width:100%}
     .bandrow{grid-template-columns:1fr 1fr 1fr;gap:6px}
@@ -564,20 +597,38 @@
           <div class="eyebrow mt">分类分布</div>
           <div class="chips mt" id="homeBuckets"><span class="muted">加载中…</span></div>
         </div>
-        <div class="card">
+        <div class="card quick-card">
           <div class="card-head"><div class="eyebrow">快速发送（纯 API）</div><span class="pill blue" id="quickPill">API</span></div>
-          <div class="eyebrow">发送给（可多选）</div>
-          <div class="chips" id="homeFriendChips" style="margin-top:8px"><span class="muted">加载中…</span></div>
-          <div class="rowbtns" style="margin-top:8px">
-            <button class="btn ghost sm" id="friendsAll">全选可发送</button>
-            <button class="btn ghost sm" id="friendsClear">清空</button>
-            <span class="field-note" id="friendsCount"></span>
+          <div class="eyebrow">发送给互关好友（可多选）</div>
+          <div class="friend-select" id="friendSelect">
+            <button class="friend-select-btn" id="friendSelectBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="friendSelectPop">
+              <span class="friend-select-summary" id="friendSelectSummary">选择互关好友</span>
+              <span class="friend-select-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="friend-select-pop" id="friendSelectPop" role="dialog" aria-label="选择互关好友" hidden>
+              <div class="friend-select-head">
+                <span class="eyebrow" style="margin:0">互关好友 <span class="field-note" id="mutualMeta"></span></span>
+                <button class="btn ghost sm" id="btnRefreshMutual" type="button">刷新互关</button>
+              </div>
+              <div class="friend-select-tools">
+                <input id="friendSearch" placeholder="搜索互关好友…" autocomplete="off">
+                <button class="btn ghost sm" id="friendSelectAll" type="button">全选</button>
+                <button class="btn ghost sm" id="friendSelectNone" type="button">清空</button>
+              </div>
+              <div class="friend-select-list" id="mutualFriendList">
+                <div class="friend-select-empty">正在加载互关好友…</div>
+              </div>
+              <div class="friend-select-foot">
+                <span class="field-note" id="friendsCount">可以勾选多个好友</span>
+                <button class="btn ghost sm" id="friendSelectDone" type="button">完成</button>
+              </div>
+            </div>
           </div>
-          <div class="rowbtns" style="margin-top:2px">
+          <div class="rowbtns" style="margin-top:12px">
             <button class="btn ghost sm" id="btnApiDry">只试选片</button>
             <button class="btn primary sm" id="btnApiSend">发送给所选好友</button>
           </div>
-          <div class="field-note" id="homeSendMsg" style="margin-top:10px">勾选会话里的好友（可多选），通过纯 HTTP 发送，不会启动浏览器。显示「未捕获」的账户好友需要先重新导出会话。</div>
+          <div class="field-note" id="homeSendMsg" style="margin-top:10px">互关好友来自账户页的互关列表；纯 HTTP 发送会按 userid 建会话，不会启动浏览器。列表为空时点「刷新互关」。</div>
           <div class="eyebrow mt">或者</div>
           <div class="rowbtns">
             <button class="btn ghost sm" id="btnQuickBrowserSend">用浏览器发送一次</button>
@@ -824,6 +875,7 @@ const state = {
   sendJobPolling: false, screenTimer: null, apiTimer: null, homeTimer: null,
   cfgLoaded: false, configDirty: false, selectedFriends: new Set(),
   acctMenuOpen: false, acctSwitching: false,
+  mutualCache: null, mutualLoading: false, mutualError: '', friendSelectOpen: false, friendSearch: '',
 };
 
 function toast(msg, type = 'ok', ms = 4200) {
@@ -981,6 +1033,7 @@ async function quickSwitchAccount(label) {
     state.acctSwitching = false;
     if (state.accounts) state.accounts.active = r.active || label;
     closeAcctMenu();
+    resetMutualSelection();
     toast('已切换到 ' + (target && (target.name || target.label) || r.active || label), 'ok');
     state.config = null; state.cfgLoaded = false;
     const [next] = await Promise.all([getJSON('/api/accounts').catch(() => null), loadHome()]);
@@ -1043,59 +1096,190 @@ function renderTopbar() {
     alert.className = 'alert';
   }
 }
-function renderHomeFriendChips() {
-  const box = $('#homeFriendChips');
-  if (!box) return;
-  const api = state.api || {};
-  const data = state.data || {};
-  const capturedArr = (api.friends || []).map((f) => f.name);
-  const captured = new Set(capturedArr);
-  const entries = new Map(((api.accountFriendEntries) || []).map((e) => [e.name, e]));
-  const accountFriends = Array.isArray(data.friends) ? data.friends : [];
-  const names = [...capturedArr];
-  for (const name of accountFriends) if (!captured.has(name) && entries.has(name)) names.push(name);
-  for (const name of entries.keys()) if (!names.includes(name)) names.push(name);
-  const canUse = (name) => captured.has(name) || !!(entries.get(name) && entries.get(name).userid);
-  state.selectedFriends = new Set([...state.selectedFriends].filter((n) => canUse(n)));
-  if (!api.valid) {
-    box.innerHTML = '<span class="muted">纯 API 会话不可用；请先在配置页导出会话。</span>';
-    $('#friendsCount').textContent = '';
+function currentMutualCache() {
+  const label = state.data && state.data.account;
+  return label && state.mutualCache && state.mutualCache.label === label ? state.mutualCache : null;
+}
+function mutualSynced(cache) {
+  return !!(cache && cache.cached !== false);
+}
+function mutualNames() {
+  const cache = currentMutualCache();
+  return mutualSynced(cache) ? (cache.mutual || []).map((u) => u.name) : [];
+}
+function renderMutualMeta() {
+  const el = $('#mutualMeta');
+  if (!el) return;
+  const cache = currentMutualCache();
+  if (!mutualSynced(cache)) { el.textContent = '未同步'; return; }
+  const n = (cache.mutual || []).length;
+  const at = cache.fetchedAt ? timeOf(cache.fetchedAt) : '';
+  el.textContent = n + ' 位' + (at ? ' · ' + at + ' 更新' : '') + (cache.stale ? ' · 已过期' : '');
+}
+function renderMutualFriendOptions() {
+  const list = $('#mutualFriendList');
+  if (!list) return;
+  const cache = currentMutualCache();
+  if (!mutualSynced(cache)) {
+    const body = state.mutualLoading
+      ? '正在加载互关好友…'
+      : state.mutualError
+        ? '加载失败：' + esc(state.mutualError) + '<br><button class="btn ghost sm" type="button" data-refresh-mutual>重试</button>'
+        : '还没有同步互关好友。<br>首次获取需要 10-30 秒，会拉起一次浏览器。<br><button class="btn primary sm" type="button" data-refresh-mutual>获取互关好友</button>';
+    list.innerHTML = '<div class="friend-select-empty">' + body + '</div>';
     return;
   }
-  if (!names.length) {
-    box.innerHTML = '<span class="muted">还没有可发送好友；在配置页添加好友，或到账户页导入互关好友。</span>';
-    $('#friendsCount').textContent = '';
+  const mutuals = cache.mutual || [];
+  if (!mutuals.length) {
+    list.innerHTML = '<div class="friend-select-empty">没有互关好友。<br><button class="btn ghost sm" type="button" data-refresh-mutual>重新获取</button></div>';
     return;
   }
-  box.innerHTML = names.map((name) => {
-    if (!canUse(name)) {
-      return '<label class="friend-check" title="不在会话捕获列表且没有 userid，重新导出会话或从互关导入后才能用纯 API 发送" style="opacity:.5"><input type="checkbox" disabled> ' + esc(name) + ' <span class="muted">未捕获</span></label>';
-    }
-    const checked = state.selectedFriends.has(name) ? ' checked' : '';
-    return '<label class="friend-check"><input type="checkbox" data-home-friend="' + esc(name) + '"' + checked + '> ' + esc(name) + '</label>';
-  }).join('');
-  box.querySelectorAll('input[data-home-friend]').forEach((el) => el.addEventListener('change', () => {
-    if (el.checked) state.selectedFriends.add(el.dataset.homeFriend);
-    else state.selectedFriends.delete(el.dataset.homeFriend);
+  const q = String(state.friendSearch || '').trim().toLowerCase();
+  const filtered = mutuals.filter((u) => !q || String(u.name || '').toLowerCase().includes(q));
+  list.innerHTML = filtered.length ? filtered.map((u) => {
+    const name = String(u.name || '');
+    return '<label class="friend-option" title="' + esc(name) + '">'
+      + '<input type="checkbox" data-mutual-friend="' + esc(name) + '"' + (state.selectedFriends.has(name) ? ' checked' : '') + '>'
+      + '<span class="avatar" aria-hidden="true">' + esc(accountInitial(name)) + '</span>'
+      + '<span class="friend-name">' + esc(name) + '</span></label>';
+  }).join('') : '<div class="friend-select-empty">没有匹配「' + esc(q) + '」的好友</div>';
+  $$('#mutualFriendList input[data-mutual-friend]').forEach((el) => el.addEventListener('change', () => {
+    if (el.checked) state.selectedFriends.add(el.dataset.mutualFriend);
+    else state.selectedFriends.delete(el.dataset.mutualFriend);
     updateFriendsCount();
   }));
-  updateFriendsCount();
 }
-
+function renderHomeFriendPicker() {
+  const cache = currentMutualCache();
+  const names = mutualNames();
+  state.selectedFriends = new Set([...state.selectedFriends].filter((n) => names.includes(n)));
+  renderMutualMeta();
+  renderMutualFriendOptions();
+  updateFriendsCount();
+  const refresh = $('#btnRefreshMutual');
+  if (refresh) {
+    refresh.disabled = state.mutualLoading;
+    refresh.textContent = state.mutualLoading ? '获取中…' : '刷新互关';
+  }
+  if (state.api && state.api.present) {
+    const count = mutualSynced(cache) ? (cache.mutual || []).length : '—';
+    $('#homeApiFriend').textContent = count + ' 位互关好友 / ' + (state.api.friendCount || 0) + ' 个会话好友';
+  }
+}
 function updateFriendsCount() {
   const n = state.selectedFriends.size;
   const el = $('#friendsCount');
   if (el) el.textContent = n ? ('已选 ' + n + ' 位') : '可以勾选多个好友';
+  const summary = $('#friendSelectSummary');
+  if (!summary) return;
+  if (n) {
+    const names = [...state.selectedFriends];
+    summary.textContent = '已选 ' + n + ' 位：' + names.slice(0, 2).join('、') + (n > 2 ? '…' : '');
+  } else {
+    const cache = currentMutualCache();
+    summary.textContent = mutualSynced(cache)
+      ? ('选择互关好友（' + (cache.mutual || []).length + ' 位）')
+      : '选择互关好友';
+  }
 }
-
 function selectAllFriends(checked) {
-  $$('#homeFriendChips input[data-home-friend]').forEach((el) => { el.checked = checked; });
-  state.selectedFriends = new Set(checked ? $$('#homeFriendChips input[data-home-friend]').map((el) => el.dataset.homeFriend) : []);
+  if (!checked) state.selectedFriends.clear();
+  else $$('#mutualFriendList input[data-mutual-friend]').forEach((el) => {
+    el.checked = true;
+    state.selectedFriends.add(el.dataset.mutualFriend);
+  });
   updateFriendsCount();
 }
-
 function selectedHomeFriends() {
-  return [...$$('#homeFriendChips input[data-home-friend]').filter((el) => el.checked)].map((el) => el.dataset.homeFriend);
+  const names = new Set(mutualNames());
+  return [...state.selectedFriends].filter((n) => names.has(n));
+}
+
+async function loadMutualFriendsCache() {
+  if (currentMutualCache() || state.mutualLoading) return;
+  const label = state.data && state.data.account;
+  if (!label) return;
+  state.mutualLoading = true;
+  state.mutualError = '';
+  renderHomeFriendPicker();
+  try {
+    const d = await getJSON('/api/accounts/mutual-friends');
+    if (state.data && state.data.account === label) {
+      state.mutualCache = d;
+      renderHomeFriendPicker();
+    }
+  } catch (e) {
+    if (state.data && state.data.account === label) {
+      state.mutualError = e.message;
+      renderHomeFriendPicker();
+    }
+  } finally {
+    state.mutualLoading = false;
+    renderHomeFriendPicker();
+  }
+}
+
+async function refreshMutualFriends() {
+  if (state.mutualLoading) return;
+  const label = state.data && state.data.account;
+  state.mutualLoading = true;
+  state.mutualError = '';
+  renderHomeFriendPicker();
+  try {
+    const d = await postJSON('/api/accounts/mutual-friends', {});
+    if (state.data && state.data.account !== label) return;
+    state.mutualCache = d;
+    renderHomeFriendPicker();
+    toast('互关好友已更新：' + ((d.mutual || []).length) + ' 位', 'ok');
+  } catch (e) {
+    state.mutualError = e.message;
+    renderHomeFriendPicker();
+    toast('获取互关好友失败：' + e.message, 'bad');
+  } finally {
+    state.mutualLoading = false;
+    renderHomeFriendPicker();
+  }
+}
+
+function onFriendSelectPointerDown(e) {
+  const box = $('#friendSelect');
+  if (!box || !box.contains(e.target)) closeFriendSelect();
+}
+function onFriendSelectKeyDown(e) {
+  if (e.key === 'Escape') { e.preventDefault(); closeFriendSelect(true); }
+}
+function openFriendSelect() {
+  const pop = $('#friendSelectPop');
+  if (!pop || state.friendSelectOpen) return;
+  state.friendSelectOpen = true;
+  pop.hidden = false;
+  $('#friendSelectBtn').setAttribute('aria-expanded', 'true');
+  renderHomeFriendPicker();
+  document.addEventListener('pointerdown', onFriendSelectPointerDown, true);
+  document.addEventListener('keydown', onFriendSelectKeyDown, true);
+  if (!currentMutualCache()) loadMutualFriendsCache();
+  setTimeout(() => { const search = $('#friendSearch'); if (search) search.focus(); }, 30);
+}
+function closeFriendSelect(refocus = false) {
+  if (!state.friendSelectOpen) return;
+  state.friendSelectOpen = false;
+  const pop = $('#friendSelectPop');
+  if (pop) pop.hidden = true;
+  $('#friendSelectBtn').setAttribute('aria-expanded', 'false');
+  document.removeEventListener('pointerdown', onFriendSelectPointerDown, true);
+  document.removeEventListener('keydown', onFriendSelectKeyDown, true);
+  if (refocus) $('#friendSelectBtn').focus();
+}
+function resetMutualSelection() {
+  state.mutualCache = null;
+  state.mutualLoading = false;
+  state.mutualError = '';
+  state.friendSearch = '';
+  state.selectedFriends = new Set();
+  closeFriendSelect();
+  const search = $('#friendSearch');
+  if (search) search.value = '';
+  renderHomeFriendPicker();
 }
 function renderHome() {
   const d = state.data || {};
@@ -1136,7 +1320,7 @@ function renderHome() {
   $('#homeBrowserState').textContent = browser.up ? '运行中' : '未启动';
   $('#homeBrowserLogin').textContent = browser.loggedIn == null ? '-' : (browser.loggedIn ? '已登录' : '未登录');
   $('#homeBrowserChallenge').textContent = browser.challenge ? '需要人机验证' : '正常';
-  renderHomeFriendChips();
+  renderHomeFriendPicker();
 
   $('#homeTimeline').innerHTML = d.todayTimeline && d.todayTimeline.length
     ? d.todayTimeline.map((t) => '<span class="chip ' + t.status + '">' + t.time + (t.status === 'done' ? ' ✓' : (t.status === 'failed' ? ' ✗' : '')) + '</span>').join('')
@@ -1160,9 +1344,12 @@ async function loadHome() {
     const [data, status, api] = await Promise.all([
       getJSON('/api/data'), getJSON('/api/status'), getJSON('/api/api-session').catch(() => null),
     ]);
+    const previousAccount = state.data && state.data.account;
     state.data = data; state.status = status; state.api = api;
+    if (previousAccount && data.account !== previousAccount) resetMutualSelection();
     renderHome();
     loadHomeEvents();
+    loadMutualFriendsCache();
   } catch (e) {
     toast('首页加载失败：' + e.message, 'bad');
   }
@@ -1181,7 +1368,7 @@ function renderEvents(events) {
 async function apiSendFriend(dry) {
   const friends = selectedHomeFriends();
   const msg = $('#homeSendMsg');
-  if (!friends.length) { toast('先在上方选择要发送的好友', 'warn'); return; }
+  if (!friends.length) { toast('先在「选择互关好友」里勾选要发送的好友', 'warn'); return; }
   if (!dry && !window.confirm('确认通过纯 API 发送一条视频给：' + friends.join('、') + '？')) return;
   msg.textContent = dry ? '选片中…' : ('发送中…（' + friends.length + ' 位好友）');
   try {
@@ -1300,6 +1487,10 @@ async function loadMutualFriends() {
     const r = await postJSON('/api/accounts/mutual-friends', {});
     if (!r.ok) throw new Error(r.error || '读取失败');
     mutualCache = r;
+    state.mutualCache = r;
+    state.mutualError = '';
+    state.selectedFriends = new Set([...state.selectedFriends].filter((name) => (r.mutual || []).some((u) => u.name === name)));
+    if (state.friendSelectOpen) renderHomeFriendPicker();
     const existing = new Set(((state.accounts && state.accounts.accounts) || []).find((a) => a.label === r.label)?.friends || []);
     info.textContent = (r.self && r.self.nickname ? ('账户 ' + r.self.nickname + ' · ') : '') + '关注 ' + (r.followingTotal ?? r.following) + ' · 粉丝 ' + (r.followers ?? '-') + ' · 互关 ' + r.mutual.length + (r.followingTotal > r.following ? '（已扫描 ' + r.following + '）' : '');
     document.getElementById('mutualList').innerHTML = r.mutual.length
@@ -1426,6 +1617,7 @@ async function switchAccount(label) {
     const r = await postJSON('/api/accounts/switch', { label });
     toast('已切换到 ' + r.active, 'ok');
     state.config = null; state.cfgLoaded = false;
+    resetMutualSelection();
     await loadAccounts(); await loadHome();
   } catch (e) { toast('切换失败：' + e.message, 'bad'); }
 }
@@ -1777,8 +1969,18 @@ function bindHomeActions() {
   $('#btnRefreshScreen').onclick = screenRefresh;
   $('#btnHideWin').onclick = () => windowAction(false);
   $('#screenImg').onclick = clickScreen;
-  $('#friendsAll').onclick = () => selectAllFriends(true);
-  $('#friendsClear').onclick = () => { $$('#homeFriendChips input[data-home-friend]').forEach((el) => { el.checked = false; }); state.selectedFriends = new Set(); updateFriendsCount(); };
+  $('#friendSelectBtn').onclick = () => { if (state.friendSelectOpen) closeFriendSelect(); else openFriendSelect(); };
+  $('#friendSelectDone').onclick = () => closeFriendSelect(true);
+  $('#friendSelectAll').onclick = () => selectAllFriends(true);
+  $('#friendSelectNone').onclick = () => selectAllFriends(false);
+  $('#btnRefreshMutual').onclick = refreshMutualFriends;
+  $('#friendSearch').addEventListener('input', (e) => {
+    state.friendSearch = e.target.value;
+    renderMutualFriendOptions();
+  });
+  $('#mutualFriendList').addEventListener('click', (e) => {
+    if (e.target.closest('[data-refresh-mutual]')) refreshMutualFriends();
+  });
   $('#btnApiDry').onclick = () => apiSendFriend(true);
   $('#btnApiSend').onclick = () => apiSendFriend(false);
   $('#homeEventsRefresh').onclick = loadHomeEvents;

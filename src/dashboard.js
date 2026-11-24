@@ -134,6 +134,24 @@ async function ensureAccountBrowser(acc, waitMs = 20000) {
   return state;
 }
 
+const mutualCacheKey = (label) => `mutualFriends:${label}`;
+
+function readMutualCache(label) {
+  const cache = repos.getSetting(mutualCacheKey(label), null);
+  return cache && typeof cache === 'object' && Array.isArray(cache.mutual) ? cache : null;
+}
+
+function saveMutualCache(label, out) {
+  const cache = { ...out, label, fetchedAt: new Date().toISOString() };
+  repos.setSetting(mutualCacheKey(label), cache);
+  return cache;
+}
+
+function mutualUserFor(acc, name) {
+  const cache = readMutualCache(acc.label);
+  return cache ? cache.mutual.find((u) => u.name === name) || null : null;
+}
+
 async function fetchMutualFriends(acc) {
   const state = await ensureAccountBrowser(acc);
   if (!state.up) throw new Error(state.error || '浏览器未能启动');
@@ -474,9 +492,10 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           const results = [];
           for (const friend of list) {
             const row = repos.getFriendByName(acc.id, friend);
-            const toUserId = row && row.userid;
+            const mutual = mutualUserFor(acc, friend);
+            const toUserId = (row && row.userid) || (mutual && mutual.uid) || '';
             if (!apiSession.canSendTo(session, friend) && !toUserId) {
-              results.push({ friend, ok: false, error: '好友不在会话好友列表里，也没有 userid（从互关导入或重新导出会话）' });
+              results.push({ friend, ok: false, error: '好友不在会话好友列表里，也不是互关好友（刷新互关或重新导出会话）' });
               continue;
             }
             const out = await apiSender.sendVideo(session, video, { friend, toUserId }).catch((e) => ({ ok: false, error: e.message }));
@@ -681,6 +700,16 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           accountName: repos.getAccount(acc.label).display_name || acc.label,
         });
       }
+      if (u.pathname === '/api/accounts/mutual-friends' && req.method === 'GET') {
+        const label = u.searchParams.get('label');
+        const acc = label ? repos.getAccount(String(label)) : currentAccount();
+        if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
+        const cache = readMutualCache(acc.label);
+        const ageMs = cache && cache.fetchedAt ? Date.now() - Date.parse(cache.fetchedAt) : null;
+        return send(res, 200, cache
+          ? { ok: true, cached: true, stale: !(Number.isFinite(ageMs) && ageMs < 6 * 60 * 60 * 1000), ...cache }
+          : { ok: true, cached: false, label: acc.label, mutual: [], errors: [] });
+      }
       if (u.pathname === '/api/accounts/mutual-friends' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
@@ -689,8 +718,9 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
         try {
           const out = await fetchMutualFriends(acc);
+          const cache = saveMutualCache(acc.label, out);
           repos.logEvent('mutual-friends', { account: acc.label, mutual: out.mutual.length, following: out.following, followers: out.followers });
-          return send(res, 200, { ok: true, label: acc.label, ...out, errors: out.errors || [] });
+          return send(res, 200, { ...cache, ok: true, cached: true, stale: false, errors: out.errors || [] });
         } catch (e) {
           return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
         }
