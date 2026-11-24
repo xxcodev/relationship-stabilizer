@@ -35,6 +35,7 @@ let trayTimer = null;
 let viewerWin = null;
 let viewerPort = null;
 let viewerStarted = false;
+let viewerChild = null;
 let quitting = false;
 
 function settingsFile() {
@@ -327,6 +328,7 @@ async function ensureBrowserServer(acc) {
       }
     );
     child.unref();
+    viewerChild = child;
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -371,6 +373,7 @@ async function openViewer({ login = false } = {}) {
     if (viewerStarted && viewerPort) quitBrowserServer(viewerPort);
     viewerStarted = false;
     viewerPort = null;
+    viewerChild = null;
   });
   await viewerWin.loadURL(`http://127.0.0.1:${port}/viewer${login ? '?mode=login' : ''}`);
   log(`viewer opened login=${login} browser-port=${acc.port} started=${ready.started}`);
@@ -473,13 +476,20 @@ app.on('before-quit', (event) => {
   quitting = true;
   if (trayTimer) clearInterval(trayTimer);
   log('quitting; stopping children');
-  const done = async () => {
-    if (viewerStarted && viewerPort) await quitBrowserServer(viewerPort);
-    if (viewerWin) {
-      try {
-        viewerWin.destroy();
-      } catch (e) {}
-      viewerWin = null;
+  // Keep cleanup non-blocking: awaiting fetches or destroying windows inside before-quit can
+  // stall the quit sequence. Fire the requests, then do the second app.quit() pass and let a
+  // hard timer force the exit if anything is still holding the process.
+  const done = () => {
+    const portToQuit = viewerStarted && viewerPort ? viewerPort : null;
+    const childToStop = viewerChild;
+    log(`quit: cleaning up viewer/browser port=${portToQuit || '-'}`);
+    if (portToQuit) quitBrowserServer(portToQuit);
+    if (childToStop) {
+      setTimeout(() => {
+        try {
+          childToStop.kill('SIGTERM');
+        } catch (e) {}
+      }, 1500);
     }
     if (tray) {
       try {
@@ -489,8 +499,21 @@ app.on('before-quit', (event) => {
     }
     // Second pass: `quitting` is already true, so the handler above lets the quit proceed.
     // Calling app.exit() directly from a prevented before-quit can leave the process alive.
+    log('quit: second app.quit()');
     app.quit();
-    setTimeout(() => app.exit(0), 3000);
+    setTimeout(() => {
+      log('quit: forced exit');
+      app.exit(0);
+    }, 2000);
   };
-  Promise.resolve(host && host.stop()).then(done, done);
+  Promise.resolve(host && host.stop()).then(
+    () => {
+      log('host stopped');
+      done();
+    },
+    () => {
+      log('host stop failed');
+      done();
+    }
+  );
 });

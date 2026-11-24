@@ -48,7 +48,7 @@
   },
   "build": {
     "appId": "com.dsh.heartbeat-delivery",
-    "productName": "抖音转发",
+    "productName": "心动投递",
     "asar": false,
     "directories": {
       "output": "dist",
