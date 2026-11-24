@@ -44,7 +44,9 @@ module.exports = {
     locale: process.env.BROWSER_LOCALE || 'zh-CN',
     viewportWidth: num(process.env.BROWSER_WIDTH, 1280),
     viewportHeight: num(process.env.BROWSER_HEIGHT, 900),
-    windowPosition: process.env.BROWSER_POS || '80,80',
+    // keep the automation window off-screen by default (see docs: "隐藏窗口模式")
+    windowPosition: process.env.BROWSER_POS || '-20000,-20000',
+    visiblePosition: process.env.BROWSER_VISIBLE_POS || '80,80',
   },
 
   // daemon control is platform specific; core code only shells out when configured

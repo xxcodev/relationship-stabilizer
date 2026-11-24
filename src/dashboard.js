@@ -10,7 +10,7 @@ const repos = require('./repos');
 const planner = require('./planner');
 const service = require('./service');
 
-const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
+const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('..', 'browser-test'));
 
 const hm = planner.hm;
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
@@ -218,6 +218,53 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         } catch (e) {}
         runSendJob({ dry }).catch(() => {});
         return send(res, 202, { ok: true, job: sendJob });
+      }
+      if (u.pathname === '/api/screen') {
+        const acc = currentAccount();
+        try {
+          const r = await fetch(`http://127.0.0.1:${acc.port}/screen`, { signal: AbortSignal.timeout(8000) });
+          if (!r.ok) return send(res, 502, { ok: false, error: 'browser not ready' });
+          const buf = Buffer.from(await r.arrayBuffer());
+          res.setHeader('Content-Type', 'image/png');
+          res.setHeader('Cache-Control', 'no-store');
+          return res.end(buf);
+        } catch (e) {
+          return send(res, 502, { ok: false, error: 'browser not running' });
+        }
+      }
+      if (u.pathname === '/api/click' && req.method === 'POST') {
+        const acc = currentAccount();
+        let body = '';
+        for await (const c of req) body += c;
+        const { x, y } = JSON.parse(body || '{}');
+        try {
+          const out = await fetch(`http://127.0.0.1:${acc.port}/click`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: Math.round(x), y: Math.round(y) }),
+            signal: AbortSignal.timeout(10000),
+          }).then((r) => r.json());
+          return send(res, 200, out);
+        } catch (e) {
+          return send(res, 502, { ok: false, error: 'browser not running' });
+        }
+      }
+      if (u.pathname === '/api/window' && req.method === 'POST') {
+        const acc = currentAccount();
+        let body = '';
+        for await (const c of req) body += c;
+        const { show } = JSON.parse(body || '{}');
+        try {
+          const out = await fetch(`http://127.0.0.1:${acc.port}/window`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ show: !!show }),
+            signal: AbortSignal.timeout(10000),
+          }).then((r) => r.json());
+          return send(res, 200, out);
+        } catch (e) {
+          return send(res, 502, { ok: false, error: 'browser not running' });
+        }
       }
       if (u.pathname === '/api/accounts') {
         const rows = require('./db').open().prepare('SELECT * FROM accounts ORDER BY id').all();

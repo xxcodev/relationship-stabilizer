@@ -62,6 +62,21 @@
     <span id="sendMsg" class="muted" style="width:100%"></span>
   </div>
 
+  <details id="screenBox" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:0 16px;margin-bottom:18px">
+    <summary style="cursor:pointer;padding:14px 0;font-weight:600">🖥 浏览器画面 <span class="muted" style="font-weight:400">(扫码 / 完成验证都直接在这里点)</span></summary>
+    <div style="padding-bottom:16px">
+      <div class="rowbtns" style="margin-top:0">
+        <button class="btn" id="btnShowWin">把窗口移到台前</button>
+        <button class="btn" id="btnHideWin">把窗口挪回屏幕外</button>
+        <button class="btn" id="btnRefreshScreen">刷新画面</button>
+        <span id="screenMsg" class="muted"></span>
+      </div>
+      <div id="screenWrap" style="position:relative;display:none">
+        <img id="screenImg" style="width:100%;border:1px solid var(--line);border-radius:8px;cursor:crosshair" alt="浏览器画面" />
+      </div>
+    </div>
+  </details>
+
   <div class="grid">
     <div class="card"><div class="k">今日计划 <button class="btn" id="replan" style="float:right;padding:2px 8px;font-size:11px">重排</button></div><div class="v" id="plan">-</div></div>
     <div class="card"><div class="k">今日已发</div><div class="v ok" id="done">-</div></div>
@@ -343,6 +358,47 @@ document.getElementById('btnSendNow').onclick = async () => {
 document.getElementById('btnPause').onclick = () => control('pause');
 document.getElementById('btnResume').onclick = () => control('resume');
 document.getElementById('btnRestart').onclick = () => control('restart');
+
+let screenTimer = null;
+function screenRefresh(){
+  const img = document.getElementById('screenImg');
+  if (!img) return;
+  img.src = '/api/screen?t=' + Date.now();
+}
+
+async function toggleScreen(open){
+  document.getElementById('screenWrap').style.display = open ? 'block' : 'none';
+  if (open) { screenRefresh(); screenTimer = setInterval(screenRefresh, 2500); }
+  else if (screenTimer) { clearInterval(screenTimer); screenTimer = null; }
+}
+
+document.getElementById('screenBox').addEventListener('toggle', (e) => toggleScreen(e.target.open));
+document.getElementById('btnRefreshScreen').onclick = () => screenRefresh();
+document.getElementById('btnShowWin').onclick = async () => {
+  const m = document.getElementById('screenMsg'); m.className='muted'; m.textContent='处理中…';
+  const r = await (await fetch('/api/window',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({show:true})})).json();
+  m.className = r.ok ? 'ok' : 'bad'; m.textContent = r.ok ? '窗口已移到台前' : ('失败:' + (r.error||''));
+  screenRefresh();
+};
+document.getElementById('btnHideWin').onclick = async () => {
+  const m = document.getElementById('screenMsg'); m.className='muted'; m.textContent='处理中…';
+  const r = await (await fetch('/api/window',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({show:false})})).json();
+  m.className = r.ok ? 'ok' : 'bad'; m.textContent = r.ok ? '窗口已挪回屏幕外' : ('失败:' + (r.error||''));
+  screenRefresh();
+};
+document.getElementById('screenImg').onclick = async (ev) => {
+  const img = ev.target;
+  const rect = img.getBoundingClientRect();
+  const sx = img.naturalWidth / rect.width;
+  const sy = img.naturalHeight / rect.height;
+  const x = Math.round((ev.clientX - rect.left) * sx);
+  const y = Math.round((ev.clientY - rect.top) * sy);
+  const m = document.getElementById('screenMsg'); m.className='muted'; m.textContent = '点击 ('+x+', '+y+')…';
+  const r = await (await fetch('/api/click',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({x,y})})).json();
+  m.className = r.ok ? 'ok' : 'bad';
+  m.textContent = r.ok ? '已点击 ('+x+', '+y+')' : ('点击失败:' + (r.error||''));
+  setTimeout(screenRefresh, 800);
+};
 
 async function loadAccount(){
   try {

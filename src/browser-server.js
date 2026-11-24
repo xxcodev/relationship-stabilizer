@@ -1,5 +1,5 @@
 /**
- * @file Playwright control service: owns the Chrome window, exposes /state /goto /click /openshare /send /quit.
+ * @file Playwright control service: owns the Chrome window, exposes /state /goto /click /screen /window /openshare /send /quit.
  */
 // Multi-account Douyin control server.
 // Usage: node serve.js <profileDir> <port>
@@ -219,6 +219,27 @@ const server = http.createServer(async (req, res) => {
       const file = path.join(SHOT_DIR, `sent-${TAG}-${Date.now()}.png`);
       await p.screenshot({ path: file });
       return res.end(JSON.stringify({ ok: true, sent: true, target, toast: toast ? toast[1] : null, shot: file }));
+    }
+    if (u.pathname === '/screen') {
+      const p = await cur();
+      const buf = await p.screenshot({ type: 'png' });
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.end(buf);
+    }
+    if (u.pathname === '/window' && req.method === 'POST') {
+      const { show } = JSON.parse(await readBody(req));
+      const p = await cur();
+      const cdp = await ctx.newCDPSession(p);
+      const { windowId } = await cdp.send('Browser.getWindowForTarget');
+      const pos = show ? env.browser.visiblePosition : env.browser.windowPosition;
+      const [left, top] = pos.split(',').map(Number);
+      await cdp.send('Browser.setWindowBounds', {
+        windowId,
+        bounds: { left, top, width: env.browser.viewportWidth, height: env.browser.viewportHeight, windowState: 'normal' },
+      });
+      await cdp.detach().catch(() => {});
+      return res.end(JSON.stringify({ ok: true, visible: !!show, position: pos }));
     }
     if (u.pathname === '/quit') {
       res.end(JSON.stringify({ ok: true, closing: true }));

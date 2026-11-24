@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.9.0 — 2026-11-24
+
+- **隐藏窗口模式**:自动化的 Chrome 默认启动在屏幕外(`--window-position=-20000,-20000`),
+  不再弹窗打扰;需要扫码或过验证时用面板把窗口移到台前。
+- **面板内嵌浏览器画面**:`/api/screen` 实时截图 + `/api/click` 坐标点击 + `/api/window` 显示/隐藏。
+  扫码、完成「点击两个形状相同的物体」都可以直接在面板里操作,不需要切到 Chrome 窗口。
+- `browser-server` 新增 `/screen` 与 `/window`(通过 CDP `Browser.setWindowBounds` 移动窗口)。
+
+
 ## 0.8.0 — 2026-11-24
 
 - **自包含**:浏览器配置目录从 `browser-test/profile-B` 迁到 `douyin-forwarder/data/profile-B`,
