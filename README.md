@@ -182,3 +182,16 @@ macOS(launchd)与 Linux(systemd --user)的示例配置见 `docs/daemon.md`;
 ## 许可
 
 本项目以 GPL-3.0 许可发布,详见 [LICENSE](LICENSE)。
+
+
+## macOS 首次打开提示「已损坏」
+
+这是 macOS Gatekeeper 对**未签名且从浏览器下载**的应用的拦截，不是文件真的损坏。
+把应用拖进「应用程序」后，在终端执行一次：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/心动投递.app"
+```
+
+然后再双击打开即可（数据/登录态不受影响）。以后每个新版本替换后都需要执行一次；
+如果希望彻底免掉这一步，需要 Apple Developer ID 签名 + 公证（付费账号）。

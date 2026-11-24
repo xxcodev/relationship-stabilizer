@@ -113,3 +113,15 @@ npm run app:dist:win    # Windows NSIS + zip（需在 Windows 上跑；本机构
 - 自动更新（electron-updater + GitHub Releases）；
 - Developer ID 签名 + 公证（分发给别人时需要）；
 - universal（Intel + Apple Silicon）安装包。
+
+
+## macOS Gatekeeper（首次打开）
+
+从 GitHub / 浏览器下载的 dmg 安装后，首次打开可能提示「已损坏，无法打开」——这是未签名应用的
+quarantine 拦截，不是文件损坏。拖入「应用程序」后执行一次：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/心动投递.app"
+```
+
+之后正常双击；每个新版本替换 app 后需要再执行一次。彻底免除此提示需要 Developer ID 签名 + 公证。
