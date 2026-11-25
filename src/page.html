@@ -320,10 +320,14 @@
       conic-gradient(from 215deg at 58% 8%,rgba(255,205,234,.16),rgba(198,202,255,.13),rgba(184,255,238,.11),rgba(255,205,234,.16));
     filter:blur(46px);opacity:.95}
 
-  .topbar{position:sticky;top:0;z-index:20;padding:14px 18px;margin:-8px 0 18px;
-    background:rgba(20,27,40,.34);border:1px solid var(--line);border-radius:var(--r);
+  .topbar{position:sticky;top:0;z-index:20;
+    width:calc(100% + var(--head-extra,0px) + var(--head-extra,0px));
+    margin:-8px calc(0px - var(--head-extra,0px)) 18px;
+    padding:14px calc(18px + var(--head-extra,0px));
+    background:rgba(20,27,40,.34);border:1px solid var(--line);border-radius:var(--head-radius,var(--r));
     backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12);
     box-shadow:var(--shadow)}
+  .topbar.is-expanded{border-left-color:transparent;border-right-color:transparent}
   .topbar::after{display:none}
 
   .card{transition:border-color .22s ease,box-shadow .22s ease,transform .22s ease,background .22s ease;overflow:hidden}
@@ -2072,8 +2076,32 @@ function bindRecordsActions() {
   $('#recCsv').onclick = exportCsv;
 }
 
+function bindHeaderExpand() {
+  const bar = document.querySelector('.topbar');
+  const main = document.querySelector('.main');
+  if (!bar || !main) return;
+  let pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+  let frame = 0;
+  const apply = () => {
+    frame = 0;
+    const p = Math.max(0, Math.min(1, window.scrollY / 140));
+    const extra = pad * p;
+    bar.style.setProperty('--head-extra', extra.toFixed(2) + 'px');
+    bar.style.setProperty('--head-radius', (14 * (1 - p)).toFixed(2) + 'px');
+    bar.classList.toggle('is-expanded', p >= 0.995);
+  };
+  const onScroll = () => { if (!frame) frame = requestAnimationFrame(apply); };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', () => {
+    pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+    onScroll();
+  });
+  apply();
+}
+
 async function init() {
   bindNav(); bindSideAccount(); bindHomeActions(); bindConfigActions(); bindRecordsActions();
+  bindHeaderExpand();
   applyTheme(document.documentElement.dataset.theme || 'dark', false);
   $('#themeToggle').onclick = toggleTheme;
   navigate('home');
