@@ -320,14 +320,17 @@
       conic-gradient(from 215deg at 58% 8%,rgba(255,205,234,.16),rgba(198,202,255,.13),rgba(184,255,238,.11),rgba(255,205,234,.16));
     filter:blur(46px);opacity:.95}
 
-  .topbar{position:sticky;top:0;z-index:20;
-    width:calc(100% + var(--head-extra,0px) + var(--head-extra,0px));
-    margin:-8px calc(0px - var(--head-extra,0px)) 18px;
-    padding:14px calc(18px + var(--head-extra,0px));
+  .topbar{position:sticky;top:0;z-index:20;width:100%;margin:-8px 0 18px;padding:14px 18px;
+    background:transparent;border:0;border-radius:0;box-shadow:none;isolation:isolate}
+  .topbar::before{content:"";position:absolute;top:0;bottom:0;
+    left:calc(0px - var(--head-extra,0px));right:calc(0px - var(--head-extra,0px));z-index:0;pointer-events:none;
     background:rgba(20,27,40,.34);border:1px solid var(--line);border-radius:var(--head-radius,var(--r));
     backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12);
     box-shadow:var(--shadow)}
-  .topbar.is-expanded{border-left-color:transparent;border-right-color:transparent}
+  .topbar>*{position:relative;z-index:1}
+  .topbar h1{transform-origin:left center;transform:scale(var(--head-title-scale,1))}
+  .topbar .sub{opacity:var(--head-sub-opacity,1);transform:translateY(var(--head-sub-y,0px))}
+  .topbar.is-expanded::before{border-left-color:transparent;border-right-color:transparent}
   .topbar::after{display:none}
 
   .card{transition:border-color .22s ease,box-shadow .22s ease,transform .22s ease,background .22s ease;overflow:hidden}
@@ -434,7 +437,8 @@
   html[data-theme="light"] .side-theme:hover{background:rgba(247,249,253,.7);color:var(--txt);border-color:var(--line2)}
   html[data-theme="light"] .side-link{color:var(--dim)}
 
-  html[data-theme="light"] .topbar{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.62);box-shadow:var(--shadow)}
+  html[data-theme="light"] .topbar{background:transparent;border-color:transparent;box-shadow:none}
+  html[data-theme="light"] .topbar::before{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.62);box-shadow:var(--shadow)}
   html[data-theme="light"] .card{background:rgba(255,255,255,.32);border-color:rgba(150,165,190,.30);box-shadow:0 10px 28px rgba(31,53,89,.08)}
   html[data-theme="light"] details.card.mutual-card{background:rgba(255,255,255,.32);border-color:rgba(150,165,190,.30)}
   html[data-theme="light"] .card:hover{border-color:rgba(47,107,255,.3);box-shadow:0 16px 36px rgba(31,53,89,.10),0 0 0 1px rgba(47,107,255,.04)}
@@ -2084,11 +2088,15 @@ function bindHeaderExpand() {
   let frame = 0;
   const apply = () => {
     frame = 0;
-    const p = Math.max(0, Math.min(1, window.scrollY / 140));
+    const raw = Math.max(0, Math.min(1, window.scrollY / 140));
+    const p = raw * raw * (3 - 2 * raw);
     const extra = pad * p;
     bar.style.setProperty('--head-extra', extra.toFixed(2) + 'px');
     bar.style.setProperty('--head-radius', (14 * (1 - p)).toFixed(2) + 'px');
-    bar.classList.toggle('is-expanded', p >= 0.995);
+    bar.style.setProperty('--head-title-scale', (1 - 0.05 * p).toFixed(3));
+    bar.style.setProperty('--head-sub-opacity', (1 - 0.7 * p).toFixed(3));
+    bar.style.setProperty('--head-sub-y', (-2 * p).toFixed(2) + 'px');
+    bar.classList.toggle('is-expanded', raw >= 0.995);
   };
   const onScroll = () => { if (!frame) frame = requestAnimationFrame(apply); };
   window.addEventListener('scroll', onScroll, { passive: true });
