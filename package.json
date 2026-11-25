@@ -1,6 +1,6 @@
 {
   "name": "douyin-forwarder",
-  "version": "0.23.0",
+  "version": "0.24.0",
   "productName": "心动投递",
   "private": true,
   "type": "commonjs",
