@@ -127,8 +127,8 @@
 
   /* cards / layout */
   .card{background:transparent;
-    border:1px solid var(--line);border-radius:var(--r);
-    padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+    border:1px solid var(--line);border-top:0;border-bottom:0;border-radius:var(--r);
+    padding:18px 20px;box-shadow:none;min-width:0}
   .card.pad-sm{padding:14px 16px}
   .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
   .eyebrow{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim2);font-weight:600}
@@ -326,7 +326,7 @@
   .topbar::after{display:none}
 
   .card{transition:border-color .22s ease,box-shadow .22s ease,transform .22s ease,background .22s ease;overflow:hidden}
-  .card:hover{border-color:rgba(91,140,255,.24);box-shadow:0 14px 40px rgba(0,0,0,.34),0 0 0 1px rgba(91,140,255,.05)}
+  .card:hover{border-top-color:transparent;border-bottom-color:transparent;box-shadow:none}
   .hero-card{position:relative}
 
   .hero-num{background:linear-gradient(180deg,#ffffff,#b9cae8);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -430,9 +430,9 @@
   html[data-theme="light"] .side-link{color:var(--dim)}
 
   html[data-theme="light"] .topbar{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.62);box-shadow:var(--shadow)}
-  html[data-theme="light"] .card{background:transparent;border-color:rgba(255,255,255,.42);box-shadow:0 8px 24px rgba(31,53,89,.04)}
+  html[data-theme="light"] .card{background:transparent;border-color:rgba(255,255,255,.42);border-top-color:transparent;border-bottom-color:transparent;box-shadow:none}
   html[data-theme="light"] details.card.mutual-card{background:transparent;border-color:rgba(255,255,255,.42)}
-  html[data-theme="light"] .card:hover{border-color:rgba(47,107,255,.3);box-shadow:0 16px 36px rgba(31,53,89,.10),0 0 0 1px rgba(47,107,255,.04)}
+  html[data-theme="light"] .card:hover{border-top-color:transparent;border-bottom-color:transparent;box-shadow:none}
   html[data-theme="light"] .hero-num{background:linear-gradient(180deg,#1b2638,#526480);-webkit-background-clip:text;background-clip:text;color:transparent}
   html[data-theme="light"] .progress{background:#e8eef7;border-color:#dce5f1;box-shadow:inset 0 1px 2px rgba(31,53,89,.08)}
 
