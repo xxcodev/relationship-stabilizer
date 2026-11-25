@@ -164,8 +164,8 @@
   .table-wrap{overflow:auto;border-radius:0;border:0}
   table{width:100%;border-collapse:collapse;font-size:13px}
   th{text-align:left;color:var(--dim2);font-weight:600;font-size:11.5px;letter-spacing:.4px;text-transform:uppercase;
-    border-bottom:1px solid var(--line);padding:11px 12px;background:transparent;position:static}
-  td{border-bottom:1px solid rgba(255,255,255,.045);padding:11px 12px;vertical-align:top}
+    border-bottom:0;padding:11px 12px;background:transparent;position:static}
+  td{border-bottom:0;padding:11px 12px;vertical-align:top}
   tr:last-child td{border-bottom:0}
   tbody tr:hover td{background:rgba(91,140,255,.04)}
   .title-cell{max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -296,7 +296,7 @@
   summary{cursor:pointer;padding:12px 0;font-size:13px;font-weight:600;color:var(--dim);outline:none}
   summary:hover{color:var(--txt)}
   .events-mini{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--dim);max-height:220px;overflow:auto}
-  .events-mini .ev{display:flex;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.05)}
+  .events-mini .ev{display:flex;gap:10px;padding:6px 0}
   .events-mini .ev b{color:#cbd6e6;font-weight:500;flex:0 0 150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .events-mini .ev span{flex:1;color:var(--dim2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .events-mini .ev time{color:var(--dim2);flex:0 0 92px;text-align:right;font-variant-numeric:tabular-nums}
@@ -472,7 +472,6 @@
 
   html[data-theme="light"] .table-wrap{background:transparent;border-color:transparent}
   html[data-theme="light"] th{background:transparent;border-bottom-color:var(--line);color:var(--dim2)}
-  html[data-theme="light"] td{border-bottom-color:#eef2f8}
   html[data-theme="light"] tbody tr:hover td{background:rgba(47,107,255,.045)}
   html[data-theme="light"] .account-row{background:rgba(255,255,255,.12);border-color:var(--line)}
   html[data-theme="light"] .account-row.active{background:rgba(47,107,255,.075);border-color:rgba(47,107,255,.28)}
