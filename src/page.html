@@ -126,10 +126,9 @@
   .top-actions .pill.bad::before{background:var(--bad);opacity:1}
 
   /* cards / layout */
-  .card{background:linear-gradient(180deg,rgba(20,27,40,.43),rgba(14,20,31,.52));
+  .card{background:transparent;
     border:1px solid var(--line);border-radius:var(--r);
-    padding:18px 20px;box-shadow:var(--shadow);min-width:0;
-    backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12)}
+    padding:18px 20px;box-shadow:var(--shadow);min-width:0}
   .card.pad-sm{padding:14px 16px}
   .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
   .eyebrow{font-size:11px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim2);font-weight:600}
@@ -264,7 +263,7 @@
   .advanced-add>summary:hover{color:var(--txt)}
   .advanced-add .form{grid-template-columns:1fr;gap:10px;margin-top:10px}
   .advanced-add .btn{margin-top:10px}
-  details.card.mutual-card{padding:0;background:linear-gradient(180deg,rgba(20,27,40,.43),rgba(14,20,31,.52));backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12)}
+  details.card.mutual-card{padding:0;background:transparent}
   .mutual-card>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;margin:0;list-style:none}
   .mutual-card>summary::-webkit-details-marker{display:none}
   .mutual-card>summary .eyebrow{pointer-events:none}
@@ -367,7 +366,7 @@
   .friend-check input:checked{filter:drop-shadow(0 0 5px rgba(91,140,255,.5))}
   .tag:hover{border-color:rgba(91,140,255,.35);color:#cfdcf2}
 
-  .table-wrap{background:rgba(5,8,14,.18)}
+  .table-wrap{background:transparent}
   th{backdrop-filter:blur(10px)}
   tbody tr{transition:background .15s ease}
   tbody tr:hover td{background:rgba(91,140,255,.055)}
@@ -431,9 +430,8 @@
   html[data-theme="light"] .side-link{color:var(--dim)}
 
   html[data-theme="light"] .topbar{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.62);box-shadow:var(--shadow)}
-  html[data-theme="light"] .card{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.62);box-shadow:0 8px 24px rgba(31,53,89,.06);
-    backdrop-filter:blur(22px) saturate(1.08);-webkit-backdrop-filter:blur(22px) saturate(1.08)}
-  html[data-theme="light"] details.card.mutual-card{background:rgba(255,255,255,.34);border-color:rgba(255,255,255,.62)}
+  html[data-theme="light"] .card{background:transparent;border-color:rgba(255,255,255,.42);box-shadow:0 8px 24px rgba(31,53,89,.04)}
+  html[data-theme="light"] details.card.mutual-card{background:transparent;border-color:rgba(255,255,255,.42)}
   html[data-theme="light"] .card:hover{border-color:rgba(47,107,255,.3);box-shadow:0 16px 36px rgba(31,53,89,.10),0 0 0 1px rgba(47,107,255,.04)}
   html[data-theme="light"] .hero-num{background:linear-gradient(180deg,#1b2638,#526480);-webkit-background-clip:text;background-clip:text;color:transparent}
   html[data-theme="light"] .progress{background:#e8eef7;border-color:#dce5f1;box-shadow:inset 0 1px 2px rgba(31,53,89,.08)}
@@ -473,14 +471,14 @@
   html[data-theme="light"] .seg{background:#eef2f9;border-color:var(--line2)}
   html[data-theme="light"] .seg button{color:var(--dim)}
   html[data-theme="light"] .seg button.on{background:#fff;color:#1f49b8;box-shadow:0 2px 8px rgba(31,53,89,.10)}
-  html[data-theme="light"] details{background:rgba(255,255,255,.30);border-color:var(--line)}
+  html[data-theme="light"] details{background:transparent;border-color:var(--line)}
   html[data-theme="light"] details:hover{border-color:rgba(47,107,255,.22)}
 
-  html[data-theme="light"] .table-wrap{background:rgba(255,255,255,.28);border-color:var(--line)}
+  html[data-theme="light"] .table-wrap{background:transparent;border-color:var(--line)}
   html[data-theme="light"] th{background:#f7f9fd;border-bottom-color:var(--line);color:var(--dim2)}
   html[data-theme="light"] td{border-bottom-color:#eef2f8}
   html[data-theme="light"] tbody tr:hover td{background:rgba(47,107,255,.045)}
-  html[data-theme="light"] .account-row{background:rgba(255,255,255,.34);border-color:var(--line)}
+  html[data-theme="light"] .account-row{background:rgba(255,255,255,.12);border-color:var(--line)}
   html[data-theme="light"] .account-row.active{background:rgba(47,107,255,.075);border-color:rgba(47,107,255,.28)}
   html[data-theme="light"] .avatar{background:rgba(47,107,255,.10);border-color:rgba(47,107,255,.24);color:#1f49b8}
   html[data-theme="light"] .inline-note{background:rgba(47,107,255,.055);border-color:rgba(47,107,255,.18);color:var(--dim)}
