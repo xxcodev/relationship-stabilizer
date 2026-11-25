@@ -43,3 +43,12 @@ test('buildSearchUrl swaps keywords and starts from the first result page', () =
   assert.equal(u.searchParams.has('a_bogus'), false);
   assert.equal(u.searchParams.has('msToken'), false);
 });
+
+test('buildSearchUrl uses the latest/7-day search filter when requested', () => {
+  const s = { searchUrl: 'https://www.douyin.com/aweme/v1/web/general/search/single/?keyword=x&offset=10&count=10' };
+  const u = new URL(apiSender.buildSearchUrl(s, '韩剧', { maxAgeDays: 7 }));
+  assert.equal(u.searchParams.get('offset'), '0');
+  assert.equal(u.searchParams.get('is_filter_search'), '1');
+  const filter = JSON.parse(u.searchParams.get('filter_selected'));
+  assert.deepEqual(filter, { sort_type: '2', publish_time: '7' });
+});

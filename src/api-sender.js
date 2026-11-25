@@ -21,7 +21,7 @@ function cookieHeader(session) {
     .join('; ');
 }
 
-function buildSearchUrl(session, keyword) {
+function buildSearchUrl(session, keyword, { maxAgeDays = 0 } = {}) {
   const url = new URL(session.searchUrl);
   // read endpoints worked without the recorded signature; drop stale signed params
   for (const name of ['a_bogus', 'X-Bogus', 'msToken']) url.searchParams.delete(name);
@@ -35,6 +35,12 @@ function buildSearchUrl(session, keyword) {
   if (!replaced) url.searchParams.set('keyword', keyword);
   // The captured URL can be on page 3+; always start from the top of this keyword.
   if (url.searchParams.has('offset')) url.searchParams.set('offset', '0');
+  const window = videoPicker.publishWindow(maxAgeDays);
+  if (window) {
+    // sort_type=2 (latest) + publish_time limits results; exact age filtering happens below.
+    url.searchParams.set('is_filter_search', '1');
+    url.searchParams.set('filter_selected', JSON.stringify({ sort_type: '2', publish_time: String(window) }));
+  }
   return url.toString();
 }
 
@@ -68,9 +74,9 @@ function cardContent(video) {
 }
 
 /** Pick one candidate via the search API. Throws when the session/API is unusable. */
-async function pick(session, { keyword, banWords = [], excludeVideoIds = [], excludeTitles = [] } = {}) {
+async function pick(session, { keyword, banWords = [], excludeVideoIds = [], excludeTitles = [], maxAgeDays = 7 } = {}) {
   if (!keyword) throw new Error('missing pool keyword');
-  const json = await readJson(buildSearchUrl(session, keyword), session);
+  const json = await readJson(buildSearchUrl(session, keyword, { maxAgeDays }), session);
   if (json.status_code != null && json.status_code !== 0) {
     throw new Error(json.status_msg || `search status_code ${json.status_code}`);
   }
@@ -95,6 +101,7 @@ async function pick(session, { keyword, banWords = [], excludeVideoIds = [], exc
       title: title.slice(0, 120),
       author: (aweme.author && aweme.author.nickname) || '',
       likes: Number((aweme.statistics && aweme.statistics.digg_count) || 0),
+      createTime: Number(aweme.create_time || item.create_time || 0),
       width: cover.width || 1080,
       height: cover.height || 1920,
       coverUrlList: cover.url_list,
@@ -105,7 +112,9 @@ async function pick(session, { keyword, banWords = [], excludeVideoIds = [], exc
     });
   }
   if (!candidates.size) throw new Error('no candidate from search API');
-  const chosen = videoPicker.chooseVideo([...candidates.values()], {
+  const recent = videoPicker.filterRecent([...candidates.values()], maxAgeDays);
+  if (!recent.length) throw new Error(`最近 ${maxAgeDays} 天没有候选视频`);
+  const chosen = videoPicker.chooseVideo(recent, {
     ids: excludeVideoIds,
     titles: excludeTitles,
   });

@@ -60,6 +60,7 @@ function parse(card, pool, source) {
     likes,
     title: (at > 0 ? body.slice(0, at) : body).trim().slice(0, 120),
     author: at > 0 ? body.slice(at).split('·')[0].trim() : '',
+    ageDays: videoPicker.parseAgeDays(card.txt),
     source: source || urlFor(pool),
   };
 }
@@ -74,7 +75,7 @@ async function post(base, p, body) {
 }
 
 /** Pick n candidates. `pools` = [{name, keyword, enabled}], banWords = string[]. */
-async function pick({ base, pools, banWords = [], excludeTitles = [], count = 1, scanLimit = 4, poolDelayMs = 2500, random = Math.random }) {
+async function pick({ base, pools, banWords = [], excludeTitles = [], maxAgeDays = 7, count = 1, scanLimit = 4, poolDelayMs = 2500, random = Math.random }) {
   const enabled = pools.filter((p) => p.enabled && (p.keyword || p.name));
   for (let i = enabled.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
@@ -87,7 +88,7 @@ async function pick({ base, pools, banWords = [], excludeTitles = [], count = 1,
   for (const pool of chosen) {
     const name = pool.name;
     const keyword = chooseKeyword(pool, random);
-    const source = urlFor(keyword);
+    const source = urlFor(keyword, { maxAgeDays });
     try {
       await post(base, '/goto', { url: source });
       // results are client-rendered and can take 15-40s; poll instead of a fixed sleep
@@ -98,7 +99,8 @@ async function pick({ base, pools, banWords = [], excludeTitles = [], count = 1,
         cards = (res.out || []).map((c) => parse(c, name, source)).filter((c) => c.title && !ban.test(c.title + ' ' + c.author));
         if (cards.length >= 3) break;
       }
-      if (cards.length) byPool[name] = cards;
+      const recent = videoPicker.filterRecent(cards, maxAgeDays);
+      if (recent.length) byPool[name] = recent;
     } catch (e) {
       /* skip pool */
     }

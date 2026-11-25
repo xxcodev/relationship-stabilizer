@@ -42,6 +42,8 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
   cfg.port = acc.port;
   cfg.pools = repos.listPools().map((p) => ({ name: p.name, keyword: p.keyword, enabled: !!p.enabled }));
   cfg.banWords = repos.getSetting('banWords', []);
+  const maxVideoAgeDays = Number(repos.getSetting('maxVideoAgeDays', 7));
+  cfg.maxVideoAgeDays = Number.isFinite(maxVideoAgeDays) ? Math.min(30, Math.max(1, Math.round(maxVideoAgeDays))) : 7;
   cfg.poolDelayMs = repos.getSetting('poolDelayMs', 2500);
   // 'auto' = try the pure-HTTP path first, fall back to the browser; 'browser' = old behavior
   cfg.sendMode = repos.getSetting('sendMode', 'auto');
@@ -145,6 +147,7 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
       banWords: cfg.banWords,
       excludeVideoIds: history.ids,
       excludeTitles: history.titles,
+      maxAgeDays: cfg.maxVideoAgeDays,
     });
     if (dryRun) {
       repos.logEvent('api-dry-run', { account: cfg.accountLabel, friend, title: video.title, pool: pool.name });
@@ -205,6 +208,7 @@ async function sendOneBrowser(cfg, { dryRun = false } = {}) {
     pools: cfg.pools,
     banWords: cfg.banWords,
     excludeTitles: history.titles,
+    maxAgeDays: cfg.maxVideoAgeDays,
     count: 1,
     poolDelayMs: cfg.poolDelayMs,
   });

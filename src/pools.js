@@ -26,6 +26,8 @@ const POOLS = [
   { name: '童年回忆', keyword: '童年回忆' },
 ];
 
+const { publishWindow } = require('./video-picker');
+
 const BASE = 'https://www.douyin.com';
 const CATEGORY_ACG = BASE + '/jingxuan/acg';
 // Alternative search terms per pool. The base keyword is always included, so a pool keeps
@@ -69,9 +71,17 @@ function chooseKeyword(pool, random = Math.random) {
 }
 
 
-function urlFor(keyword) {
+function urlFor(keyword, { maxAgeDays = 0 } = {}) {
   if (keyword === '@acg') return CATEGORY_ACG;
-  return BASE + '/search/' + encodeURIComponent(keyword);
+  const url = new URL(BASE + '/search/' + encodeURIComponent(keyword));
+  const window = publishWindow(maxAgeDays);
+  if (window) {
+    url.searchParams.set('sort_type', '2');
+    url.searchParams.set('publish_time', String(window));
+    url.searchParams.set('is_filter_search', '1');
+    url.searchParams.set('filter_selected', JSON.stringify({ sort_type: '2', publish_time: String(window) }));
+  }
+  return url.toString();
 }
 
 module.exports = { POOLS, VARIANTS, urlFor, keywordsFor, chooseKeyword, CATEGORY_ACG };

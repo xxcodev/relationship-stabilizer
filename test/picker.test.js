@@ -57,6 +57,7 @@ test('parse turns raw card text into title / author / likes', () => {
   assert.equal(card.likes, 12000);
   assert.ok(card.title.startsWith('标题一'), `unexpected title: ${card.title}`);
   assert.equal(card.author, '@作者甲');
+  assert.equal(card.ageDays, 3);
 });
 
 test('parse handles cards without a like count', () => {

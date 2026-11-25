@@ -50,6 +50,7 @@ function configFromDb() {
     friend: repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
     minGapMinutes: repos.getSetting('minGapMinutes', 5),
     poolDelayMs: repos.getSetting('poolDelayMs', 2500),
+    maxVideoAgeDays: Number(repos.getSetting('maxVideoAgeDays', 7)),
     totalMin: repos.getSetting('totalMin', 0),
     totalMax: repos.getSetting('totalMax', 0),
     bands,
@@ -272,6 +273,7 @@ function sanitize(input) {
     friend: String(src.friend || '').trim(),
     minGapMinutes: Math.min(120, Math.max(1, Number(src.minGapMinutes) || 5)),
     poolDelayMs: Math.min(30000, Math.max(0, Math.round(Number(src.poolDelayMs ?? 2500)))),
+    maxVideoAgeDays: Math.min(30, Math.max(1, Math.round(Number(src.maxVideoAgeDays ?? 7)) || 7)),
     totalMin,
     totalMax,
     bands,
@@ -292,6 +294,7 @@ function persist(cfg) {
     repos.syncAccountFriend(acc.id);
     repos.setSetting('minGapMinutes', cfg.minGapMinutes);
     repos.setSetting('poolDelayMs', cfg.poolDelayMs);
+    repos.setSetting('maxVideoAgeDays', cfg.maxVideoAgeDays);
     repos.setSetting('totalMin', cfg.totalMin);
     repos.setSetting('totalMax', cfg.totalMax);
     repos.setSetting('banWords', cfg.banWords);
@@ -495,6 +498,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
             banWords: repos.getSetting('banWords', []),
             excludeVideoIds: history.ids,
             excludeTitles: history.titles,
+            maxAgeDays: Number(repos.getSetting('maxVideoAgeDays', 7)),
           });
           if (dry) {
             return send(res, 200, { ok: true, dry: true, friends: list, picked: video });

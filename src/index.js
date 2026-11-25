@@ -273,6 +273,7 @@ async function main() {
         banWords: repos.getSetting('banWords', []),
         excludeVideoIds: history.ids,
         excludeTitles: history.titles,
+        maxAgeDays: Number(repos.getSetting('maxVideoAgeDays', 7)),
       });
       const raw = args.includes('--friends') ? args[args.indexOf('--friends') + 1]
         : args.includes('--friend') ? args[args.indexOf('--friend') + 1]

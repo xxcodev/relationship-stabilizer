@@ -13,6 +13,9 @@ test('keeps the base keyword and adds relevant variants', () => {
 test('category pools are not turned into keyword searches', () => {
   assert.deepEqual(keywordsFor('二次元', '@acg'), ['@acg']);
   assert.equal(urlFor('@acg'), 'https://www.douyin.com/jingxuan/acg');
+  const filtered = new URL(urlFor('韩剧', { maxAgeDays: 7 }));
+  assert.equal(filtered.searchParams.get('publish_time'), '7');
+  assert.equal(filtered.searchParams.get('sort_type'), '2');
 });
 
 test('chooseKeyword is deterministic with an injected random source', () => {

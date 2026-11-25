@@ -745,13 +745,14 @@
             <label class="f">每日总条数（下限）<input id="c_tmin" type="number" min="0" max="200"></label>
             <label class="f">每日总条数（上限）<input id="c_tmax" type="number" min="0" max="200"></label>
             <label class="f">池间延迟（毫秒，越大越慢越安全）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
+            <label class="f">视频最多几天前（1-30）<input id="c_vmax" type="number" min="1" max="30"></label>
           </div>
           <div class="eyebrow mt">时段与条数</div>
           <div id="bands" style="margin-top:10px"></div>
           <div class="rowbtns"><button class="btn ghost sm" id="addBand">+ 添加时段</button><span class="hint" id="sumHint"></span></div>
           <div class="eyebrow mt">视频池</div>
           <div class="pools" id="pools" style="margin-top:8px"></div>
-          <div class="field-note" style="margin-top:6px">每个池会随机使用基础关键词和同类变体搜索；最近 30 天成功发过的视频优先跳过。</div>
+          <div class="field-note" style="margin-top:6px">每个池会随机使用基础关键词和同类变体搜索；只发最近 N 天发布的视频（默认 7 天），最近 30 天成功发过的视频优先跳过。</div>
           <div class="eyebrow mt">屏蔽词（每行一个，命中标题或作者就跳过）</div>
           <textarea id="c_ban" style="width:100%;margin-top:8px"></textarea>
           <div class="rowbtns">
@@ -1656,6 +1657,7 @@ function collectConfig() {
     totalMin: Number($('#c_tmin').value),
     totalMax: Number($('#c_tmax').value),
     poolDelayMs: Number($('#c_pdelay').value),
+    maxVideoAgeDays: Number($('#c_vmax').value),
     bands, pools,
     banWords: $('#c_ban').value.split('\n').map((s) => s.trim()).filter(Boolean),
   };
@@ -1668,6 +1670,7 @@ async function loadConfigPage() {
     $('#c_tmin').value = cfg.totalMin ?? 0;
     $('#c_tmax').value = cfg.totalMax ?? 0;
     $('#c_pdelay').value = cfg.poolDelayMs ?? 2500;
+    $('#c_vmax').value = cfg.maxVideoAgeDays ?? 7;
     $('#c_enabled').value = cfg.enabled === false ? 'false' : 'true';
     $('#c_ban').value = (cfg.banWords || []).join('\n');
     renderBands(cfg.bands);
