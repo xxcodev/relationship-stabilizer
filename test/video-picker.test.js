@@ -4,7 +4,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const {
-  normalizeTitle, buildHistory, parseAgeDays, publishWindow, filterRecent, chooseVideo,
+  normalizeTitle, buildHistory, parseAgeDays, publishWindow, filterRecent, filterHistory, chooseVideo,
   normalizeMetricFilters, normalizeFilterSwitches, passesMetrics, filterMetrics, describeMetricFilters,
 } = require('../src/video-picker');
 
@@ -33,13 +33,22 @@ test('chooseVideo skips recently sent ids and titles', () => {
   assert.equal(picked.awemeId, '3');
 });
 
-test('chooseVideo falls back to repeats when every candidate was sent', () => {
+test('chooseVideo returns null instead of repeating when every candidate was sent', () => {
   const candidates = [
     { awemeId: '1', title: 'a' },
     { awemeId: '2', title: 'b' },
   ];
-  const picked = chooseVideo(candidates, { ids: ['1', '2'] }, () => 0.999);
-  assert.equal(picked.awemeId, '2');
+  assert.equal(chooseVideo(candidates, { ids: ['1', '2'] }, () => 0.999), null);
+});
+
+test('filterHistory removes sent ids and normalized titles', () => {
+  const candidates = [
+    { awemeId: '1', title: 'Title A' },
+    { awemeId: '2', title: 'Title B' },
+    { awemeId: '3', title: 'Title C' },
+  ];
+  const fresh = filterHistory(candidates, { ids: ['1'], titles: [normalizeTitle('title b')] });
+  assert.deepEqual(fresh.map((c) => c.awemeId), ['3']);
 });
 
 test('chooseVideo handles an empty candidate list', () => {

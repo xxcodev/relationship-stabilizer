@@ -101,6 +101,12 @@ function metricFilterError(message) {
   return err;
 }
 
+function noFreshCandidates(message) {
+  const err = new Error(message);
+  err.code = 'no-fresh-candidate';
+  return err;
+}
+
 function cardContent(video) {
   return JSON.stringify({
     aweType: 800,
@@ -171,7 +177,7 @@ async function pick(session, { keyword, banWords = [], excludeVideoIds = [], exc
     ids: excludeVideoIds,
     titles: excludeTitles,
   });
-  if (!chosen) throw new Error('no candidate from search API');
+  if (!chosen) throw noFreshCandidates('池搜索的候选都已发送过，暂无新视频');
   return chosen;
 }
 
@@ -270,14 +276,9 @@ async function collectFeedCandidates(session, {
     const desc = videoPicker.describeMetricFilters(filters);
     throw metricFilterError(desc ? `没有达到互动指标（${desc}）的推荐候选` : '推荐 feed 没有可用视频候选');
   }
-  const history = {
-    ids: excludeVideoIds instanceof Set ? excludeVideoIds : new Set([...(excludeVideoIds || [])].map(String)),
-    titles: excludeTitles instanceof Set
-      ? excludeTitles
-      : new Set([...(excludeTitles || [])].map(videoPicker.normalizeTitle)),
-  };
-  const fresh = matched.filter((video) => !history.ids.has(String(video.awemeId)) && !history.titles.has(videoPicker.normalizeTitle(video.title)));
-  return { candidates: fresh.length ? fresh : matched, all, rawCount: raw.length, metricFiltered: recent.length - matched.length, json };
+  const fresh = videoPicker.filterHistory(matched, { ids: excludeVideoIds, titles: excludeTitles });
+  if (!fresh.length) throw noFreshCandidates('推荐 feed 的候选都已发送过，暂无新视频');
+  return { candidates: fresh, all, rawCount: raw.length, metricFiltered: recent.length - matched.length, json };
 }
 
 /** Pick one recommendation-feed candidate. Returns a candidate with source/bucket set. */
@@ -287,7 +288,7 @@ async function pickFromFeed(session, opts = {}) {
     ids: opts.excludeVideoIds,
     titles: opts.excludeTitles,
   });
-  if (!chosen) throw new Error('推荐 feed 没有可用候选');
+  if (!chosen) throw noFreshCandidates('推荐 feed 的候选都已发送过，暂无新视频');
   return { ...chosen, source: 'recommend', bucket: '默认推荐' };
 }
 
@@ -458,6 +459,7 @@ module.exports = {
   normalizeFeedCandidate,
   durationMsOf,
   statsOf,
+  noFreshCandidates,
   buildSearchUrl,
   sendVideo,
   sendText,

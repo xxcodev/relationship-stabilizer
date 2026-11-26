@@ -161,6 +161,12 @@ async function stopServer(cfg) {
   return false;
 }
 
+function noFreshCandidates(message) {
+  const err = new Error(message);
+  err.code = 'no-fresh-candidate';
+  return err;
+}
+
 async function naturalCandidates(cfg, session, source, pool, history) {
   let candidates;
   let bucket;
@@ -190,13 +196,11 @@ async function naturalCandidates(cfg, session, source, pool, history) {
     candidates = collected.candidates;
     bucket = pool.name;
   }
-  const fresh = candidates.filter((c) => {
-    const id = String(c.awemeId || c.videoId || '');
-    return (!id || !ids.has(id)) && (!c.title || !titles.has(videoPicker.normalizeTitle(c.title)));
-  });
-  const ranked = await aiRankCandidates(cfg, fresh.length ? fresh : candidates, source);
+  const fresh = videoPicker.filterHistory(candidates, history);
+  if (!fresh.length) throw noFreshCandidates('候选都已发送过，暂无新视频');
+  const ranked = await aiRankCandidates(cfg, fresh, source);
   if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
-  return { candidates: ranked.candidates.length ? ranked.candidates : (fresh.length ? fresh : candidates), bucket, source };
+  return { candidates: ranked.candidates.length ? ranked.candidates : fresh, bucket, source };
 }
 
 function chooseNaturalVideos(candidates, max = 2) {
@@ -367,7 +371,7 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
         ids: history.ids,
         titles: history.titles,
       });
-      if (!chosen) throw new Error('推荐 feed 没有可用候选');
+      if (!chosen) throw noFreshCandidates('推荐 feed 没有新的候选');
       video = { ...chosen, source: 'recommend', bucket: '默认推荐' };
     } else {
       const keyword = (() => {
@@ -381,13 +385,15 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
           maxAgeDays: cfg.ageEnabled ? cfg.maxVideoAgeDays : 0,
           filters: cfg.metricFilters,
         });
-        const ranked = await aiRankCandidates(cfg, collected.candidates, 'pool');
+        const fresh = videoPicker.filterHistory(collected.candidates, history);
+        if (!fresh.length) throw noFreshCandidates('池搜索的候选都已发送过，暂无新视频');
+        const ranked = await aiRankCandidates(cfg, fresh, 'pool');
         if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
-        const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : collected.candidates, {
+        const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : fresh, {
           ids: history.ids,
           titles: history.titles,
         });
-        if (!chosen) throw new Error('池搜索没有可用候选');
+        if (!chosen) throw noFreshCandidates('池搜索没有新的候选');
         video = { ...chosen, source: 'pool', bucket: pool.name };
       } else {
         video = await apiSender.pick(session, {
@@ -430,6 +436,11 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
   } catch (e) {
     const message = (e.message || '').split('\n')[0];
     repos.logEvent('api-send-error', { source, error: message, friend });
+    if (e && e.code === 'no-fresh-candidate') {
+      repos.logEvent('dedup-exhausted', {
+        account: cfg.accountLabel, source, pool: pool && pool.name, friend, error: message,
+      });
+    }
     // The browser fallback can only verify likes; refuse it when comment/favorite/share
     // thresholds are set instead of silently sending an unchecked video.
     if (e && e.code === 'metric-filter') {

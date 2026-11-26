@@ -2480,6 +2480,7 @@ const DIAG_TITLES = {
   'schedule-mail': '计划邮箱',
   'ai-rank': 'AI 排序',
   'ai-fallback': 'AI 回退',
+  'dedup-exhausted': '候选已发完',
 };
 function diagTime(ts, full = false) {
   if (!ts) return '-';
@@ -2583,6 +2584,8 @@ function diagInfo(e) {
     };
     summary = reasons[data.reason] || (data.reason ? '原因：' + String(data.reason).slice(0, 120) : 'AI 未参与本次选片');
     if (data.mode) summary += ' · 模式 ' + data.mode;
+  } else if (event === 'dedup-exhausted') {
+    summary = '候选都已发送过，已停止重复发送' + (data.pool ? ' · ' + data.pool : '') + (data.source === 'recommend' ? ' · 默认推荐' : '');
   } else if (event === 'config-update' || event === 'ai-action') {
     summary = data.summary || data.action || '配置已更新';
   } else {

@@ -76,6 +76,7 @@ POST /quit                       → 关闭浏览器并退出
 | 触发点错过 | 晚于该点触发时刻 30 分钟记 `schedule-trigger-skipped`(late-start) 只跳过该点 |
 | 触发点中途停机过久 | 晚于该点下一条 10 分钟记 `schedule-trigger-skipped`(late-resume) 只跳过该点剩余条数 |
 | 单个触发点失败 | 记 `schedule-trigger-aborted`,后面的触发点照常 |
+| 候选视频全部已发送 | 严格去重：记 `dedup-exhausted`，中止/跳过该触发点，不回退重发 |
 | 纯 API 会话过期 | 到期前 2 小时自动导出刷新；导出前关闭占用 profile 的 browser-server，启动时清理遗留进程；失败 10 分钟后重试 |
 | 人机验证 | 记 `captcha-blocked`,停止当天尝试,等人工处理 |
 | 服务崩溃 | launchd/systemd 重启;数据库状态决定从哪继续 |

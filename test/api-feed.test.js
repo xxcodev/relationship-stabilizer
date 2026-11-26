@@ -181,3 +181,26 @@ test('feed candidates expose interaction stats and honor filters', async () => {
     global.fetch = original;
   }
 });
+
+test('feed collection never falls back to already-sent candidates', async () => {
+  const original = global.fetch;
+  global.fetch = async () => response({
+    status_code: 0,
+    aweme_list: [{
+      aweme_id: 'sent-1',
+      desc: '已经发过的视频',
+      create_time: nowSec - 60,
+      statistics: { digg_count: 10 },
+      author: { nickname: 'a', uid: 'u' },
+      video: { cover: { url_list: ['https://x/c.jpg'], uri: 'c', width: 1, height: 1 } },
+    }],
+  });
+  try {
+    await assert.rejects(
+      () => apiSender.collectFeedCandidates(session, { maxAgeDays: 7, excludeVideoIds: new Set(['sent-1']) }),
+      /都已发送过/
+    );
+  } finally {
+    global.fetch = original;
+  }
+});

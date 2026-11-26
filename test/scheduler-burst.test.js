@@ -19,26 +19,30 @@ const today = () => new Date().toLocaleDateString('sv-SE');
 const hhmm = (d = new Date()) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const DURATION_MS = 18000;
 
+let feedSeq = 0;
 function mockFeed() {
   const nowSec = Math.floor(Date.now() / 1000);
-  return async () => ({
-    ok: true,
-    status: 200,
-    text: async () => JSON.stringify({
-      status_code: 0,
-      aweme_list: [{
-        aweme_id: '7300000000000000099',
-        desc: '连发视频',
-        create_time: nowSec - 60,
-        statistics: { digg_count: 10 },
-        author: { nickname: '作者', uid: 'u1', avatar_thumb: { url_list: ['https://x/t.jpg'], uri: 't' } },
-        video: {
-          duration: DURATION_MS,
-          cover: { url_list: ['https://x/c.jpg'], uri: 'c', width: 720, height: 1280 },
-        },
-      }],
-    }),
-  });
+  return async () => {
+    feedSeq += 1;
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({
+        status_code: 0,
+        aweme_list: [{
+          aweme_id: '73000000000000' + String(feedSeq).padStart(5, '0'),
+          desc: '连发视频 ' + feedSeq,
+          create_time: nowSec - 60,
+          statistics: { digg_count: 10 },
+          author: { nickname: '作者', uid: 'u1', avatar_thumb: { url_list: ['https://x/t.jpg'], uri: 't' } },
+          video: {
+            duration: DURATION_MS,
+            cover: { url_list: ['https://x/c.jpg'], uri: 'c', width: 720, height: 1280 },
+          },
+        }],
+      }),
+    };
+  };
 }
 
 function setBurst(points, extra = {}) {
@@ -308,5 +312,69 @@ test('runtimeConfig exposes per-metric switches and the age switch', () => {
     repos.setAccountSetting(acc.id, 'filterLikesEnabled', 1);
     repos.setAccountSetting(acc.id, 'filterMinComments', 0);
     repos.setAccountSetting(acc.id, 'filterCommentsEnabled', 0);
+  }
+});
+
+test('already-sent candidates are filtered before AI ranking, never re-sent', async () => {
+  const aiRanker = require('../src/ai/ranker');
+  const acc = repos.getAccount('B1');
+  repos.setAccountSetting(acc.id, 'videoSource', 'pool');
+  repos.setAccountSetting(acc.id, 'aiMode', 'rank');
+  repos.setAccountSetting(acc.id, 'filterAgeEnabled', true);
+  repos.setAccountSetting(acc.id, 'maxVideoAgeDays', 7);
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const title = '重复候选测试';
+  repos.insertSend({
+    accountId: acc.id,
+    ts: new Date().toISOString(),
+    day: today(),
+    bucket: '动漫解说',
+    title,
+    author: '作者',
+    likes: 10,
+    friend: 'Hime',
+    ok: true,
+    toast: 'HTTP API',
+    videoId: 'dup-video-1',
+  });
+  const sendsBefore = repos.listSends({ accountId: acc.id, limit: 200 }).length;
+
+  const originalFetch = global.fetch;
+  const originalRank = aiRanker.rankCandidates;
+  let rankCalls = 0;
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      status_code: 0,
+      data: [{
+        aweme_info: {
+          aweme_id: 'dup-video-1',
+          desc: title,
+          create_time: nowSec - 60,
+          author: { nickname: '作者' },
+          statistics: { digg_count: 10 },
+          video: { cover: { url_list: ['https://x/c.jpg'], uri: 'c', width: 720, height: 1280 } },
+        },
+      }],
+    }),
+  });
+  aiRanker.rankCandidates = async (candidates) => {
+    rankCalls += 1;
+    return { used: true, candidates, model: 'test', reason: 'kept' };
+  };
+  try {
+    const out = await scheduler.apiAttempt(scheduler.runtimeConfig('B1'));
+    assert.equal(out, null, 'the pool API path should signal no usable fresh candidate');
+    assert.equal(rankCalls, 0, 'history must be filtered before AI ranking');
+    assert.equal(repos.listSends({ accountId: acc.id, limit: 200 }).length, sendsBefore);
+    const events = repos.listEvents(30).map((e) => e.event);
+    assert.ok(events.includes('dedup-exhausted'));
+  } finally {
+    global.fetch = originalFetch;
+    aiRanker.rankCandidates = originalRank;
+    repos.setAccountSetting(acc.id, 'videoSource', 'recommend');
+    repos.setAccountSetting(acc.id, 'aiMode', 'off');
   }
 });
