@@ -88,6 +88,8 @@ function importLegacy(legacyDir, { force = false } = {}) {
     maxCount: b2.max,
   }));
   if (bands.length) repos.replaceBands(account.id, bands);
+  // make the imported settings account-specific (the legacy config was global)
+  repos.seedAccountDefaults(account.id, { overwrite: true });
 
   // plans + sends
   let planCount = 0;

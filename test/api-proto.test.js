@@ -29,6 +29,7 @@ function buildTemplate() {
     varintField(3, 7370934033628414501n), // exceeds 2^53: must be copied byte-for-byte
     lenField(4, contentJson),
     lenField(5, ext),
+    varintField(6, 8),
     lenField(8, 'old-client-id'),
   ]);
   const body = lenField(100, message);
@@ -70,6 +71,19 @@ test('buildSendBody replaces content, client message id and stime only', () => {
   assert.strictEqual(message.find((f) => f.f === 8).v.toString('utf8'), 'new-client-id');
   const ext = apiProto.parseRaw(message.find((f) => f.f === 5).v);
   assert.strictEqual(ext.find((f) => f.f === 2).v.toString('utf8'), 'new-client-id');
+});
+
+test('buildSendBody overrides outer message type for text messages', () => {
+  const { templateB64 } = buildTemplate();
+  const rebuilt = apiProto.buildSendBody(templateB64, {
+    content: JSON.stringify({ aweType: 700, text: 'hello' }),
+    clientMessageId: 'text-client-id',
+    stime: '123.456',
+    messageType: 7,
+  });
+  const { message } = messageFields(rebuilt.toString('base64'));
+  assert.strictEqual(message.find((f) => f.f === 6 && f.w === 0).rawVarint.toString('hex'), varint(7).toString('hex'));
+  assert.match(message.find((f) => f.f === 4).v.toString('utf8'), /"aweType":700/);
 });
 
 test('parseSendResponse reads the short "OK" success envelope', () => {

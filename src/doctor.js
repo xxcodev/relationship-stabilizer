@@ -29,6 +29,17 @@ function checkSqlite() {
   }
 }
 
+async function checkDatabase() {
+  try {
+    const cfg = require('./db-config').load();
+    if (cfg.driver === 'sqlite') return ok('database', 'SQLite (default)');
+    const out = await require('./db-config').testConnection(cfg);
+    return ok('database', `${out.driver}: ${out.detail}`);
+  } catch (e) {
+    return bad('database', e.message.split('\n')[0]);
+  }
+}
+
 function checkDataDir() {
   try {
     fs.mkdirSync(env.DATA_DIR, { recursive: true });
@@ -86,7 +97,7 @@ function checkPort(port) {
 }
 
 async function run() {
-  const results = [checkNode(), checkSqlite(), checkDataDir(), checkPlaywright(), checkBrowser()];
+  const results = [checkNode(), checkSqlite(), checkDataDir(), checkPlaywright(), checkBrowser(), await checkDatabase()];
   results.push(await checkPort(env.dashboard.port));
   const acc = (() => {
     try {

@@ -52,3 +52,72 @@ test('buildSearchUrl uses the latest/7-day search filter when requested', () => 
   const filter = JSON.parse(u.searchParams.get('filter_selected'));
   assert.deepEqual(filter, { sort_type: '2', publish_time: '7' });
 });
+
+
+test('collectSearchCandidates returns the filtered pool candidates before random choice', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const original = global.fetch;
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      status_code: 0,
+      data: [{
+        aweme_info: {
+          aweme_id: 'pool-1', desc: '池搜索候选', create_time: now - 3600,
+          author: { nickname: '作者' }, statistics: { digg_count: 12, comment_count: 3, collect_count: 2, share_count: 1 },
+          video: { cover: { url_list: ['https://x/c.jpg'], uri: 'c', width: 1080, height: 1920 } },
+        },
+      }],
+    }),
+  });
+  try {
+    const out = await apiSender.collectSearchCandidates({ searchUrl: 'https://www.douyin.com/aweme/v1/web/general/search/single/?keyword=x&offset=0&count=10' }, { keyword: '测试', maxAgeDays: 7 });
+    assert.equal(out.rawCount, 1);
+    assert.equal(out.candidates.length, 1);
+    assert.equal(out.candidates[0].awemeId, 'pool-1');
+    assert.equal(out.candidates[0].comments, 3);
+    assert.equal(out.candidates[0].collects, 2);
+    assert.equal(out.candidates[0].shares, 1);
+  } finally { global.fetch = original; }
+});
+
+test('collectSearchCandidates applies interaction filters', async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const original = global.fetch;
+  const aweme = (id, stats) => ({
+    aweme_info: {
+      aweme_id: id,
+      desc: '候选 ' + id,
+      create_time: now - 3600,
+      author: { nickname: '作者' },
+      statistics: stats,
+      video: { cover: { url_list: ['https://x/c.jpg'], uri: 'c', width: 1080, height: 1920 } },
+    },
+  });
+  global.fetch = async () => ({
+    ok: true,
+    status: 200,
+    text: async () => JSON.stringify({
+      status_code: 0,
+      data: [
+        aweme('hot', { digg_count: 100, comment_count: 8, collect_count: 5, share_count: 2 }),
+        aweme('cold', { digg_count: 5, comment_count: 0, collect_count: 0, share_count: 0 }),
+      ],
+    }),
+  });
+  const session = { searchUrl: 'https://www.douyin.com/aweme/v1/web/general/search/single/?keyword=x' };
+  try {
+    const out = await apiSender.collectSearchCandidates(session, {
+      keyword: '测试', maxAgeDays: 7,
+      filters: { minLikes: 50, minComments: 1, minFavorites: 1, minShares: 1 },
+    });
+    assert.deepEqual(out.candidates.map((c) => c.awemeId), ['hot']);
+    assert.equal(out.metricFiltered, 1);
+
+    await assert.rejects(
+      () => apiSender.collectSearchCandidates(session, { keyword: '测试', maxAgeDays: 7, filters: { minLikes: 99999 } }),
+      /没有达到互动指标（点赞≥99999）/
+    );
+  } finally { global.fetch = original; }
+});

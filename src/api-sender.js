@@ -44,20 +44,61 @@ function buildSearchUrl(session, keyword, { maxAgeDays = 0 } = {}) {
   return url.toString();
 }
 
-async function readJson(url, session, timeout = 20000) {
-  const res = await fetch(url, {
-    headers: {
-      cookie: cookieHeader(session),
-      'user-agent': UA,
-      accept: 'application/json, text/plain, */*',
-      'accept-language': 'zh-CN,zh;q=0.9',
-      referer: 'https://www.douyin.com/',
-    },
+async function readJson(url, session, timeout = 20000, extraHeaders = {}, { method = 'GET', body = null } = {}) {
+  const headers = {
+    'user-agent': UA,
+    accept: 'application/json, text/plain, */*',
+    'accept-language': 'zh-CN,zh;q=0.9',
+    referer: 'https://www.douyin.com/',
+    ...(extraHeaders || {}),
+    cookie: cookieHeader(session),
+  };
+  const init = {
+    method,
+    headers,
     signal: AbortSignal.timeout(timeout),
-  });
+  };
+  if (body) init.body = body;
+  const res = await fetch(url, init);
   const text = await res.text();
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return JSON.parse(text);
+  if (!String(text || '').trim()) {
+    throw new Error(`HTTP ${res.status} 但返回空响应（可能需要登录，或签名/会话已过期）`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('接口返回不是 JSON（可能需要登录，或签名/会话已过期）');
+  }
+}
+
+/**
+ * Video length from the read API, in milliseconds (Douyin returns `video.duration` in ms).
+ * Unknown stays 0 so the burst scheduler can use its configured fallback instead of
+ * inventing a length from a differently-scaled field.
+ */
+function durationMsOf(aweme) {
+  const video = (aweme && aweme.video) || {};
+  const raw = Number(video.duration || (aweme && aweme.duration) || 0);
+  return Number.isFinite(raw) && raw > 0 ? Math.round(raw) : 0;
+}
+
+/** Interaction stats shared by search and feed candidates (0 when the field is absent). */
+function statsOf(aweme) {
+  const stats = (aweme && aweme.statistics) || {};
+  return {
+    likes: Number(stats.digg_count || 0),
+    comments: Number(stats.comment_count || 0),
+    collects: Number(stats.collect_count || 0),
+    shares: Number(stats.share_count || 0),
+    plays: Number(stats.play_count || 0),
+  };
+}
+
+function metricFilterError(message) {
+  const err = new Error(message);
+  err.code = 'metric-filter';
+  return err;
 }
 
 function cardContent(video) {
@@ -73,8 +114,8 @@ function cardContent(video) {
   });
 }
 
-/** Pick one candidate via the search API. Throws when the session/API is unusable. */
-async function pick(session, { keyword, banWords = [], excludeVideoIds = [], excludeTitles = [], maxAgeDays = 7 } = {}) {
+/** Collect candidates via the search API (no random choice yet). */
+async function collectSearchCandidates(session, { keyword, banWords = [], maxAgeDays = 7, filters = null } = {}) {
   if (!keyword) throw new Error('missing pool keyword');
   const json = await readJson(buildSearchUrl(session, keyword, { maxAgeDays }), session);
   if (json.status_code != null && json.status_code !== 0) {
@@ -100,8 +141,9 @@ async function pick(session, { keyword, banWords = [], excludeVideoIds = [], exc
       awemeId,
       title: title.slice(0, 120),
       author: (aweme.author && aweme.author.nickname) || '',
-      likes: Number((aweme.statistics && aweme.statistics.digg_count) || 0),
+      ...statsOf(aweme),
       createTime: Number(aweme.create_time || item.create_time || 0),
+      durationMs: durationMsOf(aweme),
       width: cover.width || 1080,
       height: cover.height || 1920,
       coverUrlList: cover.url_list,
@@ -114,12 +156,139 @@ async function pick(session, { keyword, banWords = [], excludeVideoIds = [], exc
   if (!candidates.size) throw new Error('no candidate from search API');
   const recent = videoPicker.filterRecent([...candidates.values()], maxAgeDays);
   if (!recent.length) throw new Error(`最近 ${maxAgeDays} 天没有候选视频`);
-  const chosen = videoPicker.chooseVideo(recent, {
+  const matched = videoPicker.filterMetrics(recent, filters);
+  if (!matched.length) {
+    const desc = videoPicker.describeMetricFilters(filters);
+    throw metricFilterError(desc ? `没有达到互动指标（${desc}）的候选` : 'no candidate from search API');
+  }
+  return { candidates: matched, rawCount: candidates.size, metricFiltered: recent.length - matched.length };
+}
+
+/** Pick one candidate via the search API. Throws when the session/API is unusable. */
+async function pick(session, { keyword, banWords = [], excludeVideoIds = [], excludeTitles = [], maxAgeDays = 7, filters = null } = {}) {
+  const collected = await collectSearchCandidates(session, { keyword, banWords, maxAgeDays, filters });
+  const chosen = videoPicker.chooseVideo(collected.candidates, {
     ids: excludeVideoIds,
     titles: excludeTitles,
   });
   if (!chosen) throw new Error('no candidate from search API');
   return chosen;
+}
+
+function feedUrlFor(session) {
+  if (!session || !session.feedUrl) {
+    throw new Error('会话没有捕获到首页推荐 feed 请求，请重新导出纯 API 会话');
+  }
+  // Keep the captured URL byte-for-byte: a_bogus / secsdk signatures are bound to it.
+  return String(session.feedUrl);
+}
+
+function normalizeFeedCandidate(item) {
+  const aweme = item && item.aweme_info ? item.aweme_info : item;
+  if (!aweme || !aweme.aweme_id) return null;
+  if (aweme.live_info || aweme.cell_room || aweme.is_live) return null;
+  const type = Number(aweme.aweme_type);
+  // 68 = image post; live and ads are filtered above/by fields.
+  if (type === 68) return null;
+  if (aweme.is_ads === 1 || aweme.is_ads === true || aweme.ad_info) return null;
+  const video = aweme.video || {};
+  const cover = video.cover || video.origin_cover || video.dynamic_cover;
+  if (!cover || !Array.isArray(cover.url_list) || !cover.url_list.length) return null;
+  const title = String(aweme.desc || '').trim();
+  if (!title) return null;
+  const thumb = (aweme.author && aweme.author.avatar_thumb) || null;
+  return {
+    awemeId: String(aweme.aweme_id),
+    title: title.slice(0, 120),
+    author: (aweme.author && aweme.author.nickname) || '',
+    ...statsOf(aweme),
+    createTime: Number(aweme.create_time || item.create_time || 0),
+    durationMs: durationMsOf(aweme),
+    width: cover.width || video.width || 1080,
+    height: cover.height || video.height || 1920,
+    coverUrlList: cover.url_list,
+    coverUri: cover.uri || '',
+    thumbUrlList: thumb ? thumb.url_list : cover.url_list,
+    thumbUri: thumb ? thumb.uri || '' : cover.uri || '',
+    uid: (aweme.author && aweme.author.uid) || '',
+    source: 'recommend',
+    bucket: '默认推荐',
+  };
+}
+
+/**
+ * Read the recommendation feed through the captured feed URL. This is intentionally a
+ * separate read path from search: the feed URL carries platform signature parameters and
+ * must not be mutated (changing count/refresh_index can invalidate the signature).
+ */
+async function collectFeedCandidates(session, {
+  banWords = [],
+  excludeVideoIds = [],
+  excludeTitles = [],
+  maxAgeDays = 7,
+  filters = null,
+} = {}) {
+  const url = feedUrlFor(session);
+  let json;
+  try {
+    const method = session.feedMethod === 'POST' ? 'POST' : 'GET';
+    const body = method === 'POST' && session.feedBodyB64
+      ? Buffer.from(session.feedBodyB64, 'base64')
+      : null;
+    json = await readJson(url, session, 20000, session.feedHeaders || {}, { method, body });
+  } catch (e) {
+    throw new Error(`推荐 feed 请求失败：${e.message}（签名/会话可能已过期，请重新导出会话）`);
+  }
+  if (json && json.status_code != null && json.status_code !== 0) {
+    throw new Error(json.status_msg || `feed status_code ${json.status_code}`);
+  }
+  const raw = Array.isArray(json && json.aweme_list)
+    ? json.aweme_list
+    : Array.isArray(json && json.data && json.data.aweme_list)
+      ? json.data.aweme_list
+      : Array.isArray(json && json.data)
+        ? json.data
+        : [];
+  const ban = banWords.length
+    ? new RegExp('(' + banWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')')
+    : /$^/;
+  const candidates = new Map();
+  for (const item of raw) {
+    const video = normalizeFeedCandidate(item);
+    if (!video) continue;
+    if (ban.test(video.title + ' ' + video.author)) continue;
+    if (candidates.has(video.awemeId)) continue;
+    candidates.set(video.awemeId, video);
+  }
+  const all = [...candidates.values()];
+  const recent = videoPicker.filterRecent(all, maxAgeDays);
+  if (!recent.length) {
+    throw new Error(all.length ? `最近 ${maxAgeDays} 天没有推荐候选` : '推荐 feed 没有可用视频候选');
+  }
+  const matched = videoPicker.filterMetrics(recent, filters);
+  if (!matched.length) {
+    const desc = videoPicker.describeMetricFilters(filters);
+    throw metricFilterError(desc ? `没有达到互动指标（${desc}）的推荐候选` : '推荐 feed 没有可用视频候选');
+  }
+  const history = {
+    ids: excludeVideoIds instanceof Set ? excludeVideoIds : new Set([...(excludeVideoIds || [])].map(String)),
+    titles: excludeTitles instanceof Set
+      ? excludeTitles
+      : new Set([...(excludeTitles || [])].map(videoPicker.normalizeTitle)),
+  };
+  const fresh = matched.filter((video) => !history.ids.has(String(video.awemeId)) && !history.titles.has(videoPicker.normalizeTitle(video.title)));
+  return { candidates: fresh.length ? fresh : matched, all, rawCount: raw.length, metricFiltered: recent.length - matched.length, json };
+}
+
+/** Pick one recommendation-feed candidate. Returns a candidate with source/bucket set. */
+async function pickFromFeed(session, opts = {}) {
+  const { candidates } = await collectFeedCandidates(session, opts);
+  const chosen = videoPicker.chooseVideo(candidates, {
+    ids: opts.excludeVideoIds,
+    titles: opts.excludeTitles,
+  });
+  if (!chosen) throw new Error('推荐 feed 没有可用候选');
+  return { ...chosen, source: 'recommend', bucket: '默认推荐' };
 }
 
 /** Recent friends captured from the share panel: [{name, userid}]. */
@@ -167,12 +336,12 @@ async function createConversation(session, toUserId) {
   return { ok: true, conversationId: parsed.conversationId, conversationShortId: parsed.conversationShortId };
 }
 
-/** Send the video card over HTTP. Returns {ok, statusCode, statusMessage, ...}. */
-async function sendVideo(session, video, { friend, toUserId } = {}) {
+/** Send arbitrary message content over HTTP. Returns {ok, statusCode, statusMessage, ...}. */
+async function sendContent(session, content, { friend, toUserId, video = null, conversationId: givenConversationId, conversationShortId: givenConversationShortId, messageType = null } = {}) {
   const target = String(friend || session.friend || '').trim();
-  let conversationId;
-  let conversationShortId;
-  if (target && session.friend && target !== session.friend) {
+  let conversationId = givenConversationId || null;
+  let conversationShortId = givenConversationShortId || null;
+  if (!conversationId && target && session.friend && target !== session.friend) {
     const uid = String(toUserId || '').trim();
     const row = uid ? { userid: uid } : resolveFriend(session, target);
     if (!row) {
@@ -194,11 +363,12 @@ async function sendVideo(session, video, { friend, toUserId } = {}) {
   const clientMessageId = crypto.randomUUID();
   const stime = `${Date.now()}.${Math.floor(Math.random() * 9000 + 1000)}`;
   const body = apiProto.buildSendBody(session.template.bodyB64, {
-    content: cardContent(video),
+    content,
     clientMessageId,
     stime,
     conversationId,
     conversationShortId,
+    messageType,
   });
 
   const res = await fetch(session.template.url, {
@@ -241,11 +411,37 @@ async function sendVideo(session, video, { friend, toUserId } = {}) {
     statusMessage: parsed.statusMessage || (accepted ? 'OK' : ''),
     serverMessageId: parsed.serverMessageId,
     clientMessageId,
+    conversationId,
+    conversationShortId,
     error: ok ? null : parsed.statusMessage || `status_code ${parsed.statusCode}`,
     responseB64: ok ? undefined : buf.toString('base64'),
     video,
     friend: target || undefined,
   };
+}
+
+/** Send a video card using the captured send template. */
+async function sendVideo(session, video, opts = {}) {
+  return sendContent(session, cardContent(video), { ...opts, video });
+}
+
+/** Send a plain text message using the same captured IM template. */
+async function sendText(session, text, opts = {}) {
+  // Legacy 1:1 text bubbles observed from the web client: outer message_type=7 plus
+  // this content JSON. Sending text through the captured video template without
+  // overriding message_type produces black, unplayable video cards on the receiver.
+  const content = JSON.stringify({
+    aweType: 700,
+    type: 0,
+    instruction_type: 0,
+    item_type_local: -1,
+    text: String(text == null ? '' : text).slice(0, 1000),
+    createdAt: 0,
+    is_card: false,
+    msgHint: '',
+    richTextInfos: [],
+  });
+  return sendContent(session, content, { ...opts, messageType: 7 });
 }
 
 /** Convenience: validity of the stored session for this account friend. */
@@ -255,12 +451,22 @@ function usable(session, friend, opts) {
 
 module.exports = {
   pick,
+  pickFromFeed,
+  collectSearchCandidates,
+  collectFeedCandidates,
+  feedUrlFor,
+  normalizeFeedCandidate,
+  durationMsOf,
+  statsOf,
+  buildSearchUrl,
   sendVideo,
+  sendText,
+  sendContent,
   createConversation,
   friends,
   resolveFriend,
-  buildSearchUrl,
   cardContent,
+  readJson,
   cookieHeader,
   usable,
 };

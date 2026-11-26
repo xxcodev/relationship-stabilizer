@@ -64,6 +64,13 @@ test('parse handles cards without a like count', () => {
   const card = parse({ dur: '00:10', txt: '00:10 没有点赞的卡片 @某人' }, '池');
   assert.equal(card.likes, 0);
   assert.equal(card.title, '没有点赞的卡片');
+  assert.equal(card.durationMs, 10000);
+});
+
+test('parse turns the duration badge into milliseconds', () => {
+  assert.equal(parse({ dur: '01:23', txt: '01:23 标题 @作者' }, '池').durationMs, 83000);
+  assert.equal(parse({ dur: '', txt: '标题 @作者' }, '池').durationMs, 0);
+  assert.equal(parse({ dur: 'badge', txt: '标题 @作者' }, '池').durationMs, 0);
 });
 
 test('OPEN_STEP locates a card by its title prefix', async () => {

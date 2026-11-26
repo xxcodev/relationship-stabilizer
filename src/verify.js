@@ -1,7 +1,7 @@
 /**
- * @file Cross-layer smoke test: environment + schema + planner + HTTP API, on an ephemeral port.
+ * @file Cross-layer smoke test: environment + schema + schedule config + HTTP API, on an ephemeral port.
  */
-// End-to-end smoke check that a fresh machine can run: DB, planner, HTTP API.
+// End-to-end smoke check that a fresh machine can run: DB, schedule config, HTTP API.
 // Never touches the live scheduler or the browser; the dashboard is started on port 0.
 const results = [];
 const ok = (label, detail) => results.push({ ok: true, label, detail });
@@ -22,9 +22,11 @@ async function main() {
     const db = require('./db');
     const conn = db.open();
     repos = require('./repos');
-    const tables = conn.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map((r) => r.name);
-    const needed = ['accounts', 'bands', 'plans', 'pools', 'sends', 'settings', 'events'];
-    const missing = needed.filter((t) => !tables.includes(t));
+    const needed = ['accounts', 'bands', 'plans', 'pools', 'sends', 'settings', 'events', 'friends', 'account_settings', 'account_pools'];
+    const missing = [];
+    for (const table of needed) {
+      try { conn.prepare(`SELECT 1 FROM ${table} LIMIT 1`).all(); } catch (e) { missing.push(table); }
+    }
     if (missing.length) bad('schema', 'missing ' + missing.join(','));
     else ok('schema', `${needed.length} tables`);
 
@@ -32,9 +34,6 @@ async function main() {
     if (!acc) bad('account', 'none configured');
     else ok('account', `${acc.label} → ${acc.friend || '(none)'} :${acc.port}`);
 
-    const bands = acc ? repos.listBands(acc.id) : [];
-    if (!bands.length) bad('bands', 'no time bands');
-    else ok('bands', bands.map((b) => `${b.name} ${String(Math.floor(b.start_min / 60)).padStart(2, '0')}:${String(b.start_min % 60).padStart(2, '0')}`).join(' / '));
 
     const pools = repos.listPools();
     ok('pools', `${pools.filter((p) => p.enabled).length}/${pools.length} enabled`);
@@ -42,30 +41,28 @@ async function main() {
     bad('database', e.message.split('\n')[0]);
   }
 
-  // 3. planner reaches a sane plan
+  // 3. schedule config is coherent
   try {
-    const planner = require('./planner');
+    const { runtimeConfig } = require('./scheduler');
     const acc = repos.getAccount();
-    const bands = repos.listBands(acc.id).map((b) => ({
-      name: b.name,
-      from: b.start_min,
-      to: b.end_min,
-      min: b.min_count,
-      max: b.max_count,
-    }));
-    const cfg = planner.normalize({
-      bands,
-      totalMin: repos.getSetting('totalMin', 0),
-      totalMax: repos.getSetting('totalMax', 0),
-      minGapMinutes: repos.getSetting('minGapMinutes', 5),
-    });
-    const p = planner.planDay(cfg, cfg.windowStart);
-    const inWindow = p.times.every((t) => t >= cfg.windowStart && t < cfg.windowEnd);
-    if (!p.count) bad('planner', 'produced an empty plan');
-    else if (!inWindow) bad('planner', 'produced times outside the window');
-    else ok('planner', `${p.count} slots in ${planner.hm(cfg.windowStart)}-${planner.hm(cfg.windowEnd)}`);
+    const cfg = runtimeConfig(acc.label);
+    const plan = cfg.schedule || {};
+    const points = Array.isArray(plan.points) ? plan.points : [];
+    const problems = [];
+    if (!points.length) problems.push('触发点');
+    if (points.some((p) => {
+      if (!(p.count >= 1 && p.count <= 50)) return true;
+      if (p.mode === 'random') return !(p.from && p.to && p.to > p.from);
+      return !/^\d{2}:\d{2}$/.test(p.time || '');
+    })) problems.push('触发点时间/条数');
+    if (!(plan.minSec >= 1 && plan.maxSec >= plan.minSec)) problems.push('间隔');
+    if (problems.length) bad('schedule', `计划配置异常：${problems.join('、')}`);
+    else {
+      const describe = points.map((p) => `${p.mode === 'random' ? `${p.from}-${p.to}随机` : p.time}×${p.count}`);
+      ok('schedule', `${points.length} 个触发点（${describe.join('、')}），间隔 ${plan.minSec}-${plan.maxSec}s`);
+    }
   } catch (e) {
-    bad('planner', e.message.split('\n')[0]);
+    bad('schedule', e.message.split('\n')[0]);
   }
 
   // 4. HTTP API on an ephemeral port
@@ -81,7 +78,7 @@ async function main() {
     ok('GET /api/data', `plan=${data.todayPlan} done=${data.todayDone} history=${data.sends.length}`);
 
     const cfg = await get('/api/config');
-    ok('GET /api/config', `${cfg.bands.length} bands, ${Object.keys(cfg.pools).length} pools`);
+    ok('GET /api/config', `${(cfg.schedulePoints || []).length} triggers, ${Object.keys(cfg.pools || {}).length} pools`);
 
     const status = await get('/api/status');
     ok('GET /api/status', `scheduler=${status.scheduler.running} challenge=${status.browser.challenge}`);
@@ -92,7 +89,7 @@ async function main() {
       body: JSON.stringify({ ...cfg, totalMin: 9, totalMax: 9 }),
     }).then((r) => r.json());
     if (!prev.ok) bad('POST /api/preview', prev.error || 'failed');
-    else ok('POST /api/preview', `${prev.count} slots, bands=${prev.bands.map((b) => b.n).join('/')}`);
+    else ok('POST /api/preview', `${prev.pointCount} 个触发点，共 ${prev.count} 条`);
   } catch (e) {
     bad('http api', e.message.split('\n')[0]);
   } finally {

@@ -28,6 +28,12 @@ test('ignores blanks, duplicates and unknown count keys', () => {
   assert.equal(chooseFriend(['A', 'B'], counts, () => 0.999), 'A');
 });
 
+test('avoids sending to the same friend twice in a row on a tie', () => {
+  const counts = { A: 0, B: 0 };
+  assert.equal(chooseFriend(['A', 'B'], counts, () => 0, 'A'), 'B');
+  assert.equal(chooseFriend(['A', 'B'], counts, () => 0.99, 'B'), 'A');
+});
+
 test('returns null when no friend is configured', () => {
   assert.equal(chooseFriend([], {}), null);
   assert.equal(chooseFriend(['', '   '], {}), null);

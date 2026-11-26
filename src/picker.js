@@ -48,6 +48,12 @@ const OPEN_STEP = (title) => `(() => {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** "01:23" duration badge -> milliseconds. 0 when the card has no valid badge. */
+function durationMs(dur) {
+  const m = /^(\d{1,3}):([0-5]\d)$/.exec(String(dur || '').trim());
+  return m ? (Number(m[1]) * 60 + Number(m[2])) * 1000 : 0;
+}
+
 function parse(card, pool, source) {
   const m = card.txt.match(/^(\d{1,2}:\d{2})\s+([\d.]+万?)?\s*([\s\S]*)$/);
   const likesRaw = (m && m[2]) || '';
@@ -57,6 +63,7 @@ function parse(card, pool, source) {
   return {
     pool,
     dur: card.dur,
+    durationMs: durationMs(card.dur),
     likes,
     title: (at > 0 ? body.slice(0, at) : body).trim().slice(0, 120),
     author: at > 0 ? body.slice(at).split('·')[0].trim() : '',
@@ -75,7 +82,7 @@ async function post(base, p, body) {
 }
 
 /** Pick n candidates. `pools` = [{name, keyword, enabled}], banWords = string[]. */
-async function pick({ base, pools, banWords = [], excludeTitles = [], maxAgeDays = 7, count = 1, scanLimit = 4, poolDelayMs = 2500, random = Math.random }) {
+async function pick({ base, pools, banWords = [], excludeTitles = [], maxAgeDays = 7, count = 1, scanLimit = 4, poolDelayMs = 2500, filters = null, random = Math.random }) {
   const enabled = pools.filter((p) => p.enabled && (p.keyword || p.name));
   for (let i = enabled.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
@@ -83,6 +90,7 @@ async function pick({ base, pools, banWords = [], excludeTitles = [], maxAgeDays
   }
   const chosen = enabled.slice(0, Math.min(scanLimit, enabled.length));
   const ban = banWords.length ? new RegExp('(' + banWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')') : /$^/;
+  let metricFiltered = 0;
 
   const byPool = {};
   for (const pool of chosen) {
@@ -100,7 +108,9 @@ async function pick({ base, pools, banWords = [], excludeTitles = [], maxAgeDays
         if (cards.length >= 3) break;
       }
       const recent = videoPicker.filterRecent(cards, maxAgeDays);
-      if (recent.length) byPool[name] = recent;
+      const matched = videoPicker.filterMetrics(recent, filters);
+      metricFiltered += recent.length - matched.length;
+      if (matched.length) byPool[name] = matched;
     } catch (e) {
       /* skip pool */
     }
@@ -119,7 +129,7 @@ async function pick({ base, pools, banWords = [], excludeTitles = [], maxAgeDays
     byPool[p] = byPool[p].filter((x) => x !== c);
     if (!byPool[p].length) poolsLeft.splice(poolsLeft.indexOf(p), 1);
   }
-  return { picked: out, scanned: chosen.map((p) => p.name), found: Object.fromEntries(Object.entries(byPool).map(([k, v]) => [k, v.length])) };
+  return { picked: out, scanned: chosen.map((p) => p.name), found: Object.fromEntries(Object.entries(byPool).map(([k, v]) => [k, v.length])), metricFiltered };
 }
 
 /** Open a picked card and return the modal URL (contains modal_id). */
@@ -145,4 +155,4 @@ async function open(base, pick, { attempts = 3 } = {}) {
   return { ok: false, error: 'card not found' };
 }
 
-module.exports = { pick, open, sleep, EXTRACT, OPEN_STEP, parse };
+module.exports = { pick, open, sleep, EXTRACT, OPEN_STEP, parse, durationMs };

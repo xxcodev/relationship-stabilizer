@@ -19,8 +19,13 @@
 ├───────────────────────────────────────────────────────────┤
 │ 领域逻辑        src/planner.js (纯函数,零 IO)              │
 ├───────────────────────────────────────────────────────────┤
+│ AI(旁路)        src/ai/client|ranker|assistant              │
+│                 仅推荐源筛选/只读问诊，默认关闭                 │
+├───────────────────────────────────────────────────────────┤
 │ 数据            src/repos.js (全部 SQL) → src/db.js         │
-│                 schema/*.sql (编号迁移)                     │
+│                 schema/*.sql (SQLite 编号迁移)               │
+│                 src/db-worker.js + external-schema.js       │
+│                 (可选 MySQL/PostgreSQL，单机同步门面)          │
 └───────────────────────────────────────────────────────────┘
 ```
 
@@ -31,22 +36,23 @@
 
 一次发送:
 
-1. `scheduler.runDay` 从 `plans` 取当天计划(没有就 `planner.planDay` 生成并落库);
-2. 到点前 3 分钟 `startServer` 拉起 `browser-server`(独立 node 进程,持有 Playwright);
-3. `picker.pick` 通过 HTTP 让浏览器随机扫若干池子,拿回候选;
-4. `picker.open` 打开视频,`/openshare` 打开分享面板;
-5. `/send` 按昵称+userid 精确命中好友并点击;
-6. 结果写 `sends`,计划状态写 `plans`,过程写 `events`。
+1. `scheduler.runLoop` 始终走 `runSchedule`：`src/schedule.js` 读取 `account_settings.schedulePoints`（没有就按 0.27 及以前的时间点/时段/总数转换），`src/burst.js` 管理每个触发点的固定/范围内随机时刻、条数、秒级间隔与当天状态；进度存 `account_settings.burstState`，间隔不短于上一条视频时长；
+2. 纯 API 源（池搜索 / 推荐 feed）直接 HTTP 选片+发送；候选先按时效、屏蔽词、已开启的互动指标（点赞/评论/收藏/转发）过滤，再交给 AI 和随机选片；只有池源需要浏览器兜底时才在到点前 3 分钟拉起 `browser-server`；
+3. 浏览器路径由 `picker.pick` 通过 HTTP 让浏览器扫池子拿候选；推荐源不会走浏览器；
+4. `picker.open` 打开视频,`/openshare` 打开分享面板;`/send` 按昵称+userid 精确命中好友并点击;
+5. 结果写 `sends`（含 `source`），当天触发进度写 `account_settings.burstState`，过程写 `events`；AI 只记录 `ai-rank` / `ai-fallback`。
 
 ## 扩展点
 
 | 想加的东西 | 改哪里 | 注意 |
 |---|---|---|
 | 新的选片池 | `pools` 表 / `src/pools.js` 种子 | 面板的勾选框自动出现 |
-| 新的时间策略 | `src/planner.js` | 保持纯函数,补单测 |
+| 新的触发/节奏策略 | `src/burst.js`（纯状态机）/ `src/schedule.js`（配置读取与迁移） | 保持纯函数,补单测 |
 | 新的发送渠道(非抖音) | 新增 `src/<channel>-server.js`,让 `scheduler.sendOne` 走同一契约 | 契约见下 |
 | 新的面板区块 | `src/dashboard.js` 加只读接口 + `page.html` | 写操作集中在 `/api/control` |
-| 新的持久化字段 | 新增 `schema/00N_*.sql` | 不要改已应用的迁移 |
+| 新的持久化字段 | 新增 `schema/00N_*.sql` + `external-schema.js` | 不要改已应用的迁移；外部库要同步最终 schema |
+| 新的 AI 能力 | `src/ai/` + `/api/ai/*` | AI 默认关闭；不能进发送主链路，失败必须回退 |
+| 新的数据库后端 | `src/db.js` + `src/db-worker.js` + `db-config.js` | SQLite 仍是默认；外部后端需真实实例联调 |
 
 ## browser-server 的 HTTP 契约
 
@@ -66,9 +72,11 @@ POST /quit                       → 关闭浏览器并退出
 
 | 失败 | 处理 |
 |---|---|
-| 单条发送失败 | 同一时刻重试 1 次(间隔 90s),再失败记 `failed` 跳过 |
-| 整日唤醒过晚 | 距窗口结束 ≥45 分钟就从当前时刻续排,否则跳过当天 |
-| 机器睡过某些时刻 | 超过 25 分钟的时刻记 `slot-missed` 跳过,不补发 |
+| 单条发送失败 | 同一触发点内重试 1 次(间隔 15s),仍失败只中止该触发点；后续触发点照常 |
+| 触发点错过 | 晚于该点触发时刻 30 分钟记 `schedule-trigger-skipped`(late-start) 只跳过该点 |
+| 触发点中途停机过久 | 晚于该点下一条 10 分钟记 `schedule-trigger-skipped`(late-resume) 只跳过该点剩余条数 |
+| 单个触发点失败 | 记 `schedule-trigger-aborted`,后面的触发点照常 |
+| 纯 API 会话过期 | 到期前 2 小时自动导出刷新；导出前关闭占用 profile 的 browser-server，启动时清理遗留进程；失败 10 分钟后重试 |
 | 人机验证 | 记 `captcha-blocked`,停止当天尝试,等人工处理 |
 | 服务崩溃 | launchd/systemd 重启;数据库状态决定从哪继续 |
 

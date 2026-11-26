@@ -8,19 +8,21 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+const sessionRefresh = require('./session-refresh');
 
 const ROOT = path.resolve(__dirname, '..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function readAccounts(dataDir) {
+  const db = require('./db');
   try {
-    const db = new DatabaseSync(path.join(dataDir, 'app.db'));
-    const rows = db.prepare('SELECT label, port FROM accounts ORDER BY id').all();
-    db.close();
+    const conn = db.open();
+    const rows = conn.prepare('SELECT label, port FROM accounts ORDER BY id').all();
     return rows.map((r) => ({ label: String(r.label), port: Number(r.port) })).filter((r) => r.label);
   } catch (e) {
     return [];
+  } finally {
+    try { db.close(); } catch (e) {}
   }
 }
 
@@ -49,6 +51,9 @@ class Host {
    */
   constructor({ dataDir, port = 9400, env = {}, onLog } = {}) {
     this.dataDir = path.resolve(dataDir || path.join(ROOT, 'data'));
+    // The DB helpers read DATA_DIR / DB_FILE from the environment; set them before any open().
+    process.env.DATA_DIR = this.dataDir;
+    process.env.DB_FILE = path.join(this.dataDir, 'app.db');
     this.port = Number(port);
     this.logDir = path.join(this.dataDir, 'logs');
     this.runDir = path.join(this.dataDir, 'run');
@@ -148,11 +153,20 @@ class Host {
     );
     for (const marker of ['stop', 'restart-scheduler']) fs.rmSync(path.join(this.runDir, marker), { force: true });
 
-    // first run: create + seed the database (init is idempotent)
-    if (!fs.existsSync(path.join(this.dataDir, 'app.db'))) {
-      this.log('database missing; running init');
+    // first run: create + seed the database (init is idempotent). With an external backend
+    // there may be no local app.db, so check for accounts instead of the SQLite file.
+    if (!readAccounts(this.dataDir).length) {
+      this.log('no accounts configured; running init');
       await this.runOnce(['src/index.js', 'init']);
       this.log('init ok');
+    }
+
+    // A detached browser-server can outlive the previous app instance and hold the Chrome
+    // profile. Close it before starting new children so session exports and sends can proceed.
+    for (const acc of readAccounts(this.dataDir)) {
+      if (!acc.port) continue;
+      const closed = await sessionRefresh.closeBrowser(acc.port);
+      if (!closed) this.log(`stale browser on :${acc.port} did not close`);
     }
 
     this.spawnChild('dashboard', ['src/index.js', 'dashboard', '--port', String(this.port)]);

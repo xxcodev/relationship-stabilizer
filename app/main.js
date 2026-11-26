@@ -12,6 +12,7 @@ const fs = require('fs');
 const net = require('net');
 const path = require('path');
 const { Host } = require('../src/host');
+const sessionRefresh = require('../src/session-refresh');
 
 const DEV = !app.isPackaged;
 const ROOT = path.resolve(__dirname, '..');
@@ -53,6 +54,7 @@ let viewerStarted = false;
 let viewerChild = null;
 let apiExportChild = null;
 let lastApiRefreshAt = 0;
+let lastApiRefreshFailed = false;
 let quitting = false;
 
 function settingsFile() {
@@ -191,7 +193,9 @@ function account() {
 
 function sendMode() {
   try {
-    return require('../src/repos').getSetting('sendMode', 'auto');
+    const repos = require('../src/repos');
+    const acc = account();
+    return acc ? repos.getAccountSetting(acc.id, 'sendMode', 'auto') : 'auto';
   } catch (e) {
     return 'browser';
   }
@@ -199,7 +203,10 @@ function sendMode() {
 
 function setSendMode(mode) {
   try {
-    require('../src/repos').setSetting('sendMode', mode);
+    const repos = require('../src/repos');
+    const acc = account();
+    if (!acc) return false;
+    repos.setAccountSetting(acc.id, 'sendMode', mode);
     return true;
   } catch (e) {
     log(`setSendMode failed: ${e.message}`);
@@ -300,6 +307,7 @@ function runApiExport({ auto = false, accountLabel = null } = {}) {
   child.on('exit', (code) => {
     apiExportChild = null;
     lastApiRefreshAt = Date.now();
+    lastApiRefreshFailed = code !== 0;
     log(`api export: exited ${code}`);
     refreshTrayMenu();
     const tail = output.trim().split('\n').slice(-12).join('\n');
@@ -340,25 +348,27 @@ async function exportApiSession() {
 }
 
 // refresh per-account sessions before they expire (12h by default), one export at a time
-function maybeAutoRefreshSession() {
+async function maybeAutoRefreshSession() {
   if (apiExportChild) return;
   if (!apiAutoRefreshEnabled()) return;
   const repos = require('../src/repos');
   const apiSession = require('../src/api-session');
   const maxAge = apiSession.DEFAULT_MAX_AGE_HOURS;
   const before = Number(process.env.API_REFRESH_BEFORE_HOURS || 2);
-  if (Date.now() - lastApiRefreshAt < 30 * 60 * 1000) return;
+  const cooldown = lastApiRefreshFailed ? 10 * 60 * 1000 : 30 * 60 * 1000;
+  if (Date.now() - lastApiRefreshAt < cooldown) return;
   for (const acc of repos.listAccounts()) {
     const session = apiSession.load(acc.label);
     if (!session) continue;
     const state = apiSession.status(session, null);
+    if (!sessionRefresh.needsRefresh(state, { maxAgeHours: maxAge, beforeHours: before })) continue;
     const age = state.ageHours == null ? 0 : state.ageHours;
-    if (state.valid && maxAge - age > before) continue;
-    if (browserUp(acc.port)) {
-      log(`api auto refresh skipped: browser busy for ${acc.label}`);
-      continue;
+    if (await sessionRefresh.isBrowserUp(acc.port)) {
+      // The export closes the browser itself; this is just visibility in the log.
+      log(`api auto refresh: browser up for ${acc.label}, export will close it`);
     }
     lastApiRefreshAt = Date.now();
+    lastApiRefreshFailed = false;
     log(`api auto refresh: account=${acc.label} age=${age}h valid=${state.valid}`);
     if (runApiExport({ auto: true, accountLabel: acc.label })) {
       notify(`${acc.display_name || acc.label} 的纯 API 会话即将过期，正在自动刷新…`);
@@ -458,7 +468,7 @@ function buildTrayMenu() {
       label: '纯 API（实验）',
       submenu: [
         {
-          label: '纯 API 优先',
+          label: '纯 API 优先（当前账户）',
           type: 'checkbox',
           checked: sendMode() === 'auto',
           click: async (menuItem) => {
@@ -691,8 +701,9 @@ async function boot() {
   await host.start();
   createWindow();
   createTray();
-  setTimeout(maybeAutoRefreshSession, 60 * 1000);
-  setInterval(maybeAutoRefreshSession, 5 * 60 * 1000);
+  const autoRefresh = () => maybeAutoRefreshSession().catch((e) => log(`api auto refresh error: ${e.message}`));
+  setTimeout(autoRefresh, 60 * 1000);
+  setInterval(autoRefresh, 5 * 60 * 1000);
   if (process.env.DF_OPEN_VIEWER === '1') {
     openViewer().catch((e) => log(`openViewer failed: ${e.message}`));
   }

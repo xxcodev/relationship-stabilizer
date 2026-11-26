@@ -9,11 +9,18 @@ const fs = require('fs');
 const path = require('path');
 const env = require('./env');
 const repos = require('./repos');
-const planner = require('./planner');
+const burstPlanner = require('./burst');
+const scheduleConfig = require('./schedule');
 const { chooseKeyword } = require('./pools');
 const service = require('./service');
 const apiSession = require('./api-session');
 const videoPicker = require('./video-picker');
+const aiRanker = require('./ai/ranker');
+const aiClient = require('./ai/client');
+const aiAssistant = require('./ai/assistant');
+const aiActions = require('./ai/actions');
+const aiPools = require('./ai/pools');
+const dbConfig = require('./db-config');
 
 function settingOn(key, dflt = '1') {
   const value = repos.getSetting(key, dflt);
@@ -22,7 +29,6 @@ function settingOn(key, dflt = '1') {
 
 const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
 
-const hm = planner.hm;
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
 
 const ACCOUNT_LABEL = process.env.ACCOUNT || null;
@@ -34,59 +40,211 @@ function currentAccount() {
   return acc;
 }
 
-function configFromDb() {
-  const acc = currentAccount();
-  const bands = repos.listBands(acc.id).map((b) => ({
-    name: b.name,
-    from: hm(b.start_min),
-    to: hm(b.end_min),
-    min: b.min_count,
-    max: b.max_count,
+// A config write must target the account the user was looking at, not "whatever is active
+// when the request lands" (two tabs / slow requests used to write the wrong account).
+function databaseRestartRequired() {
+  try {
+    return dbConfig.load().driver !== require('./db').dialect;
+  } catch (e) {
+    return false;
+  }
+}
+
+function accountFromInput(input) {
+  const label = input && typeof input === 'object' ? String(input.account || '').trim() : '';
+  if (!label) return currentAccount();
+  const acc = repos.getAccount(label);
+  if (!acc) {
+    const err = new Error(`账户不存在: ${label}`);
+    err.statusCode = 404;
+    throw err;
+  }
+  return acc;
+}
+
+function scheduleFromAccount(acc) {
+  return scheduleConfig.fromAccount(acc);
+}
+
+const clockLabel = (ms) => new Date(ms).toLocaleTimeString('zh-CN', { hour12: false });
+const mapTriggerStatus = (status) => {
+  if (status === 'done') return 'done';
+  if (status === 'skipped' || status === 'aborted') return 'failed';
+  return 'pending';
+};
+const triggerKey = (point) => (point && point.mode === 'random'
+  ? `r:${point.from}-${point.to}`
+  : `f:${point && point.time}`);
+
+function triggerText(point, statePoint) {
+  if (point.mode !== 'random') return point.time;
+  const at = statePoint ? Number(statePoint.startAt) : 0;
+  return at > 0 ? clockLabel(at) : `${point.from}–${point.to}`;
+}
+
+// Today's schedule progress for the home page. Stale state from another day is ignored here;
+// the scheduler replaces it with a fresh day state.
+function scheduleRuntime(acc, day, plan, sends = []) {
+  const state = repos.getBurstState(acc.id);
+  const live = state && state.day === day && Array.isArray(state.points) ? state : null;
+  const byKey = new Map();
+  for (const p of live ? live.points : []) {
+    if (!p) continue;
+    const key = p.mode === 'random' && p.from && p.to ? `r:${p.from}-${p.to}` : `f:${p.time}`;
+    if (!byKey.has(key)) byKey.set(key, p);
+  }
+  const points = plan.points.map((p) => {
+    const sp = byKey.get(triggerKey(p)) || null;
+    return {
+      mode: p.mode,
+      time: p.time,
+      from: p.from,
+      to: p.to,
+      label: triggerText(p, sp),
+      count: sp ? Math.max(1, Number(sp.count) || p.count) : p.count,
+      sent: sp ? Math.max(0, Number(sp.sent) || 0) : 0,
+      status: sp ? String(sp.status || 'pending') : 'pending',
+      startAt: sp ? Number(sp.startAt) || null : null,
+      nextAt: sp ? Number(sp.nextAt) || null : null,
+    };
+  });
+  const total = points.reduce((n, p) => n + p.count, 0);
+  const sent = points.reduce((n, p) => n + p.sent, 0);
+  const status = live ? String(live.status || 'pending') : 'pending';
+  const activeIndex = live
+    ? Number(live.active)
+    : points.findIndex((p) => p.status === 'pending' || p.status === 'running');
+  const active = activeIndex >= 0 && activeIndex < points.length ? points[activeIndex] : null;
+  const open = status === 'pending' || status === 'running';
+  let nextAt = null;
+  if (open && active) {
+    if (active.status === 'running' && active.nextAt) nextAt = clockLabel(active.nextAt);
+    else if (active.mode === 'fixed') nextAt = active.time;
+    else if (active.startAt) nextAt = clockLabel(active.startAt);
+    else nextAt = `${active.from}–${active.to}`;
+  } else if (open) {
+    const nowMs = Date.now();
+    const upcoming = plan.points
+      .map((p) => ({
+        p,
+        at: p.mode === 'fixed' ? burstPlanner.startAt(day, p.time) : burstPlanner.startAt(day, p.from),
+      }))
+      .filter((x) => x.at !== null && x.at >= nowMs)
+      .sort((a, b) => a.at - b.at)[0];
+    if (upcoming) nextAt = upcoming.p.mode === 'fixed' ? upcoming.p.time : `${upcoming.p.from}–${upcoming.p.to}`;
+  }
+  const timeline = points.map((p) => ({
+    time: p.status === 'running' && p.nextAt ? clockLabel(p.nextAt) : p.label,
+    status: mapTriggerStatus(p.status),
   }));
-  const pools = {};
-  for (const p of repos.listPools()) pools[p.name] = !!p.enabled;
   return {
+    points,
+    pointCount: points.length,
+    count: total,
+    sent,
+    status,
+    active: activeIndex,
+    nextAt,
+    minSec: plan.minSec,
+    maxSec: plan.maxSec,
+    floor: plan.floor,
+    fallbackSec: plan.fallbackSec,
+    lastDurationMs: live ? Math.max(0, Math.round(Number(live.lastDurationMs) || 0)) : 0,
+    lastTitle: live ? String(live.lastTitle || '') : '',
+    lastError: live ? String(live.lastError || '') : '',
+    timeline,
+  };
+}
+
+// Clear today's progress. If the first trigger's earliest moment already passed, it starts now
+// instead of being skipped as late; later triggers keep their configured/resolved moments.
+function resetSchedule(acc) {
+  const plan = scheduleFromAccount(acc);
+  const day = today();
+  const now = Date.now();
+  const next = burstPlanner.resetPlan({ day, burst: plan, nowMs: now });
+  repos.saveBurstState(acc.id, next);
+  const first = plan.points[0];
+  const earliest = first ? burstPlanner.earliestTriggerAt(day, first) : null;
+  return { forceNow: earliest !== null && now >= earliest, plan, day };
+}
+
+function configFromDb(acc = currentAccount()) {
+  const plan = scheduleFromAccount(acc);
+  const pools = {};
+  for (const p of repos.listAccountPools(acc.id)) pools[p.name] = !!p.enabled;
+  const sendMode = repos.getAccountSetting(acc.id, 'sendMode', 'auto');
+  const videoSource = repos.getAccountSetting(acc.id, 'videoSource', 'pool');
+  const metricFilters = videoPicker.normalizeMetricFilters({
+    minLikes: repos.getAccountSetting(acc.id, 'filterMinLikes', 0),
+    minComments: repos.getAccountSetting(acc.id, 'filterMinComments', 0),
+    minFavorites: repos.getAccountSetting(acc.id, 'filterMinFavorites', 0),
+    minShares: repos.getAccountSetting(acc.id, 'filterMinShares', 0),
+  });
+  const metricSwitches = videoPicker.normalizeFilterSwitches({
+    likesEnabled: repos.getAccountSetting(acc.id, 'filterLikesEnabled', null),
+    commentsEnabled: repos.getAccountSetting(acc.id, 'filterCommentsEnabled', null),
+    favoritesEnabled: repos.getAccountSetting(acc.id, 'filterFavoritesEnabled', null),
+    sharesEnabled: repos.getAccountSetting(acc.id, 'filterSharesEnabled', null),
+  }, metricFilters);
+  return {
+    account: acc.label,
+    accountName: acc.display_name || acc.label,
     enabled: !!acc.enabled,
     friend: repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
-    minGapMinutes: repos.getSetting('minGapMinutes', 5),
-    poolDelayMs: repos.getSetting('poolDelayMs', 2500),
-    maxVideoAgeDays: Number(repos.getSetting('maxVideoAgeDays', 7)),
-    totalMin: repos.getSetting('totalMin', 0),
-    totalMax: repos.getSetting('totalMax', 0),
-    bands,
+    schedulePoints: plan.points,
+    scheduleTotal: plan.totalCount,
+    burstMinSec: plan.minSec,
+    burstMaxSec: plan.maxSec,
+    burstDurationFloor: plan.floor,
+    burstFallbackSec: plan.fallbackSec,
+    scheduleState: repos.getBurstState(acc.id),
+    poolDelayMs: repos.getAccountSetting(acc.id, 'poolDelayMs', 2500),
+    maxVideoAgeDays: Number(repos.getAccountSetting(acc.id, 'maxVideoAgeDays', 7)),
+    recommendMaxAgeDays: Number(repos.getAccountSetting(acc.id, 'recommendMaxAgeDays', 30)),
+    naturalShare: (() => { const v = repos.getAccountSetting(acc.id, 'naturalShare', false); return v === true || v === 1 || v === '1' || v === 'true'; })(),
+    naturalText: (() => { const v = repos.getAccountSetting(acc.id, 'naturalText', true); return !(v === false || v === 0 || v === '0' || v === 'false'); })(),
+    sendMode: sendMode === 'browser' ? 'browser' : 'auto',
+    videoSource: videoSource === 'recommend' ? 'recommend' : 'pool',
+    aiMode: repos.getAccountSetting(acc.id, 'aiMode', 'off'),
+    filterAgeEnabled: !(() => { const v = repos.getAccountSetting(acc.id, 'filterAgeEnabled', true); return v === false || v === 0 || v === '0' || v === 'false'; })(),
+    filterMinLikes: metricFilters.minLikes,
+    filterMinComments: metricFilters.minComments,
+    filterMinFavorites: metricFilters.minFavorites,
+    filterMinShares: metricFilters.minShares,
+    filterLikesEnabled: metricSwitches.likes,
+    filterCommentsEnabled: metricSwitches.comments,
+    filterFavoritesEnabled: metricSwitches.favorites,
+    filterSharesEnabled: metricSwitches.shares,
     pools,
-    banWords: repos.getSetting('banWords', []),
+    banWords: repos.getAccountSetting(acc.id, 'banWords', []),
   };
 }
 
 function dataFromDb() {
   const acc = currentAccount();
   const day = today();
-  const plan = repos.getPlan(acc.id, day);
+  const plan = scheduleFromAccount(acc);
   const sends = repos.listSends({ accountId: acc.id, limit: 200 });
+  const schedule = scheduleRuntime(acc, day, plan, sends);
   return {
     account: acc.label,
     accountName: acc.display_name || acc.label,
     enabled: !!acc.enabled,
     friend: repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
     friends: repos.listEnabledFriendNames(acc.id),
-    todayPlan: plan ? plan.times.length : 0,
+    schedule,
+    todayPlan: schedule.count,
     todayDone: repos.countSendsByDay(day, acc.id),
-    todayTimeline: (plan ? plan.times : []).map((t) => ({
-      time: hm(t),
-      status: (plan.done || []).includes(t) ? 'done' : (plan.failed || []).includes(t) ? 'failed' : 'pending',
-    })),
-    nextTime: (() => {
-      const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-      const row = (plan ? plan.times : []).find((t) => !(plan.done || []).includes(t) && !(plan.failed || []).includes(t) && t > nowMin);
-      return row === undefined ? null : hm(row);
-    })(),
+    todayTimeline: schedule.timeline,
+    nextTime: schedule.nextAt,
     totalSends: sends.length,
     bucketStats: Object.fromEntries(repos.bucketStats(acc.id).map((r) => [r.bucket || '-', r.n])),
     sends: sends.map((s) => ({
       ts: s.ts,
       local: new Date(s.ts).toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }),
       bucket: s.bucket,
+      source: s.source || 'pool',
       title: s.title,
       author: s.author,
       friend: s.friend,
@@ -100,9 +258,28 @@ function dataFromDb() {
 }
 
 // one ad-hoc send at a time; the browser profile cannot serve two senders
-const sendJob = { id: null, startedAt: null, status: 'idle', result: null, dry: false };
+const sendJob = { id: null, startedAt: null, status: 'idle', result: null, dry: false, account: null };
+// A manual click can be repeated by double-click, a stale tab, or a second client.
+// Keep a short cooldown after the job finishes so natural-share batches cannot stack.
+const MANUAL_SEND_COOLDOWN_MS = 90 * 1000;
+let lastManualSend = { account: null, at: 0 };
 
-async function runSendJob({ dry = false } = {}) {
+function manualSendBlocked(acc, dry = false) {
+  if (dry) return null;
+  if (sendJob.status === 'running') return { status: 409, error: '已经有一条在发送中' };
+  const label = acc && acc.label;
+  if (label && lastManualSend.account === label) {
+    const left = MANUAL_SEND_COOLDOWN_MS - (Date.now() - lastManualSend.at);
+    if (left > 0) return { status: 429, error: `刚手动发送过，请 ${Math.ceil(left / 1000)} 秒后再试，避免重复发送` };
+  }
+  return null;
+}
+
+function markManualSend(acc) {
+  if (acc && acc.label) lastManualSend = { account: acc.label, at: Date.now() };
+}
+
+async function runSendJob({ dry = false, accountLabel = null } = {}) {
   const scheduler = require('./scheduler');
   const cfg = scheduler.runtimeConfig();
   sendJob.id = `job-${Date.now()}`;
@@ -110,6 +287,7 @@ async function runSendJob({ dry = false } = {}) {
   sendJob.status = 'running';
   sendJob.result = null;
   sendJob.dry = dry;
+  sendJob.account = accountLabel || (cfg && cfg.account && cfg.account.label) || null;
   try {
     // sendOne decides whether the browser is needed (pure-API mode skips it entirely) and
     // starts/stops the browser itself on the fallback path.
@@ -121,6 +299,7 @@ async function runSendJob({ dry = false } = {}) {
     sendJob.status = 'failed';
   }
   repos.logEvent('manual-send', { dry, status: sendJob.status, result: sendJob.result });
+  if (!dry && sendJob.account) markManualSend({ label: sendJob.account });
   return sendJob;
 }
 
@@ -256,27 +435,50 @@ async function statusFromDb() {
 
 function sanitize(input) {
   const src = input && typeof input === 'object' ? input : {};
-  const bands = (Array.isArray(src.bands) ? src.bands : [])
-    .map((b) => ({
-      name: String(b.name || '时段').slice(0, 12),
-      from: planner.toMin(b.from),
-      to: planner.toMin(b.to),
-      min: Math.max(0, Math.min(200, Math.round(Number(b.min) || 0))),
-      max: Math.max(0, Math.min(200, Math.round(Number(b.max) || 0))),
-    }))
-    .filter((b) => b.from !== null && b.to !== null && b.to > b.from && b.max >= b.min);
-  if (!bands.length) throw new Error('至少需要一个有效时段(结束时间要晚于开始时间)');
-  const totalMin = Math.max(0, Math.min(200, Math.round(Number(src.totalMin) || 0)));
-  const totalMax = Math.max(totalMin, Math.min(200, Math.round(Number(src.totalMax) || 0)));
+  const plan = burstPlanner.normalizeConfig({
+    points: src.schedulePoints ?? src.burstPoints,
+    minSec: src.burstMinSec ?? src.burst_min_sec,
+    maxSec: src.burstMaxSec ?? src.burst_max_sec,
+    floor: src.burstDurationFloor ?? src.burst_duration_floor,
+    fallbackSec: src.burstFallbackSec ?? src.burst_fallback_sec,
+  });
+  const metrics = videoPicker.normalizeMetricFilters({
+    minLikes: src.filterMinLikes,
+    minComments: src.filterMinComments,
+    minFavorites: src.filterMinFavorites,
+    minShares: src.filterMinShares,
+  });
+  const switches = videoPicker.normalizeFilterSwitches({
+    likesEnabled: src.filterLikesEnabled,
+    commentsEnabled: src.filterCommentsEnabled,
+    favoritesEnabled: src.filterFavoritesEnabled,
+    sharesEnabled: src.filterSharesEnabled,
+  }, metrics);
+  const ageRaw = src.filterAgeEnabled;
+  const ageEnabled = ageRaw === undefined ? true : !(ageRaw === false || ageRaw === 0 || ageRaw === '0' || ageRaw === 'false');
   return {
     enabled: src.enabled !== false,
     friend: String(src.friend || '').trim(),
-    minGapMinutes: Math.min(120, Math.max(1, Number(src.minGapMinutes) || 5)),
+    schedulePoints: plan.points,
+    burstMinSec: plan.minSec,
+    burstMaxSec: plan.maxSec,
+    burstDurationFloor: plan.floor,
+    burstFallbackSec: plan.fallbackSec,
     poolDelayMs: Math.min(30000, Math.max(0, Math.round(Number(src.poolDelayMs ?? 2500)))),
     maxVideoAgeDays: Math.min(30, Math.max(1, Math.round(Number(src.maxVideoAgeDays ?? 7)) || 7)),
-    totalMin,
-    totalMax,
-    bands,
+    recommendMaxAgeDays: Math.min(365, Math.max(0, Math.round(Number(src.recommendMaxAgeDays ?? 30)) || 0)),
+    naturalShare: src.naturalShare === true,
+    naturalText: src.naturalText !== false,
+    videoSource: src.videoSource === 'recommend' ? 'recommend' : 'pool',
+    filterAgeEnabled: ageEnabled,
+    filterMinLikes: metrics.minLikes,
+    filterMinComments: metrics.minComments,
+    filterMinFavorites: metrics.minFavorites,
+    filterMinShares: metrics.minShares,
+    filterLikesEnabled: switches.likes,
+    filterCommentsEnabled: switches.comments,
+    filterFavoritesEnabled: switches.favorites,
+    filterSharesEnabled: switches.shares,
     pools: src.pools && typeof src.pools === 'object' ? src.pools : {},
     banWords: (Array.isArray(src.banWords) ? src.banWords : [])
       .map((w) => String(w).trim())
@@ -285,32 +487,36 @@ function sanitize(input) {
   };
 }
 
-function persist(cfg) {
-  const acc = currentAccount();
+function persist(cfg, acc = currentAccount()) {
   const conn = require('./db').open();
   conn.exec('BEGIN');
   try {
     conn.prepare('UPDATE accounts SET enabled = ? WHERE id = ?').run(cfg.enabled ? 1 : 0, acc.id);
     repos.syncAccountFriend(acc.id);
-    repos.setSetting('minGapMinutes', cfg.minGapMinutes);
-    repos.setSetting('poolDelayMs', cfg.poolDelayMs);
-    repos.setSetting('maxVideoAgeDays', cfg.maxVideoAgeDays);
-    repos.setSetting('totalMin', cfg.totalMin);
-    repos.setSetting('totalMax', cfg.totalMax);
-    repos.setSetting('banWords', cfg.banWords);
-    repos.replaceBands(
-      acc.id,
-      cfg.bands.map((b) => ({
-        name: b.name,
-        startMin: b.from,
-        endMin: b.to,
-        minCount: b.min,
-        maxCount: b.max,
-      }))
-    );
+    repos.setAccountSetting(acc.id, 'schedulePoints', cfg.schedulePoints);
+    repos.setAccountSetting(acc.id, 'burstMinSec', cfg.burstMinSec);
+    repos.setAccountSetting(acc.id, 'burstMaxSec', cfg.burstMaxSec);
+    repos.setAccountSetting(acc.id, 'burstDurationFloor', !!cfg.burstDurationFloor);
+    repos.setAccountSetting(acc.id, 'burstFallbackSec', cfg.burstFallbackSec);
+    repos.setAccountSetting(acc.id, 'poolDelayMs', cfg.poolDelayMs);
+    repos.setAccountSetting(acc.id, 'maxVideoAgeDays', cfg.maxVideoAgeDays);
+    repos.setAccountSetting(acc.id, 'recommendMaxAgeDays', cfg.recommendMaxAgeDays);
+    repos.setAccountSetting(acc.id, 'naturalShare', !!cfg.naturalShare);
+    repos.setAccountSetting(acc.id, 'naturalText', cfg.naturalText !== false);
+    repos.setAccountSetting(acc.id, 'videoSource', cfg.videoSource);
+    repos.setAccountSetting(acc.id, 'filterAgeEnabled', cfg.filterAgeEnabled !== false);
+    repos.setAccountSetting(acc.id, 'filterMinLikes', cfg.filterMinLikes);
+    repos.setAccountSetting(acc.id, 'filterMinComments', cfg.filterMinComments);
+    repos.setAccountSetting(acc.id, 'filterMinFavorites', cfg.filterMinFavorites);
+    repos.setAccountSetting(acc.id, 'filterMinShares', cfg.filterMinShares);
+    repos.setAccountSetting(acc.id, 'filterLikesEnabled', cfg.filterLikesEnabled !== false);
+    repos.setAccountSetting(acc.id, 'filterCommentsEnabled', cfg.filterCommentsEnabled !== false);
+    repos.setAccountSetting(acc.id, 'filterFavoritesEnabled', cfg.filterFavoritesEnabled !== false);
+    repos.setAccountSetting(acc.id, 'filterSharesEnabled', cfg.filterSharesEnabled !== false);
+    repos.setAccountSetting(acc.id, 'banWords', cfg.banWords);
     for (const p of repos.listPools()) {
       if (Object.prototype.hasOwnProperty.call(cfg.pools, p.name)) {
-        repos.setPoolEnabled(p.name, cfg.pools[p.name] !== false);
+        repos.setAccountPoolEnabled(acc.id, p.name, cfg.pools[p.name] !== false);
       }
     }
     conn.exec('COMMIT');
@@ -318,7 +524,14 @@ function persist(cfg) {
     conn.exec('ROLLBACK');
     throw e;
   }
-  return configFromDb();
+  return configFromDb(acc);
+}
+
+// "重排今日" in the unified model means "start today's schedule over".
+function regenerateToday(acc) {
+  const { forceNow, plan } = resetSchedule(acc);
+  repos.logEvent('schedule-reset', { account: acc.label, reason: 'regenerate', forceNow, points: plan.pointCount });
+  return { count: plan.totalCount, schedule: true, times: [], notes: ['已重置今天的发送计划'] };
 }
 
 const PAGE = fs.readFileSync(path.join(__dirname, 'page.html'), 'utf8');
@@ -335,6 +548,30 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
     const u = new URL(req.url, `http://${host}`);
     res.setHeader('Cache-Control', 'no-store');
     try {
+      if (u.pathname.startsWith('/assets/dsh-pet/')) {
+        const map = {
+          'idle.webm': ['video/webm', 'idle.webm'],
+          'look.webm': ['video/webm', 'look.webm'],
+          'think.webm': ['video/webm', 'think.webm'],
+          'cheer.webm': ['video/webm', 'cheer.webm'],
+          'happy.webm': ['video/webm', 'happy.webm'],
+          'sleep-start.webm': ['video/webm', 'sleep-start.webm'],
+          'sleep-loop.webm': ['video/webm', 'sleep-loop.webm'],
+          'sleep-wake.webm': ['video/webm', 'sleep-wake.webm'],
+          'surprised.webm': ['video/webm', 'surprised.webm'],
+          'stretch.webm': ['video/webm', 'stretch.webm'],
+          'character.png': ['image/png', 'character.png'],
+          'character-transparent.png': ['image/png', 'character-transparent.png'],
+        };
+        const hit = map[u.pathname.slice('/assets/dsh-pet/'.length)];
+        if (hit) {
+          const file = path.join(__dirname, 'assets', 'dsh-pet', hit[1]);
+          if (!fs.existsSync(file)) return send(res, 404, { error: 'asset not found' });
+          res.setHeader('Content-Type', hit[0]);
+          res.setHeader('Cache-Control', 'public, max-age=86400');
+          return res.end(fs.readFileSync(file));
+        }
+      }
       if (u.pathname === '/') {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         const pools = repos.listPools().map((p) => p.name);
@@ -352,10 +589,6 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         return send(res, 200, { job: sendJob });
       }
       if (u.pathname === '/api/send-now' && req.method === 'POST') {
-        if (sendJob.status === 'running') return send(res, 409, { ok: false, error: '已经有一条在发送中' });
-        const acc = currentAccount();
-        const browser = await service.browserStatus(acc.port);
-        if (browser.up) return send(res, 409, { ok: false, error: '浏览器窗口已被占用(可能调度正在发送),稍后再试' });
         let dry = false;
         try {
           const body = await new Promise((resolve) => {
@@ -365,7 +598,12 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           });
           dry = !!(JSON.parse(body || '{}').dry);
         } catch (e) {}
-        runSendJob({ dry }).catch(() => {});
+        const acc = currentAccount();
+        const blocked = manualSendBlocked(acc, dry);
+        if (blocked) return send(res, blocked.status, { ok: false, error: blocked.error });
+        const browser = await service.browserStatus(acc.port);
+        if (browser.up) return send(res, 409, { ok: false, error: '浏览器窗口已被占用(可能调度正在发送),稍后再试' });
+        runSendJob({ dry, accountLabel: acc.label }).catch(() => {});
         return send(res, 202, { ok: true, job: sendJob });
       }
       if (u.pathname === '/api/browser/start' && req.method === 'POST') {
@@ -452,7 +690,10 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           friends: session ? (session.friends || []) : [],
           friendCount: session ? (session.friends || []).length : 0,
           hasCreateTemplate: !!(session && session.createTemplate),
-          sendMode: repos.getSetting('sendMode', 'auto'),
+          hasFeedUrl: !!(session && session.feedUrl),
+          feedPaths: session && Array.isArray(session.feedPaths) ? session.feedPaths : [],
+          sendMode: repos.getAccountSetting(acc.id, 'sendMode', 'auto'),
+          videoSource: repos.getAccountSetting(acc.id, 'videoSource', 'pool'),
           autoRefresh: settingOn('apiAutoRefresh'),
           maxAgeHours: apiSession.DEFAULT_MAX_AGE_HOURS,
         });
@@ -483,25 +724,91 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           : [String(input.friend || '').trim()].filter(Boolean);
         if (!list.length) return send(res, 400, { ok: false, error: '没有选择好友' });
         const dry = !!input.dry;
+        const blocked = manualSendBlocked(acc, dry);
+        if (blocked) return send(res, blocked.status, { ok: false, error: blocked.error });
         const apiSender = require('./api-sender');
         const session = apiSession.load(acc.label);
         const state = apiSession.status(session, null);
         if (!state.valid) return send(res, 400, { ok: false, error: `api session 不可用：${state.reason}` });
-        const pools = repos.listPools().filter((p) => p.enabled);
-        if (!pools.length) return send(res, 400, { ok: false, error: '没有启用的视频池' });
-        const pool = pools[Math.floor(Math.random() * pools.length)];
+        const accountSource = repos.getAccountSetting(acc.id, 'videoSource', 'pool');
+        const source = input.source === 'recommend' || input.source === 'pool'
+          ? input.source
+          : (accountSource === 'recommend' ? 'recommend' : 'pool');
+        let pool = null;
+        if (source === 'pool') {
+          const pools = repos.listAccountPools(acc.id).filter((p) => p.enabled);
+          if (!pools.length) return send(res, 400, { ok: false, error: '没有启用的视频池' });
+          pool = pools[Math.floor(Math.random() * pools.length)];
+        } else if (!session || !session.feedUrl) {
+          return send(res, 400, { ok: false, error: '当前账户的纯 API 会话没有捕获到首页推荐 feed，请先重新导出会话' });
+        }
         try {
           const history = videoPicker.buildHistory(repos.listRecentSentVideos(acc.id, videoPicker.DEFAULT_HISTORY_DAYS));
-          const keyword = chooseKeyword(pool);
-          const video = await apiSender.pick(session, {
-            keyword: keyword.startsWith('@') ? pool.name : keyword,
-            banWords: repos.getSetting('banWords', []),
+          const pickOptions = {
+            banWords: repos.getAccountSetting(acc.id, 'banWords', []),
             excludeVideoIds: history.ids,
             excludeTitles: history.titles,
-            maxAgeDays: Number(repos.getSetting('maxVideoAgeDays', 7)),
-          });
+          };
+          const poolMaxAgeDays = Number(repos.getAccountSetting(acc.id, 'maxVideoAgeDays', 7));
+          const recommendMaxAgeDays = Number(repos.getAccountSetting(acc.id, 'recommendMaxAgeDays', 30));
+          let video;
+          if (source === 'recommend') {
+            const collected = await apiSender.collectFeedCandidates(session, { ...pickOptions, maxAgeDays: recommendMaxAgeDays });
+            const interests = repos.listAccountPools(acc.id).filter((p) => p.enabled).map((p) => p.name);
+            const ranked = await aiRanker.rankCandidates(collected.candidates, {
+              mode: repos.getAccountSetting(acc.id, 'aiMode', 'off'),
+              interests,
+              banWords: pickOptions.banWords,
+            });
+            if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
+            if (ranked.used) {
+              repos.logEvent('ai-rank', { account: acc.label, model: ranked.model, kept: ranked.candidates.length, reason: ranked.reason, via: 'panel' });
+            }
+            const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : collected.candidates, {
+              ids: pickOptions.excludeVideoIds,
+              titles: pickOptions.excludeTitles,
+            });
+            if (!chosen) throw new Error('推荐 feed 没有可用候选');
+            video = { ...chosen, source: 'recommend', bucket: '默认推荐' };
+          } else {
+            const keyword = (() => {
+              const value = chooseKeyword(pool);
+              return value.startsWith('@') ? pool.name : value;
+            })();
+            const aiMode = repos.getAccountSetting(acc.id, 'aiMode', 'off');
+            if (aiRanker.active(aiMode)) {
+              const collected = await apiSender.collectSearchCandidates(session, {
+                keyword,
+                banWords: pickOptions.banWords,
+                maxAgeDays: poolMaxAgeDays,
+              });
+              const interests = repos.listAccountPools(acc.id).filter((p) => p.enabled).map((p) => p.name);
+              const ranked = await aiRanker.rankCandidates(collected.candidates, {
+                mode: aiMode,
+                interests,
+                banWords: pickOptions.banWords,
+              });
+              if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
+              if (ranked.used) {
+                repos.logEvent('ai-rank', { account: acc.label, model: ranked.model, kept: ranked.candidates.length, reason: ranked.reason, via: 'panel', source: 'pool' });
+              }
+              const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : collected.candidates, {
+                ids: pickOptions.excludeVideoIds,
+                titles: pickOptions.excludeTitles,
+              });
+              if (!chosen) throw new Error('池搜索没有可用候选');
+              video = { ...chosen, source: 'pool', bucket: pool.name };
+            } else {
+              video = await apiSender.pick(session, {
+                ...pickOptions,
+                maxAgeDays: poolMaxAgeDays,
+                keyword,
+              });
+            }
+          }
+          const bucket = source === 'recommend' ? '默认推荐' : pool.name;
           if (dry) {
-            return send(res, 200, { ok: true, dry: true, friends: list, picked: video });
+            return send(res, 200, { ok: true, dry: true, source, bucket, friends: list, picked: video });
           }
           const results = [];
           for (const friend of list) {
@@ -518,7 +825,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
                 accountId: acc.id,
                 ts: new Date().toISOString(),
                 day: today(),
-                bucket: pool.name,
+                bucket,
                 title: video.title,
                 author: video.author,
                 likes: video.likes,
@@ -527,28 +834,33 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
                 toast: 'HTTP API (panel)',
                 shot: null,
                 videoId: video.awemeId,
+                source,
               });
-              repos.logEvent('sent-api', { pool: pool.name, title: video.title, friend, serverMessageId: out.serverMessageId, via: 'panel' });
+              repos.logEvent('sent-api', { source, pool: bucket, title: video.title, friend, serverMessageId: out.serverMessageId, via: 'panel' });
             } else {
-              repos.logEvent('api-send-rejected', { statusCode: out.statusCode, statusMessage: out.statusMessage, title: video.title, friend });
+              repos.logEvent('api-send-rejected', { source, statusCode: out.statusCode, statusMessage: out.statusMessage, title: video.title, friend });
             }
             results.push({ ...out, friend });
           }
           const ok = results.some((r) => r.ok);
-          return send(res, ok ? 200 : 502, { ok, friends: list, results, video });
+          if (!dry && ok) markManualSend(acc);
+          return send(res, ok ? 200 : 502, { ok, source, bucket, friends: list, results, video });
         } catch (e) {
-          repos.logEvent('api-send-error', { error: (e.message || '').split('\n')[0], friends: list });
+          repos.logEvent('api-send-error', { source, error: (e.message || '').split('\n')[0], friends: list });
           return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
         }
       }
       if (u.pathname === '/api/api-session/mode' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
-        const mode = (JSON.parse(body || '{}') || {}).mode;
+        const input = JSON.parse(body || '{}') || {};
+        const mode = input.mode;
         if (!['auto', 'browser'].includes(mode)) return send(res, 400, { ok: false, error: 'mode must be auto|browser' });
-        repos.setSetting('sendMode', mode);
-        const restarted = service.restartScheduler();
-        return send(res, 200, { ok: true, mode, restarted });
+        const acc = accountFromInput(input);
+        repos.setAccountSetting(acc.id, 'sendMode', mode);
+        repos.logEvent('send-mode', { account: acc.label, mode });
+        // scheduler children re-read their account config before each slot; no full restart
+        return send(res, 200, { ok: true, mode, account: acc.label, restarted: false });
       }
       if (u.pathname === '/api/api-session/auto-refresh' && req.method === 'POST') {
         let body = '';
@@ -556,6 +868,248 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const enabled = !!(JSON.parse(body || '{}') || {}).enabled;
         repos.setSetting('apiAutoRefresh', enabled ? '1' : '0');
         return send(res, 200, { ok: true, enabled });
+      }
+      if (u.pathname === '/api/database' && req.method === 'GET') {
+        const configured = dbConfig.load();
+        const active = require('./db').dialect;
+        return send(res, 200, {
+          ok: true,
+          active,
+          config: dbConfig.publicConfig(configured),
+          restartRequired: configured.driver !== active,
+        });
+      }
+      if (u.pathname === '/api/database' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        try {
+          const patch = {};
+          for (const key of ['driver', 'sqliteFile', 'host', 'database', 'user', 'password', 'url']) {
+            if (input[key] != null) patch[key] = input[key];
+          }
+          if (input.port != null && input.port !== '') patch.port = Number(input.port);
+          if (input.ssl != null) patch.ssl = !!input.ssl;
+          const saved = dbConfig.save(patch);
+          const active = require('./db').dialect;
+          return send(res, 200, { ok: true, config: saved, active, restartRequired: saved.driver !== active });
+        } catch (e) {
+          return send(res, 400, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/database/test' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        try {
+          const current = dbConfig.load();
+          const patch = {};
+          for (const key of ['driver', 'sqliteFile', 'host', 'database', 'user', 'password', 'url']) {
+            if (input[key] != null) patch[key] = input[key];
+          }
+          if (input.port != null && input.port !== '') patch.port = Number(input.port);
+          if (input.ssl != null) patch.ssl = !!input.ssl;
+          const testConfig = { ...current, ...patch };
+          if (!input.password) testConfig.password = current.password;
+          const result = await dbConfig.testConnection(testConfig);
+          return send(res, 200, { ok: true, ...result });
+        } catch (e) {
+          return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/ai/status') {
+        const acc = currentAccount();
+        const conf = aiClient.load();
+        return send(res, 200, {
+          ok: true,
+          config: aiClient.publicConfig(conf),
+          account: acc.label,
+          accountName: acc.display_name || acc.label,
+          aiMode: repos.getAccountSetting(acc.id, 'aiMode', 'off'),
+        });
+      }
+      if (u.pathname === '/api/ai/config' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const patch = {};
+        for (const key of ['enabled', 'assistantEnabled']) {
+          if (input[key] != null) patch[key] = !!input[key];
+        }
+        for (const key of ['baseUrl', 'model', 'apiKey']) {
+          if (input[key] != null) patch[key] = String(input[key]).trim();
+        }
+        if (input.timeoutMs != null) patch.timeoutMs = Number(input.timeoutMs);
+        const acc = accountFromInput(input);
+        const modes = ['off', 'moderate', 'rank', 'rank+moderate'];
+        if (input.aiMode != null) {
+          if (!modes.includes(input.aiMode)) return send(res, 400, { ok: false, error: 'aiMode 必须是 off|moderate|rank|rank+moderate' });
+          repos.setAccountSetting(acc.id, 'aiMode', input.aiMode);
+        }
+        const publicConf = aiClient.save(patch);
+        return send(res, 200, { ok: true, config: publicConf, account: acc.label, aiMode: repos.getAccountSetting(acc.id, 'aiMode', 'off') });
+      }
+      if (u.pathname === '/api/ai/test' && req.method === 'POST') {
+        try {
+          const out = await aiClient.chat({
+            messages: [{ role: 'user', content: '只回复两个字母：OK' }],
+            timeoutMs: 15000,
+          });
+          return send(res, 200, { ok: true, answer: out.content.slice(0, 200), usage: out.usage });
+        } catch (e) {
+          return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/ai/action' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        try {
+          const out = await aiActions.propose({ acc, text: input.question, history: input.history });
+          return send(res, 200, { ok: true, answer: out.answer, actions: out.actions, model: out.model });
+        } catch (e) {
+          return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/ai/execute' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        const action = aiActions.validateAction(input.action, acc);
+        if (!action) return send(res, 400, { ok: false, error: '不支持的 AI 操作或参数无效' });
+        const publicAction = aiActions.publicAction(action, acc);
+        let result = {};
+        switch (action.type) {
+          case 'set_enabled': {
+            repos.setAccountEnabled(acc.id, action.args.enabled);
+            repos.logEvent(action.args.enabled ? 'ai-resume' : 'ai-pause', { account: acc.label });
+            result = { enabled: action.args.enabled };
+            break;
+          }
+          case 'set_schedule': {
+            const current = configFromDb(acc);
+            const cfg = sanitize({
+              ...current,
+              schedulePoints: action.args.schedulePoints ?? current.schedulePoints,
+              burstMinSec: action.args.burstMinSec ?? current.burstMinSec,
+              burstMaxSec: action.args.burstMaxSec ?? current.burstMaxSec,
+              burstDurationFloor: action.args.burstDurationFloor ?? current.burstDurationFloor,
+              burstFallbackSec: action.args.burstFallbackSec ?? current.burstFallbackSec,
+            });
+            result = { config: persist(cfg, acc) };
+            break;
+          }
+          case 'set_video_source': {
+            repos.setAccountSetting(acc.id, 'videoSource', action.args.source);
+            result = { videoSource: action.args.source };
+            break;
+          }
+          case 'set_ai_mode': {
+            repos.setAccountSetting(acc.id, 'aiMode', action.args.mode);
+            result = { aiMode: action.args.mode };
+            break;
+          }
+          case 'set_ban_words': {
+            repos.setAccountSetting(acc.id, 'banWords', action.args.words);
+            result = { banWords: action.args.words };
+            break;
+          }
+          case 'set_pools': {
+            for (const p of repos.listPools()) {
+              repos.setAccountPoolEnabled(acc.id, p.name, action.args.pools.includes(p.name));
+            }
+            result = { pools: action.args.pools };
+            break;
+          }
+          case 'set_natural_share': {
+            repos.setAccountSetting(acc.id, 'naturalShare', !!action.args.enabled);
+            result = { naturalShare: !!action.args.enabled };
+            break;
+          }
+          case 'replan_today': {
+            result = regenerateToday(acc);
+            break;
+          }
+          case 'refresh_session': {
+            const child = spawn(process.execPath, [path.join(env.ROOT, 'src', 'index.js'), 'api:export', '--account', acc.label], {
+              cwd: env.ROOT,
+              env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+              detached: true,
+              stdio: 'ignore',
+              windowsHide: true,
+            });
+            child.unref();
+            result = { started: true };
+            break;
+          }
+          case 'send_now': {
+            const blocked = manualSendBlocked(acc, false);
+            if (blocked) return send(res, blocked.status, { ok: false, error: blocked.error });
+            const browser = await service.browserStatus(acc.port);
+            if (browser.up) return send(res, 409, { ok: false, error: '浏览器窗口已被占用，稍后再试' });
+            runSendJob({ accountLabel: acc.label }).catch(() => {});
+            result = { started: true, jobId: sendJob.id };
+            break;
+          }
+          default:
+            return send(res, 400, { ok: false, error: '不支持的 AI 操作' });
+        }
+        repos.logEvent('ai-action', { account: acc.label, type: action.type, summary: publicAction.summary });
+        return send(res, 200, { ok: true, type: action.type, summary: publicAction.summary, result });
+      }
+      if (u.pathname === '/api/ai/ask' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        try {
+          const out = await aiAssistant.ask({ acc, question: input.question, history: input.history });
+          return send(res, 200, { ok: true, answer: out.answer, usage: out.usage });
+        } catch (e) {
+          return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/ai/config-draft' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        try {
+          const out = await aiAssistant.draftConfig({ acc, text: input.text });
+          return send(res, 200, { ok: true, draft: out.draft, usage: out.usage });
+        } catch (e) {
+          return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
+        }
+      }
+      if (u.pathname === '/api/pools' && req.method === 'GET') {
+        const acc = currentAccount();
+        return send(res, 200, { account: acc.label, pools: repos.listAccountPools(acc.id) });
+      }
+      if (u.pathname === '/api/pools/generalize' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        const parentName = String(input.parent || '').trim();
+        const parent = repos.listPools().find((p) => p.name === parentName);
+        if (!parent) return send(res, 404, { ok: false, error: '父分类不存在' });
+        try {
+          const existing = repos.listPools().map((p) => p.name);
+          const out = await aiPools.expand({ parent, existing, hint: String(input.hint || '').slice(0, 80) });
+          const added = [];
+          for (const cat of out.categories) {
+            const row = repos.addPool({ name: cat.name, keyword: cat.keyword, parentName: parent.name, enabled: false });
+            repos.setAccountPoolEnabled(acc.id, cat.name, true);
+            added.push({ id: row.id, name: cat.name, keyword: cat.keyword, parentName: parent.name });
+          }
+          repos.setAccountPoolEnabled(acc.id, parent.name, true);
+          repos.logEvent('pool-ai-generalize', { account: acc.label, parent: parent.name, added: added.map((x) => x.name) });
+          return send(res, 200, { ok: true, model: out.model, categories: added, pools: repos.listAccountPools(acc.id) });
+        } catch (e) {
+          return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
+        }
       }
       if (u.pathname === '/api/friends' && req.method === 'GET') {
         const acc = currentAccount();
@@ -590,6 +1144,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         return send(res, 200, { ok: true, friends: repos.listFriends(acc.id) });
       }
       if (u.pathname === '/api/accounts/add' && req.method === 'POST') {
+        if (databaseRestartRequired()) return send(res, 409, { ok: false, error: '数据库后端配置已变更，请先重启应用再添加账户' });
         let body = '';
         for await (const c of req) body += c;
         const input = JSON.parse(body || '{}');
@@ -608,6 +1163,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         ]);
         const friend = String(input.friend || '').trim();
         if (friend) repos.addFriend(acc.id, friend);
+        repos.seedAccountDefaults(acc.id);
         repos.setSetting('activeAccount', acc.label);
         repos.logEvent('account-add', { label: acc.label, port: acc.port });
         const restarted = service.restartScheduler();
@@ -637,6 +1193,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         return send(res, 200, { ok: true, label: acc.label, enabled: input.enabled !== false, restarted: false });
       }
       if (u.pathname === '/api/accounts/add-qr' && req.method === 'POST') {
+        if (databaseRestartRequired()) return send(res, 409, { ok: false, error: '数据库后端配置已变更，请先重启应用再添加账户' });
         let body = '';
         for await (const c of req) body += c;
         const input = JSON.parse(body || '{}');
@@ -662,6 +1219,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         ]);
         const friend = String(input.friend || '').trim();
         if (friend) repos.addFriend(acc.id, friend);
+        repos.seedAccountDefaults(acc.id);
         repos.setSetting('activeAccount', acc.label);
         repos.logEvent('account-add-qr', { label: acc.label, port: acc.port });
         try { startBrowserFor(acc); } catch (e) {}
@@ -762,7 +1320,8 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           friends: repos.listEnabledFriendNames(a.id),
           enabled: !!a.enabled,
           profile: a.profile_dir,
-          bands: repos.listBands(a.id).length,
+          points: scheduleConfig.fromAccount(a).pointCount,
+          dailyTotal: scheduleConfig.fromAccount(a).totalCount,
           sends: repos.listSends({ accountId: a.id, limit: 100000 }).length,
         }));
         return send(res, 200, { accounts, active: currentAccount().label });
@@ -786,6 +1345,9 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         } else if (action !== 'restart') {
           return send(res, 400, { ok: false, error: 'unknown action' });
         }
+        if (action === 'restart' && databaseRestartRequired()) {
+          return send(res, 409, { ok: false, error: '数据库后端配置已变更，请重启整个应用（不是只重启调度）' });
+        }
         const restarted = action === 'restart' ? service.restartScheduler() : { ok: true, kind: 'next-loop' };
         return send(res, 200, { ok: true, action, restarted });
       }
@@ -793,73 +1355,49 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
       if (u.pathname === '/api/config' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
-        return send(res, 200, { ok: true, config: persist(sanitize(JSON.parse(body))) });
+        const input = JSON.parse(body || '{}');
+        const acc = accountFromInput(input);
+        const cfg = sanitize(input);
+        return send(res, 200, { ok: true, config: persist(cfg, acc) });
       }
       if (u.pathname === '/api/preview' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
-        const cfg = planner.normalize(sanitize(JSON.parse(body)));
-        const p = planner.planDay(cfg, cfg.windowStart);
-        const bands = cfg.bands.map((b, i) => ({
-          name: b.name,
-          from: hm(b.from),
-          to: hm(b.to),
-          n: p.allocation[i].n,
-          times: p.times.filter((t) => t >= b.from && t < b.to).map(hm),
-        }));
+        const cfg = sanitize(JSON.parse(body));
+        const plan = burstPlanner.normalizeConfig({
+          points: cfg.schedulePoints,
+          minSec: cfg.burstMinSec, maxSec: cfg.burstMaxSec,
+          floor: cfg.burstDurationFloor, fallbackSec: cfg.burstFallbackSec,
+        });
+        const est = burstPlanner.estimate(plan);
+        const last = est.points[est.points.length - 1];
         return send(res, 200, {
           ok: true,
-          requested: p.requested,
-          count: p.count,
-          notes: cfg.adjustNotes || [],
-          allocation: p.allocation,
-          bands,
-          times: p.times.map(hm),
-          window: `${hm(cfg.windowStart)}-${hm(cfg.windowEnd)}`,
+          mode: 'schedule',
+          points: est.points,
+          pointCount: plan.pointCount,
+          count: est.totalCount,
+          requested: est.totalCount,
+          summary: burstPlanner.summary(plan),
+          estimate: { perSec: est.perSec, totalMinutes: est.totalMinutes, end: last ? last.end : '' },
+          times: [],
+          bands: [],
+          allocation: [],
+          notes: [],
         });
       }
-      if (u.pathname === '/api/apply' && req.method === 'POST') {
+      if (u.pathname === '/api/today/burst-reset' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
-        const input = JSON.parse(body);
-        persist(sanitize(input.config || {}));
-        const acc = currentAccount();
-        const day = today();
-        const now = new Date();
-        const nowMin = now.getHours() * 60 + now.getMinutes();
-        const prev = repos.getPlan(acc.id, day);
-        const prevDone = prev ? prev.done : [];
-        const prevTimes = prev ? prev.times : [];
-        const history = prevTimes.filter((t) => prevDone.includes(t));
-        const future = (input.times || [])
-          .map(planner.toMin)
-          .filter((m) => m !== null && m > nowMin)
-          .sort((a, b) => a - b);
-        const merged = [...new Set([...history, ...future])].sort((a, b) => a - b);
-        repos.savePlan(acc.id, day, { times: merged, done: prevDone });
-        repos.logEvent('apply', { day, applied: future.length, skipped: (input.times || []).length - future.length });
-        return send(res, 200, {
-          ok: true,
-          applied: future.length,
-          skippedPast: (input.times || []).length - future.length,
-          nextTimes: future.slice(0, 5).map(hm),
-        });
+        const input = body ? JSON.parse(body) : {};
+        const acc = accountFromInput(input);
+        const { forceNow, plan } = resetSchedule(acc);
+        repos.logEvent('schedule-reset', { account: acc.label, reason: 'manual', forceNow, points: plan.pointCount });
+        return send(res, 200, { ok: true, forceNow });
       }
       if (u.pathname === '/api/today/regenerate' && req.method === 'POST') {
         const acc = currentAccount();
-        const cfg = planner.normalize(configFromDb());
-        const day = today();
-        const now = new Date();
-        const nowMin = now.getHours() * 60 + now.getMinutes();
-        const start = nowMin >= cfg.windowStart ? nowMin + 3 : cfg.windowStart;
-        const p = planner.planDay(cfg, start);
-        const prev = repos.getPlan(acc.id, day);
-        const done = prev ? prev.done : [];
-        const history = (prev ? prev.times : []).filter((t) => done.includes(t));
-        const merged = [...new Set([...history, ...p.times])].sort((a, b) => a - b);
-        repos.savePlan(acc.id, day, { times: merged, done });
-        repos.logEvent('replan', { day, count: merged.length });
-        return send(res, 200, { ok: true, count: merged.length, times: merged.map(hm) });
+        return send(res, 200, { ok: true, ...regenerateToday(acc) });
       }
       if (u.pathname.startsWith('/shot/')) {
         const name = decodeURIComponent(u.pathname.slice(6));
@@ -871,7 +1409,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
       }
       return send(res, 404, { error: 'not found' });
     } catch (e) {
-      return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
+      return send(res, e && e.statusCode ? e.statusCode : 500, { ok: false, error: e.message.split('\n')[0] });
     }
   });
   return new Promise((resolve) => {

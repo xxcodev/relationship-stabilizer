@@ -98,7 +98,7 @@ function contentJson(template) {
   return field.v.toString('utf8');
 }
 
-function buildSendBody(templateB64, { content, clientMessageId, stime, conversationId, conversationShortId } = {}) {
+function buildSendBody(templateB64, { content, clientMessageId, stime, conversationId, conversationShortId, messageType } = {}) {
   const top = parseRaw(Buffer.from(templateB64, 'base64'));
   const bodyField = findRaw(top, 8);
   if (!bodyField) throw new Error(`${POC_ERR}: missing send_message_body`);
@@ -112,6 +112,12 @@ function buildSendBody(templateB64, { content, clientMessageId, stime, conversat
       item.rawVarintReplace = encodeVarintBig(conversationShortId);
     }
     if (item.f === 4 && item.w === 2) item.replace = Buffer.from(content);
+    // The captured template is a video message (type 8). Text must change the OUTER
+    // protobuf message type too, otherwise the client renders the text JSON as a
+    // coverless video. Legacy text bubbles use type 7 + content.aweType=700.
+    if (item.f === 6 && item.w === 0 && messageType !== undefined && messageType !== null) {
+      item.rawVarintReplace = encodeVarint(messageType);
+    }
     if (item.f === 8 && item.w === 2) item.replace = Buffer.from(clientMessageId);
     if (item.f === 5 && item.w === 2) {
       const kv = parseRaw(item.v);
@@ -121,6 +127,10 @@ function buildSendBody(templateB64, { content, clientMessageId, stime, conversat
       if (key === 's:stime') findRaw(kv, 2).replace = Buffer.from(stime);
       item.replace = encodeRaw(kv);
     }
+  }
+  if (messageType !== undefined && messageType !== null && !message.some((f) => f.f === 6 && f.w === 0)) {
+    // Some captured templates omit the optional type field; add it as a varint.
+    message.push({ f: 6, w: 0, keyRaw: encodeVarint(6 * 8), rawVarintReplace: encodeVarint(messageType) });
   }
   contentField.replace = encodeRaw(message);
   bodyField.replace = encodeRaw(body);

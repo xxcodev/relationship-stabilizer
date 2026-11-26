@@ -44,6 +44,29 @@ test('settings round-trip typed values', () => {
   assert.deepEqual(repos.getSetting('banWords'), ['国漫', '斗破']);
 });
 
+test('per-account settings and pools are isolated', () => {
+  const a = repos.upsertAccount({ label: 'A', profileDir: '/tmp/a', port: 9101 });
+  const b = repos.upsertAccount({ label: 'B', profileDir: '/tmp/b', port: 9102 });
+  repos.replaceBands(a.id, [{ name: '晚', startMin: 1200, endMin: 1320, minCount: 1, maxCount: 3 }]);
+  repos.seedAccountDefaults(a.id);
+  repos.seedAccountDefaults(b.id);
+
+  repos.setAccountSetting(a.id, 'dayTotalForTest', 3);
+  repos.setAccountSetting(b.id, 'dayTotalForTest', 9);
+  assert.equal(repos.getAccountSetting(a.id, 'dayTotalForTest'), 3);
+  assert.equal(repos.getAccountSetting(b.id, 'dayTotalForTest'), 9);
+
+  repos.setAccountPoolEnabled(a.id, POOLS[0].name, false);
+  assert.equal(repos.listAccountPools(a.id).find((p) => p.name === POOLS[0].name).enabled, false);
+  assert.equal(repos.listAccountPools(b.id).find((p) => p.name === POOLS[0].name).enabled, true);
+
+  const before = repos.getAccountSetting(a.id, 'dailyTotal');
+  repos.setAccountSetting(a.id, 'dailyTotal', 5);
+  assert.equal(repos.getAccountSetting(a.id, 'dailyTotal'), 5);
+  assert.notEqual(repos.getAccountSetting(b.id, 'dailyTotal'), 5);
+  assert.ok(Number(before) > 0);
+});
+
 test('account + bands + plan round-trip', () => {
   const acc = repos.upsertAccount({ label: 'T', profileDir: '/tmp/p', port: 9999, friend: 'Hime' });
   repos.replaceBands(acc.id, [

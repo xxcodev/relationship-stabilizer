@@ -166,7 +166,8 @@
   .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--line)}
   table{width:100%;border-collapse:collapse;font-size:13.5px}
   th{text-align:left;color:var(--dim);font-weight:650;font-size:12px;letter-spacing:.35px;text-transform:uppercase;
-    border-bottom:1px solid var(--line);padding:11px 12px;background:rgba(255,255,255,.02);position:sticky;top:0}
+    border-bottom:1px solid var(--line);padding:11px 12px;background:rgba(255,255,255,.02);position:sticky;top:0;
+    white-space:nowrap;vertical-align:middle}
   td{border-bottom:1px solid rgba(255,255,255,.045);padding:11px 12px;vertical-align:top}
   tr:last-child td{border-bottom:0}
   tbody tr:hover td{background:rgba(91,140,255,.04)}
@@ -175,16 +176,130 @@
   #recRows td:nth-child(2),#recRows td:nth-child(6),#recRows td:nth-child(7),#recRows td:nth-child(8),#homeRows td:last-child{white-space:nowrap}
   .empty{padding:26px;text-align:center;color:var(--dim2);font-size:13px}
   .mini-table td,.mini-table th{padding:9px 10px}
+  .home-table{min-width:760px}
+  .home-table th:nth-child(1){width:150px}
+  .home-table th:nth-child(2){width:100px}
+  .home-table th:nth-child(3){width:auto}
+  .home-table th:nth-child(4){width:100px}
+  .home-table th:nth-child(5){width:160px}
+  #homeRows td{vertical-align:middle}
+  #homeRows td:nth-child(1),#homeRows td:nth-child(2),#homeRows td:nth-child(4),#homeRows td:nth-child(5){white-space:nowrap}
+  #homeRows td:nth-child(5){overflow:hidden;text-overflow:ellipsis}
+  #recTable{min-width:860px;table-layout:fixed}
+  #recTable th:nth-child(1){width:120px}
+  #recTable th:nth-child(2){width:84px}
+  #recTable th:nth-child(3){width:auto}
+  #recTable th:nth-child(4){width:100px}
+  #recTable th:nth-child(5){width:72px}
+  #recTable th:nth-child(6){width:56px}
+  #recTable th:nth-child(7){width:130px}
+  #recTable th:nth-child(8){width:44px}
+  #recTable td{vertical-align:middle}
+  #recTable td:nth-child(1){white-space:normal;line-height:1.5}
+  #recTable td:nth-child(2){white-space:nowrap}
+  #recTable td:nth-child(3),#recTable td:nth-child(4),#recTable td:nth-child(5),#recTable td:nth-child(7){overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #recTable .title-cell{max-width:none}
+  #recTable td:nth-child(4){color:var(--dim)}
+  #recTable td:nth-child(5){color:var(--dim)}
+  #recTable td:nth-child(6){text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+  #recTable th:nth-child(6){text-align:right}
+  #recTable td:nth-child(8){text-align:center}
+  @media (max-width:620px){.home-table{min-width:720px}}
   .link{color:var(--acc);cursor:pointer} .link:hover{text-decoration:underline}
 
-  /* forms */
+  /* help tooltip */
+  .hint-tip{position:relative;display:inline-grid;place-items:center;width:18px;height:18px;margin-left:6px;border-radius:50%;
+    border:1px solid rgba(120,155,255,.42);background:rgba(91,140,255,.1);color:#a9c1ff;font-size:10.5px;font-weight:750;
+    line-height:1;cursor:help;vertical-align:-3px;user-select:none;transition:transform .16s,background .16s,color .16s,box-shadow .16s}
+  .hint-tip:hover,.hint-tip:focus-visible{background:rgba(91,140,255,.24);border-color:rgba(140,175,255,.72);color:#fff;
+    transform:translateY(-1px);box-shadow:0 4px 14px rgba(50,90,200,.32);outline:none}
+  .hint-tip:active{transform:scale(.94)}
+  .hint-tip::before{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid rgba(110,155,255,.45);opacity:0;
+    transform:scale(.82);pointer-events:none}
+  .hint-tip:hover::before,.hint-tip:focus-visible::before{animation:hint-pulse 1.5s ease-out infinite}
+  @keyframes hint-pulse{0%{opacity:.65;transform:scale(.82)}100%{opacity:0;transform:scale(1.45)}}
+  .hint-pop{position:fixed;z-index:65;left:0;top:0;max-width:340px;width:max-content;padding:10px 12px;border-radius:12px;
+    border:1px solid rgba(145,170,255,.36);background:rgba(14,20,31,.97);color:#e7eefb;font-size:12px;line-height:1.65;
+    letter-spacing:.1px;box-shadow:0 16px 42px rgba(0,0,0,.4);backdrop-filter:blur(18px);pointer-events:none;
+    opacity:0;transform:translateY(7px) scale(.97);transition:opacity .18s ease,transform .2s cubic-bezier(.2,.8,.25,1.15)}
+  .hint-pop.show{opacity:1;transform:translateY(0) scale(1)}
+  .hint-pop::after{content:"";position:absolute;width:8px;height:8px;background:rgba(14,20,31,.97);border-right:1px solid rgba(145,170,255,.36);border-bottom:1px solid rgba(145,170,255,.36);left:var(--hint-arrow,50%);transform:translateX(-50%) rotate(45deg)}
+  .hint-pop[data-placement="top"]::after{bottom:-5px}
+  .hint-pop[data-placement="bottom"]::after{top:-5px;transform:translateX(-50%) rotate(225deg)}
+  html[data-theme="light"] .hint-tip{color:#3565d6;background:rgba(47,107,255,.07);border-color:rgba(47,107,255,.3)}
+  html[data-theme="light"] .hint-tip:hover,html[data-theme="light"] .hint-tip:focus-visible{background:rgba(47,107,255,.15);color:#1748b5;border-color:rgba(47,107,255,.5)}
+  html[data-theme="light"] .hint-pop{background:rgba(255,255,255,.98);border-color:rgba(150,170,210,.48);color:#22324c;box-shadow:0 16px 40px rgba(60,80,130,.18)}
+  html[data-theme="light"] .hint-pop::after{background:rgba(255,255,255,.98);border-color:rgba(150,170,210,.48)}
+  @media (max-width:620px){.hint-pop{max-width:calc(100vw - 24px)}}
+
+  /* diagnostics */
+  .diag-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:16px;padding:20px 22px;
+    border-radius:16px;border:1px solid rgba(160,180,220,.26);background:linear-gradient(115deg,rgba(91,140,255,.12),rgba(198,202,255,.07) 50%,rgba(184,255,238,.05));box-shadow:var(--shadow)}
+  .diag-hero h2{font-size:25px;line-height:1.15;margin:4px 0 5px}
+  .diag-hero .field-note{max-width:720px;line-height:1.65}
+  .diag-stats{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .diag-card{padding:0;overflow:hidden;margin-bottom:108px}
+  .diag-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .diag-toolbar .grow{flex:1;min-width:220px}
+  .diag-count{margin-left:auto;color:var(--dim2);font-size:11.5px;white-space:nowrap}
+  .diag-list{max-height:calc(100vh - 300px);min-height:220px;overflow:auto;padding:4px 18px 14px}
+  .diag-item{display:grid;grid-template-columns:16px minmax(0,1fr);gap:11px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.055)}
+  .diag-item:last-child{border-bottom:0}
+  .diag-rail{position:relative;display:flex;justify-content:center;padding-top:4px}
+  .diag-rail::after{content:"";position:absolute;top:17px;bottom:-17px;width:1px;background:rgba(255,255,255,.08)}
+  .diag-item:last-child .diag-rail::after{display:none}
+  .diag-dot{width:8px;height:8px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 3px rgba(91,140,255,.12);flex:0 0 auto}
+  .tone-error .diag-dot{background:var(--bad);box-shadow:0 0 0 3px rgba(255,93,93,.12)}
+  .tone-warn .diag-dot{background:var(--warn);box-shadow:0 0 0 3px rgba(245,165,36,.12)}
+  .tone-ok .diag-dot{background:var(--ok);box-shadow:0 0 0 3px rgba(55,214,122,.12)}
+  .diag-content{min-width:0}
+  .diag-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+  .diag-title{font-weight:650;font-size:13px;color:var(--txt)}
+  .diag-code{font-size:9.5px;color:var(--dim2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;background:rgba(255,255,255,.025);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .diag-time{margin-left:auto;color:var(--dim2);font-size:10.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .diag-summary{color:var(--dim);font-size:12px;line-height:1.65;margin-top:5px;overflow-wrap:anywhere}
+  .diag-raw{margin-top:6px;border:0;background:transparent;padding:0;border-radius:0}
+  .diag-raw>summary{padding:2px 0;font-size:10.5px;color:var(--dim2);font-weight:500}
+  .diag-raw>pre{margin:5px 0 0;padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:rgba(0,0,0,.16);color:var(--dim);
+    font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:230px;overflow:auto}
+  .diag-mini-list{display:flex;flex-direction:column;gap:0}
+  .diag-mini{display:grid;grid-template-columns:8px minmax(0,1fr) auto;align-items:start;gap:9px;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.055)}
+  .diag-mini:last-child{border-bottom:0}
+  .diag-mini .mini-dot{width:7px;height:7px;border-radius:50%;background:var(--acc);margin-top:5px}
+  .diag-mini.tone-error .mini-dot{background:var(--bad)}
+  .diag-mini.tone-warn .mini-dot{background:var(--warn)}
+  .diag-mini.tone-ok .mini-dot{background:var(--ok)}
+  .diag-mini b{display:block;color:var(--txt);font-size:11.5px;font-weight:600;line-height:1.35}
+  .diag-mini span{display:block;color:var(--dim2);font-size:10.5px;line-height:1.45;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .diag-mini time{font-size:9.5px;color:var(--dim2);white-space:nowrap;padding-top:2px}
+  .diag-empty{padding:36px 16px;text-align:center;color:var(--dim2);font-size:12px}
+  html[data-theme="light"] .diag-hero{background:linear-gradient(115deg,rgba(47,107,255,.08),rgba(205,208,255,.14) 50%,rgba(206,250,240,.14));border-color:rgba(160,175,210,.36)}
+  html[data-theme="light"] .diag-toolbar{border-bottom-color:rgba(160,175,200,.24)}
+  html[data-theme="light"] .diag-item{border-bottom-color:rgba(160,175,200,.2)}
+  html[data-theme="light"] .diag-rail::after{background:rgba(160,175,200,.24)}
+  html[data-theme="light"] .diag-code{background:rgba(23,32,51,.03)}
+  html[data-theme="light"] .diag-raw>pre{background:#f7f9fd;border-color:var(--line)}
+  @media (max-width:620px){
+    .diag-hero{padding:15px 16px;align-items:flex-start}
+    .diag-hero h2{font-size:21px}
+    .diag-toolbar{padding:11px 13px}
+    .diag-list{padding:0 13px 10px;max-height:none}
+    .diag-card{margin-bottom:88px}
+    .diag-count{margin-left:0;width:100%}
+    .diag-time{margin-left:0;width:100%;order:3}
+    .diag-summary{font-size:11.5px}
+  }
+
+  /* forms */  /* forms */  /* forms */
   .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
   label.f{display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--dim)}
   input,select,textarea{background:#0b0f16;border:1px solid var(--line2);color:var(--txt);border-radius:9px;padding:9px 11px;font:inherit;font-size:13px;outline:none;transition:.15s;min-width:0;max-width:100%}
   .form input,.form select{width:100%}
   input:focus,select:focus,textarea:focus{border-color:rgba(91,140,255,.65);box-shadow:0 0 0 3px rgba(91,140,255,.12)}
   textarea{min-height:80px;resize:vertical}
-  .bandrow{display:grid;grid-template-columns:1.2fr .85fr .85fr .7fr .7fr 34px;gap:7px;align-items:center;margin-bottom:8px}
+  .bandrow{display:grid;grid-template-columns:1.2fr .85fr .85fr 34px;gap:7px;align-items:center;margin-bottom:8px}
+  #sec-plan.schedule-manual .bandrow{grid-template-columns:1.05fr .7fr .7fr 66px 34px}
+  .bandrow .band-count{text-align:center}
   .bandrow input{width:100%;min-width:0;padding:8px 9px}
   .bandrow .btn{padding:7px 0;width:34px}
   .hint{font-size:12.5px;color:var(--dim2);margin-top:8px}
@@ -287,7 +402,7 @@
     padding:4px 9px;border-radius:8px;font-size:11px;color:#cfd8e6;backdrop-filter:blur(6px)}
 
   /* toast */
-  .toast{position:fixed;right:22px;bottom:22px;z-index:50;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+  .toast{position:fixed;left:22px;right:auto;bottom:22px;z-index:50;display:flex;flex-direction:column;gap:8px;pointer-events:none;align-items:flex-start}
   .toast .t{pointer-events:auto;background:#1a2333;border:1px solid var(--line2);border-left:3px solid var(--acc);border-radius:10px;
     padding:11px 14px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.45);min-width:220px;max-width:380px;animation:in .18s ease-out}
   .toast .t.ok{border-left-color:var(--ok)} .toast .t.bad{border-left-color:var(--bad)} .toast .t.warn{border-left-color:var(--warn)}
@@ -306,6 +421,429 @@
   code{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px;color:#cfd8e6}
 
 
+
+  /* ---------- config redesign ---------- */
+  .config-hero{position:relative;display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;
+    padding:22px 24px;margin-bottom:16px;border:1px solid rgba(160,175,220,.28);border-radius:18px;overflow:hidden;
+    background:linear-gradient(115deg,rgba(91,140,255,.15),rgba(198,202,255,.09) 46%,rgba(184,255,238,.07));
+    box-shadow:var(--shadow)}
+  .config-hero::after{content:"";position:absolute;right:-70px;top:-100px;width:300px;height:240px;pointer-events:none;
+    background:radial-gradient(closest-side,rgba(255,205,234,.28),transparent 72%);filter:blur(6px)}
+  .config-hero-main{position:relative;z-index:1;min-width:0;flex:1 1 460px}
+  .config-hero h2{font-size:27px;line-height:1.15;margin:4px 0 6px;letter-spacing:.2px;font-weight:700}
+  .config-hero-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .config-hero .field-note{max-width:680px;line-height:1.65}
+  .config-hero-meta{display:flex;gap:20px;flex-wrap:wrap;margin-top:13px;color:var(--dim);font-size:12.5px}
+  .config-hero-meta b{color:var(--txt);font-variant-numeric:tabular-nums;font-weight:650}
+  .config-hero-actions{position:relative;z-index:1;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+  .config-tabs{flex:1 1 100%;display:flex;gap:4px;overflow-x:auto;margin-top:-6px;padding:2px 0 0;scrollbar-width:none}
+  .config-tabs[hidden]{display:none!important}
+  .config-tabs::-webkit-scrollbar{display:none}
+  .topbar .config-tab{padding:7px 11px;font-size:12px;border-radius:8px}
+  .config-tab{position:relative;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;padding:10px 14px;border-radius:10px;
+    color:var(--dim);font:inherit;font-size:13px;background:transparent;border:1px solid transparent;cursor:pointer;
+    transition:color .18s,background .18s,border-color .18s,transform .18s}
+  .config-tab::after{content:"";position:absolute;left:50%;bottom:3px;width:0;height:2px;border-radius:2px;background:linear-gradient(90deg,#7da2ff,#83e7d0);
+    transform:translateX(-50%);transition:width .2s ease;opacity:.9}
+  .config-tab:hover{background:rgba(255,255,255,.055);color:var(--txt);transform:translateY(-1px)}
+  .config-tab.is-active{background:linear-gradient(120deg,rgba(91,140,255,.20),rgba(184,255,238,.07));border-color:rgba(160,180,255,.34);color:#e4edff;
+    box-shadow:0 6px 18px rgba(35,70,160,.16)}
+  .config-tab.is-active::after{width:22px}
+  .config-tab .n{font-size:10.5px;color:var(--dim2);font-variant-numeric:tabular-nums;transition:color .18s}
+  .config-tab.is-active .n{color:#a9c5ff}
+  #sec-plan,#sec-video,#sec-friends,#sec-connection,#sec-ai,#sec-database,#sec-advanced{scroll-margin-top:168px}
+  .config-grid{display:block;width:100%;max-width:1100px;margin:0 auto}
+  .config-col{display:contents}
+  .config-col.config-side{display:contents}
+  #view-config .settings-card{margin:0 0 16px;width:100%}
+  #view-config .settings-card.config-section-enter{animation:configSectionIn .24s cubic-bezier(.2,.8,.25,1)}
+  @keyframes configSectionIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  #eventsCfg{max-width:1100px;margin:0 auto 16px}
+  .switch-row{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:14px;padding:12px 14px;
+    border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.018)}
+  .switch-row b{font-size:12.5px;color:var(--txt);font-weight:600}
+  .switch-row .field-note{margin-top:3px;line-height:1.55}
+  .switch-row .switch{display:inline-block;flex:0 0 42px}
+  .switch-control{display:inline-flex;align-items:center;gap:9px;flex:0 0 auto}
+  .switch-state{font-size:11.5px;color:var(--dim);min-width:24px;text-align:right;font-variant-numeric:tabular-nums}
+  .config-hero{max-width:1100px;margin-left:auto;margin-right:auto}
+  .settings-card{padding:0;overflow:visible}
+  .settings-card .section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:18px 20px;margin:0;
+    border-bottom:1px solid rgba(255,255,255,.055)}
+  .section-title{display:flex;align-items:flex-start;gap:12px;min-width:0}
+  .section-num{width:30px;height:30px;flex:0 0 30px;border-radius:10px;display:grid;place-items:center;font-size:11.5px;font-weight:700;
+    color:#d9e4ff;background:linear-gradient(145deg,rgba(91,140,255,.3),rgba(184,255,238,.13));
+    border:1px solid rgba(160,180,255,.35);font-variant-numeric:tabular-nums}
+  .section-sub{font-size:12.5px;color:var(--dim2);margin-top:3px;line-height:1.55}
+  .section-body{padding:16px 20px 20px}
+  .section-body>.field-grid:first-child{margin-top:0}
+  .field-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px}
+  .field-grid .f{font-size:12px;gap:6px}
+  .filter-table{width:100%;border-collapse:collapse;table-layout:fixed}
+  .filter-table th{text-align:left;font-weight:500;font-size:11px;color:var(--dim2);letter-spacing:.04em;padding:0 8px 8px;border-bottom:1px solid var(--line)}
+  .filter-table td{padding:8px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--dim);vertical-align:middle}
+  .filter-table tr:last-child td{border-bottom:0}
+  .filter-table th:nth-child(1),.filter-table td:nth-child(1){width:34%}
+  .filter-table th:nth-child(2),.filter-table td:nth-child(2){width:12%;text-align:center}
+  .filter-table th:nth-child(3),.filter-table td:nth-child(3){width:12%}
+  .filter-table td:nth-child(4){width:42%}
+  .filter-table .cond{color:var(--dim2)}
+  .filter-table .val{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .filter-table input{width:110px;padding:6px 8px;text-align:center}
+  .filter-table .unit{color:var(--dim2);font-size:11.5px}
+  .filter-table tr.is-off td{color:var(--dim2)}
+  .filter-table tr.is-off input{opacity:.45}
+  .filter-table tr.is-off .unit{opacity:.6}
+  .filter-table .switch{display:inline-block;vertical-align:middle}
+  .sub-block{padding:13px 14px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:rgba(255,255,255,.018);margin-top:12px}
+  .sub-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+  .sub-head .eyebrow{margin:0}
+  .source-note{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:10px 12px;border-radius:10px;
+    border:1px solid rgba(91,140,255,.2);background:rgba(91,140,255,.06);color:var(--dim);font-size:12.5px;line-height:1.6}
+  .source-note b{color:var(--txt);font-weight:600}
+  #sec-plan .sched-head,#sec-plan .schedrow{display:grid;grid-template-columns:108px minmax(0,1fr) 70px 34px;gap:8px;align-items:center}
+  #sec-plan .sched-head{padding:0 2px 3px;color:var(--dim2);font-size:10.5px;letter-spacing:.04em}
+  #sec-plan .schedrow{margin-bottom:8px}
+  #sec-plan .schedrow .sched-time{display:flex;align-items:center;gap:6px;min-width:0}
+  #sec-plan .schedrow .sched-time input{min-width:0;flex:1}
+  #sec-plan .schedrow .sched-time .range{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
+  #sec-plan .schedrow select,#sec-plan .schedrow input{width:100%;min-width:0}
+  #sec-plan .schedrow .btn{padding:7px 0;width:34px}
+  #sec-plan .schedrow[data-mode="fixed"] .sched-time .range{display:none}
+  #sec-plan .schedrow[data-mode="random"] .sched-time .single{display:none}
+  /* pool dropdown / hierarchy */
+  .pool-select{position:relative;margin-top:10px}
+  .pool-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;
+    border:1px solid var(--line2);background:rgba(0,0,0,.14);color:var(--txt);font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+  .pool-trigger:hover{border-color:rgba(91,140,255,.45);background:rgba(91,140,255,.06)}
+  .pool-trigger[aria-expanded="true"]{border-color:rgba(91,140,255,.55);box-shadow:0 0 0 3px rgba(91,140,255,.1)}
+  .pool-summary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pool-caret{color:var(--dim2);flex:0 0 auto;transition:transform .15s}
+  .pool-trigger[aria-expanded="true"] .pool-caret{transform:rotate(180deg)}
+  .pool-panel{position:absolute;z-index:35;left:0;right:0;top:calc(100% + 6px);border:1px solid rgba(160,180,255,.32);border-radius:14px;
+    background:rgba(12,17,26,.98);box-shadow:0 20px 50px rgba(0,0,0,.42);padding:8px;backdrop-filter:blur(18px)}
+  .pool-searchbar{display:flex;align-items:center;gap:6px;padding:2px 2px 8px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .pool-searchbar input{flex:1;min-width:0;padding:7px 9px;border-radius:8px;border:1px solid var(--line2);background:rgba(0,0,0,.16);color:var(--txt);font:inherit;font-size:12px;outline:none}
+  .pool-searchbar input:focus{border-color:rgba(91,140,255,.55)}
+  .pool-hint-row{padding:6px 2px 2px}
+  .pool-hint-row input{width:100%;padding:6px 9px;border-radius:8px;border:1px dashed rgba(255,211,106,.32);background:rgba(255,211,106,.04);
+    color:var(--txt);font:inherit;font-size:11px;outline:none}
+  .pool-hint-row input::placeholder{color:var(--dim2)}
+  .pool-hint-row input:focus{border-color:rgba(255,211,106,.6);background:rgba(255,211,106,.07)}
+  .pool-list{max-height:280px;overflow:auto;padding:5px 2px 2px}
+  .pool-group{border-bottom:1px solid rgba(255,255,255,.055);padding:3px 0}
+  .pool-group:last-child{border-bottom:0}
+  .pool-parent-row{display:flex;align-items:center;gap:7px;padding:5px 3px}
+  .pool-parent-row label,.pool-child label{display:inline-flex;align-items:center;gap:7px;min-width:0;cursor:pointer}
+  .pool-parent-row input,.pool-child input{appearance:none;-webkit-appearance:none;width:14px;height:14px;margin:0;border:1px solid var(--line2);border-radius:4px;
+    background:rgba(0,0,0,.16);display:grid;place-items:center;flex:0 0 14px;cursor:pointer}
+  .pool-parent-row input:checked,.pool-child input:checked{background:var(--acc);border-color:var(--acc)}
+  .pool-parent-row input:checked::after,.pool-child input:checked::after{content:"✓";font-size:10px;line-height:1;color:#fff;font-weight:700}
+  .pool-parent-name{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pool-child-count{font-size:10px;color:var(--dim2);flex:0 0 auto}
+  .pool-expand{width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:var(--dim);cursor:pointer;padding:0;display:grid;place-items:center;font-size:13px;line-height:1;flex:0 0 22px}
+  .pool-expand:hover{background:rgba(255,255,255,.07);color:var(--txt)}
+  .pool-expand.empty{visibility:hidden}
+  .pool-ai{margin-left:auto;border:1px solid rgba(255,211,106,.28);background:rgba(255,211,106,.07);color:#ffd76a;border-radius:999px;
+    padding:3px 8px;font:inherit;font-size:10px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
+  .pool-ai:hover{background:rgba(255,211,106,.14);border-color:rgba(255,211,106,.5)}
+  .pool-ai:disabled{opacity:.55;cursor:wait}
+  .pool-children{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 18px;padding:2px 3px 8px 27px}
+  .pool-child{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 5px;font-size:12px;color:var(--dim);border-radius:7px;cursor:pointer}
+  .pool-child span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pool-child:hover{color:var(--txt);background:rgba(91,140,255,.06)}
+  .pool-child input{flex:0 0 14px}
+  .pool-empty{padding:16px 8px;text-align:center;color:var(--dim2);font-size:12px}
+  .pool-panelfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 3px 2px;border-top:1px solid rgba(255,255,255,.07);font-size:10.5px;color:var(--dim2)}
+  .pool-hint{color:var(--dim2)}
+  html[data-theme="light"] .pool-trigger{background:#fff;border-color:rgba(160,175,200,.45)}
+  html[data-theme="light"] .pool-panel{background:rgba(255,255,255,.98);border-color:rgba(160,175,200,.42);box-shadow:0 20px 45px rgba(50,60,100,.18)}
+  html[data-theme="light"] .pool-searchbar input{background:#fff;border-color:rgba(160,175,200,.42)}
+  html[data-theme="light"] .pool-searchbar{border-bottom-color:rgba(160,175,200,.24)}
+  html[data-theme="light"] .pool-group{border-bottom-color:rgba(160,175,200,.2)}
+  html[data-theme="light"] .pool-parent-row input,html[data-theme="light"] .pool-child input{background:#fff}
+  html[data-theme="light"] .pool-parent-row input:checked,
+  html[data-theme="light"] .pool-child input:checked{background:var(--acc);border-color:var(--acc)}
+  html[data-theme="light"] .pool-ai{color:#9a6b00;background:rgba(255,190,40,.1);border-color:rgba(210,150,20,.3)}
+  html[data-theme="light"] .pool-panelfoot{border-top-color:rgba(160,175,200,.24)}
+
+  /* pool modal */
+  body.pool-open .ai-pet,body.pool-open .ai-pet-menu,body.pool-open .ai-chat,
+  body.diag-view .ai-pet,body.diag-view .ai-pet-menu,body.diag-view .ai-chat,
+  body.records-view .ai-pet,body.records-view .ai-pet-menu,body.records-view .ai-chat{display:none!important}
+  .pool-backdrop{position:fixed;inset:0;z-index:79;background:rgba(3,7,14,.56);backdrop-filter:blur(4px);animation:pool-fade .18s ease-out}
+  .pool-panel{position:fixed;z-index:80;left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);
+    width:min(760px,calc(100vw - 32px));max-width:760px;max-height:min(82vh,760px);padding:0;border-radius:16px;
+    display:flex;flex-direction:column;background:rgba(13,18,28,.98);border:1px solid rgba(145,170,255,.34);
+    box-shadow:0 30px 80px rgba(0,0,0,.52);backdrop-filter:blur(24px);animation:pool-pop .2s cubic-bezier(.2,.8,.25,1.08)}
+  .pool-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 18px 12px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .pool-modal-head .field-note{margin-top:3px}
+  .pool-panel .pool-searchbar{padding:10px 18px 8px;border-bottom:0}
+  .pool-panel .pool-hint-row{padding:4px 18px 6px}
+  .pool-panel .pool-list{flex:1;min-height:180px;max-height:none;overflow:auto;padding:4px 18px 10px}
+  .pool-panel .pool-panelfoot{padding:10px 18px 13px;border-top:1px solid rgba(255,255,255,.08)}
+  .pool-panel .pool-group{padding:4px 2px}
+  .pool-panel .pool-parent-row{padding:7px 4px}
+  .pool-panel .pool-child{padding:6px 4px}
+  .pool-ai{width:30px;height:30px;padding:0;border-radius:9px;font-size:14px;display:grid;place-items:center}
+  @keyframes pool-pop{from{opacity:0;transform:translate(-50%,-48%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+  @keyframes pool-fade{from{opacity:0}to{opacity:1}}
+  @keyframes pool-slide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+  html[data-theme="light"] .pool-backdrop{background:rgba(40,55,85,.3)}
+  html[data-theme="light"] .pool-panel{background:rgba(255,255,255,.99);border-color:rgba(150,170,210,.46)}
+  @media (max-width:620px){
+    .pool-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-width:none;max-height:82vh;border-radius:18px 18px 0 0;transform:none;animation:pool-slide .22s ease-out}
+    .pool-modal-head{padding:15px 16px 10px}
+    .pool-panel .pool-searchbar{padding:9px 16px 7px}
+    .pool-panel .pool-hint-row{padding:4px 16px 5px}
+    .pool-panel .pool-list{padding:4px 16px 8px}
+    .pool-children{grid-template-columns:1fr;padding-left:24px}
+    .pool-panel .pool-panelfoot{padding:9px 16px calc(10px + env(safe-area-inset-bottom))}
+  }
+
+  .pools{display:flex;flex-wrap:wrap;gap:8px;font-size:12.5px}
+  .pools label{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border:1px solid var(--line2);border-radius:999px;
+    background:rgba(255,255,255,.02);color:var(--dim);cursor:pointer;transition:.15s;user-select:none}
+  .pools label:hover{border-color:rgba(91,140,255,.42);color:var(--txt)}
+  .pools label:has(input:checked){color:#dce7ff;border-color:rgba(91,140,255,.5);background:rgba(91,140,255,.12)}
+  .pools input{appearance:none;-webkit-appearance:none;width:14px;height:14px;margin:0;border:1px solid var(--line2);border-radius:4px;
+    background:rgba(0,0,0,.16);display:grid;place-items:center;flex:0 0 14px;cursor:pointer}
+  .pools input:checked{background:var(--acc);border-color:var(--acc)}
+  .pools input:checked::after{content:"✓";font-size:10px;line-height:1;color:#fff;font-weight:700}
+  .pool-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .pool-tools .hint{margin:0;font-size:11.5px}
+  .config-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .config-actions .field-note{margin-left:2px}
+  .config-save-note{font-size:12px;color:var(--dim2);margin-top:8px}
+  details.card{background:rgba(8,12,19,.18)}
+  details.card>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 20px;margin:0;list-style:none}
+  details.card>summary::-webkit-details-marker{display:none}
+  details.card>summary::after{content:"展开";font-size:11px;color:var(--dim2);font-weight:500}
+  details.card[open]>summary::after{content:"收起"}
+  details.card .details-body{padding:0 20px 18px}
+  details.card>summary .section-title{pointer-events:none}
+  .config-side .settings-card .section-head{padding:16px 18px}
+  .config-side .section-body{padding:14px 18px 18px}
+  .config-side .section-sub{font-size:12px}
+  [hidden]{display:none!important}
+  @media (max-width:1100px){
+    .config-hero{align-items:flex-start}
+  }
+  @media (max-width:700px){
+    .config-hero{padding:18px}
+    .config-hero h2{font-size:23px}
+    .config-hero-actions{width:100%}
+    .config-hero-actions .btn{flex:1 1 auto}
+    .config-tabs{gap:2px;margin-top:-4px;padding:0}
+    .topbar .config-tab{padding:7px 9px;font-size:12px}
+    .config-tab{padding:8px 11px;font-size:12px}
+    .config-actions .btn{flex:1 1 auto}
+    .band-head{display:none}
+    .section-head{padding:15px 16px}
+    .section-body{padding:14px 16px 16px}
+    .config-side .settings-card .section-head{padding:15px 16px}
+    .config-side .section-body{padding:13px 16px 16px}
+  }
+  @media (max-width:420px){
+    .field-grid{grid-template-columns:1fr}
+    .config-hero-meta{gap:12px}
+    .pool-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-width:none;max-height:82vh;border-radius:18px 18px 0 0;transform:none}
+    .pool-list{max-height:none;flex:1;min-height:160px}
+    .pool-backdrop{border-radius:0}
+  }
+
+  html[data-theme="light"] .config-hero{background:linear-gradient(115deg,rgba(47,107,255,.10),rgba(205,208,255,.16) 48%,rgba(206,250,240,.16));
+    border-color:rgba(160,175,220,.42)}
+  html[data-theme="light"] .config-tab{color:var(--dim)}
+  html[data-theme="light"] .config-tab:hover{background:rgba(23,32,51,.05);color:var(--txt)}
+  html[data-theme="light"] .config-tab.is-active{background:rgba(47,107,255,.09);border-color:rgba(47,107,255,.24);color:#1f49b8;box-shadow:0 6px 16px rgba(47,107,255,.08)}
+  html[data-theme="light"] .switch-row{background:rgba(255,255,255,.44);border-color:rgba(160,175,200,.3)}
+  html[data-theme="light"] .section-num{color:#1f49b8;background:linear-gradient(145deg,rgba(47,107,255,.13),rgba(206,250,240,.4));
+    border-color:rgba(47,107,255,.28)}
+  html[data-theme="light"] .sub-block{background:rgba(255,255,255,.42);border-color:rgba(160,175,200,.32)}
+  html[data-theme="light"] .source-note{background:rgba(47,107,255,.055);border-color:rgba(47,107,255,.16)}
+  html[data-theme="light"] .pools label{background:#fff;border-color:var(--line2);color:var(--dim)}
+  html[data-theme="light"] .pools label:hover{border-color:rgba(47,107,255,.36);color:var(--txt)}
+  html[data-theme="light"] .pools label:has(input:checked){color:#1f49b8;border-color:rgba(47,107,255,.4);background:rgba(47,107,255,.07)}
+  html[data-theme="light"] .pools input{background:#fff;border-color:var(--line2)}
+  html[data-theme="light"] .pools input:checked{background:var(--acc);border-color:var(--acc)}
+  html[data-theme="light"] details.card{background:rgba(255,255,255,.3);border-color:rgba(160,175,200,.34)}
+  html[data-theme="light"] .settings-card .section-head{border-bottom-color:rgba(160,175,200,.24)}
+
+
+  /* ---------- original bluebird AI mascot ---------- */
+  .ai-mascot{width:100%;height:100%;display:block;overflow:visible}
+  .ai-mascot .mascot-bob{transform-box:view-box;transform-origin:32px 52px;animation:mascot-bob 3.6s ease-in-out infinite}
+  .ai-mascot .mascot-halo{transform-box:fill-box;transform-origin:center;animation:mascot-halo 16s linear infinite}
+  .ai-mascot .mascot-wing{transform-box:fill-box;transform-origin:center;animation:mascot-wing 3.2s ease-in-out infinite}
+  .ai-mascot .mascot-wing.right{animation-delay:-1.6s;transform:scaleX(-1)}
+  .ai-mascot .mascot-eye{transform-box:fill-box;transform-origin:center;animation:mascot-blink 4.8s infinite}
+  .ai-mascot .mascot-eye:nth-child(2){animation-delay:.06s}
+  .ai-mascot .mascot-note{transform-box:fill-box;transform-origin:center;animation:mascot-note 4.2s ease-in-out infinite}
+  .ai-mascot .mascot-note.n2{animation-delay:-2.1s}
+  .ai-mascot .mascot-spark{transform-box:fill-box;transform-origin:center;animation:mascot-spark 2.8s ease-in-out infinite}
+  .ai-mascot .mascot-spark.s2{animation-delay:-1.4s}
+  .ai-fab:hover .ai-mascot .mascot-bob,.ai-fab.open .ai-mascot .mascot-bob{animation-duration:2.1s}
+  .ai-fab:hover .ai-mascot .mascot-wing,.ai-fab.open .ai-mascot .mascot-wing{animation-duration:1.5s}
+  .ai-fab:hover .ai-mascot .mascot-note,.ai-fab.open .ai-mascot .mascot-note{animation-duration:2.4s}
+  @keyframes mascot-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.8px)}}
+  @keyframes mascot-halo{to{transform:rotate(360deg)}}
+  @keyframes mascot-wing{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(7deg)}}
+  @keyframes mascot-blink{0%,43%,49%,100%{transform:scaleY(1)}46%{transform:scaleY(.08)}}
+  @keyframes mascot-note{0%,100%{transform:translate(0,2px) rotate(-7deg);opacity:.25}35%{opacity:1}65%{transform:translate(1px,-4px) rotate(5deg);opacity:.8}}
+  @keyframes mascot-spark{0%,100%{transform:scale(.65);opacity:.25}50%{transform:scale(1.15);opacity:1}}
+
+  /* ---------- interactive dsh-pet assistant ---------- */
+  .ai-pet{position:fixed;right:18px;bottom:14px;width:176px;height:176px;z-index:42;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+    filter:drop-shadow(0 12px 20px rgba(30,60,110,.18));transition:filter .2s,transform .2s;outline:none}
+  .ai-pet:hover{filter:drop-shadow(0 16px 26px rgba(30,60,110,.28))}
+  .ai-pet:focus-visible{outline:2px solid rgba(91,140,255,.65);outline-offset:6px;border-radius:18px}
+  .ai-pet.dragging{cursor:grabbing}
+  .ai-pet.open .ai-pet-video,.ai-pet.open .ai-pet-fallback{transform:translateY(-2px) scale(1.02)}
+  .ai-pet-video,.ai-pet-fallback{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;
+    transition:transform .2s;filter:saturate(1.04)}
+  .ai-pet-fallback{object-fit:contain}
+  .ai-pet-badge{position:absolute;left:50%;bottom:2px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:5px;
+    padding:4px 11px;border-radius:999px;border:1px solid rgba(160,180,255,.34);background:rgba(12,17,26,.72);
+    color:#dce7ff;font-size:10.5px;font-weight:600;letter-spacing:.2px;white-space:nowrap;backdrop-filter:blur(10px)}
+  .ai-pet-dot{width:6px;height:6px;border-radius:50%;background:#7df0b2;box-shadow:0 0 8px rgba(125,240,178,.8)}
+  .ai-pet-bubble{position:absolute;left:50%;bottom:calc(100% - 4px);transform:translate(-50%,6px);max-width:210px;width:max-content;
+    padding:8px 11px;border-radius:12px;border:1px solid rgba(160,180,255,.3);background:rgba(12,17,26,.9);color:#eef3ff;
+    font-size:11.5px;line-height:1.5;text-align:center;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;
+    box-shadow:0 10px 26px rgba(0,0,0,.25);backdrop-filter:blur(14px)}
+  .ai-pet-bubble.show{opacity:1;transform:translate(-50%,0)}
+  .ai-pet-bubble::after{content:"";position:absolute;left:50%;top:100%;width:8px;height:8px;transform:translate(-50%,-4px) rotate(45deg);
+    background:rgba(12,17,26,.9);border-right:1px solid rgba(160,180,255,.3);border-bottom:1px solid rgba(160,180,255,.3)}
+  .ai-pet-menu{position:fixed;z-index:46;min-width:148px;padding:5px;border-radius:12px;border:1px solid rgba(160,180,255,.34);
+    background:rgba(12,17,26,.96);box-shadow:0 16px 40px rgba(0,0,0,.35);backdrop-filter:blur(18px)}
+  .ai-pet-menu button{display:block;width:100%;padding:7px 10px;border:0;border-radius:8px;background:transparent;color:var(--txt);
+    text-align:left;font:inherit;font-size:12px;cursor:pointer}
+  .ai-pet-menu button:hover{background:rgba(91,140,255,.16)}
+  .ai-pet-menu-foot{padding:5px 10px 3px;border-top:1px solid rgba(255,255,255,.08);margin-top:4px;color:var(--dim2);font-size:9.5px}
+  .ai-pet-face{width:100%;height:100%;object-fit:contain;display:block}
+  .ai-chat-orb{padding:2px;overflow:hidden}
+  html[data-theme="light"] .ai-pet-badge{background:rgba(255,255,255,.82);border-color:rgba(160,175,200,.4);color:#26364f}
+  html[data-theme="light"] .ai-pet-bubble{background:rgba(255,255,255,.94);border-color:rgba(160,175,200,.4);color:#1c2b44}
+  html[data-theme="light"] .ai-pet-bubble::after{background:rgba(255,255,255,.94);border-color:rgba(160,175,200,.4)}
+  html[data-theme="light"] .ai-pet-menu{background:rgba(255,255,255,.97);border-color:rgba(160,175,200,.4)}
+  html[data-theme="light"] .ai-pet-menu button:hover{background:rgba(47,107,255,.08)}
+  @media (max-width:620px){
+    .ai-pet{width:132px;height:132px;right:8px;bottom:8px}
+    .ai-pet-badge{bottom:-2px;padding:3px 9px;font-size:9.5px}
+    .ai-pet-bubble{max-width:170px;font-size:10.5px}
+    .ai-chat{bottom:150px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .ai-pet-video{display:none!important}
+    .ai-pet-fallback{display:block!important}
+  }
+
+  /* ---------- AI floating chat ---------- */
+  .ai-fab{position:fixed;right:22px;bottom:22px;z-index:40;display:inline-flex;align-items:center;gap:9px;height:54px;padding:0 17px 0 9px;
+    border-radius:999px;border:1px solid rgba(170,180,255,.42);cursor:pointer;color:#eef3ff;
+    background:linear-gradient(135deg,rgba(91,140,255,.92),rgba(136,112,232,.88) 58%,rgba(77,196,185,.78));
+    box-shadow:0 12px 32px rgba(50,60,130,.38);transition:transform .18s,box-shadow .18s,filter .18s}
+  .ai-fab:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(50,60,130,.48);filter:brightness(1.05)}
+  .ai-fab.open{outline:2px solid rgba(255,255,255,.35);outline-offset:2px}
+  .ai-fab-orb{position:relative;width:40px;height:40px;flex:0 0 40px;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1;
+    background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.32),rgba(160,205,255,.15) 58%,rgba(100,90,210,.12));
+    border:1px solid rgba(255,255,255,.38);box-shadow:0 0 16px rgba(174,222,255,.24),inset 0 0 10px rgba(255,255,255,.16);overflow:visible}
+  .ai-fab-orb .ai-mascot{width:46px;height:46px;margin:-3px}
+  .ai-fab:not(.open) .ai-fab-orb::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:1px solid rgba(190,235,255,.32);animation:mascot-ring 3.4s ease-out infinite;pointer-events:none}
+  @keyframes mascot-ring{0%{transform:scale(.82);opacity:.7}100%{transform:scale(1.35);opacity:0}}
+  .ai-fab-label{font-size:13px;font-weight:650;letter-spacing:.2px}
+  .ai-fab-dot{width:6px;height:6px;border-radius:50%;background:#b9f7d6;box-shadow:0 0 8px rgba(185,247,214,.8)}
+  .ai-chat{position:fixed;right:22px;bottom:202px;z-index:41;width:min(402px,calc(100vw - 32px));height:min(590px,calc(100vh - 110px));
+    display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(170,180,255,.32);border-radius:19px;
+    background:rgba(12,17,26,.95);box-shadow:0 24px 70px rgba(0,0,0,.48);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+  .ai-chat-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 14px 12px;
+    border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(115deg,rgba(91,140,255,.16),rgba(198,202,255,.06) 62%,rgba(184,255,238,.05))}
+  .ai-chat-brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .ai-chat-orb{width:40px;height:40px;flex:0 0 40px;border-radius:50%;display:grid;place-items:center;font-size:17px;overflow:visible;
+    background:radial-gradient(circle at 35% 28%,rgba(255,255,255,.30),rgba(160,205,255,.12) 58%,rgba(100,90,210,.1));border:1px solid rgba(170,190,255,.38)}
+  .ai-chat-orb .ai-mascot{width:46px;height:46px;margin:-3px}
+  .ai-chat-title{font-weight:700;font-size:13.5px;line-height:1.2}
+  .ai-chat-status{font-size:10.5px;color:var(--dim2);margin-top:3px;line-height:1.3}
+  .ai-chat-head-actions{display:flex;align-items:center;gap:4px}
+  .ai-icon-btn{width:28px;height:28px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;
+    display:grid;place-items:center;font-size:16px;line-height:1;padding:0}
+  .ai-icon-btn:hover{background:rgba(255,255,255,.07);color:var(--txt);border-color:var(--line2)}
+  .ai-icon-btn.clear{font-size:10.5px;width:auto;padding:0 8px;height:26px}
+  .ai-chat-body{flex:1;overflow:auto;padding:13px 13px 8px;display:flex;flex-direction:column;gap:11px;min-height:120px}
+  .ai-msg{display:flex;flex-direction:column;gap:3px;max-width:90%;animation:ai-in .16s ease-out}
+  .ai-msg.user{align-self:flex-end;align-items:flex-end}
+  .ai-msg.assistant{align-self:flex-start}
+  .ai-bubble{padding:9px 12px;border-radius:13px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.045);
+    color:var(--txt);font-size:12.8px;line-height:1.68;white-space:pre-wrap;overflow-wrap:anywhere}
+  .ai-msg.user .ai-bubble{background:linear-gradient(135deg,rgba(91,140,255,.3),rgba(120,105,220,.22));
+    border-color:rgba(160,175,255,.34);border-bottom-right-radius:5px}
+  .ai-msg.assistant .ai-bubble{border-bottom-left-radius:5px}
+  .ai-msg.error .ai-bubble{border-color:rgba(255,93,93,.34);background:rgba(255,93,93,.08);color:#ffc0c0}
+  .ai-meta{font-size:10px;color:var(--dim2);padding:0 4px}
+  .ai-typing{display:inline-flex;gap:4px;align-items:center;color:var(--dim2);font-size:12px}
+  .ai-typing i{width:4px;height:4px;border-radius:50%;background:var(--dim);animation:ai-blink 1s infinite}
+  .ai-typing i:nth-child(2){animation-delay:.15s}.ai-typing i:nth-child(3){animation-delay:.3s}
+  .ai-chat-suggestions{display:flex;gap:6px;overflow-x:auto;padding:0 12px 9px;scrollbar-width:none}
+  .ai-chat-suggestions::-webkit-scrollbar{display:none}
+  .ai-suggestion{white-space:nowrap;border:1px solid var(--line2);background:rgba(255,255,255,.025);color:var(--dim);
+    border-radius:999px;padding:5px 9px;font-size:11.5px;cursor:pointer}
+  .ai-suggestion:hover{color:var(--txt);border-color:rgba(91,140,255,.4);background:rgba(91,140,255,.08)}
+  .ai-chat-form{display:flex;align-items:flex-end;gap:8px;padding:9px 12px;border-top:1px solid rgba(255,255,255,.07)}
+  .ai-chat-form textarea{flex:1;min-height:38px;max-height:104px;resize:none;padding:9px 10px;border-radius:10px;
+    border:1px solid var(--line2);background:rgba(0,0,0,.18);color:var(--txt);font:inherit;font-size:12.8px;line-height:1.5;outline:none}
+  .ai-chat-form textarea:focus{border-color:rgba(91,140,255,.55);box-shadow:0 0 0 3px rgba(91,140,255,.12)}
+  .ai-chat-form .btn{height:38px;min-height:38px;white-space:nowrap}
+  .ai-chat-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 13px 10px;color:var(--dim2);font-size:10.5px}
+  .ai-chat-foot button{border:0;background:transparent;color:var(--acc);cursor:pointer;font:inherit;padding:0}
+  .ai-chat-foot button:hover{text-decoration:underline}
+  .ai-action-mode-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 12px 8px;color:var(--dim2);font-size:10.5px}
+  .ai-action-mode-row .seg{padding:2px;border-radius:9px}
+  .ai-action-mode-row .seg button{padding:4px 8px;font-size:10.5px;border-radius:7px}
+  .ai-action-mode-row .auto-note{color:var(--warn)}
+  .ai-action-group{width:100%;padding-top:2px}
+  .ai-actions{display:flex;flex-direction:column;gap:7px;margin-top:2px;width:100%}
+  .ai-action-card{border:1px solid rgba(160,175,255,.28);border-radius:11px;background:rgba(91,140,255,.07);padding:9px 10px}
+  .ai-action-card.high-risk{border-color:rgba(255,120,120,.38);background:rgba(255,93,93,.07)}
+  .ai-action-card.medium-risk{border-color:rgba(245,165,36,.3);background:rgba(245,165,36,.055)}
+  .ai-action-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--dim2);font-size:10.5px}
+  .ai-action-tag{color:#c7d8ff;font-weight:650}
+  .ai-action-card.high-risk .ai-action-tag{color:#ffb3b3}
+  .ai-action-card.medium-risk .ai-action-tag{color:#ffd18a}
+  .ai-action-summary{font-size:12.3px;line-height:1.55;margin:4px 0 7px;color:var(--txt);overflow-wrap:anywhere}
+  .ai-action-buttons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .ai-action-buttons .btn{padding:4px 9px;font-size:11.5px;border-radius:8px}
+  .ai-action-result{font-size:11px;line-height:1.5;margin-top:6px;color:var(--dim);white-space:pre-wrap;overflow-wrap:anywhere}
+  .ai-action-result.bad{color:#ffb3b3}
+  .ai-action-result.ok{color:#9ff0c3}
+  @keyframes ai-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @keyframes ai-blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+  @media (max-width:620px){
+    .ai-fab{right:14px;bottom:14px;height:48px;padding:0 14px 0 6px}
+    .ai-fab-orb{width:38px;height:38px;flex-basis:38px}
+    .ai-fab-orb .ai-mascot{width:44px;height:44px}
+    .ai-fab-label{display:none}
+    .ai-chat{right:10px;left:10px;bottom:150px;width:auto;height:min(66vh,560px);border-radius:16px}
+    .toast{left:14px;right:14px;bottom:14px;align-items:stretch;max-width:none}
+    .toast .t{max-width:none}
+  }
+  html[data-theme="light"] .ai-fab{color:#fff;border-color:rgba(80,100,220,.35);box-shadow:0 12px 30px rgba(80,90,180,.25)}
+  html[data-theme="light"] .ai-chat{background:rgba(255,255,255,.96);border-color:rgba(160,175,200,.42);box-shadow:0 24px 70px rgba(60,70,110,.22)}
+  html[data-theme="light"] .ai-chat-head{border-bottom-color:rgba(160,175,200,.26);background:linear-gradient(115deg,rgba(47,107,255,.1),rgba(205,208,255,.14) 60%,rgba(206,250,240,.14))}
+  html[data-theme="light"] .ai-chat-orb{background:linear-gradient(145deg,rgba(47,107,255,.16),rgba(206,250,240,.36));border-color:rgba(47,107,255,.24)}
+  html[data-theme="light"] .ai-bubble{background:rgba(23,32,51,.045);border-color:rgba(160,175,200,.3);color:var(--txt)}
+  html[data-theme="light"] .ai-msg.user .ai-bubble{background:linear-gradient(135deg,rgba(47,107,255,.16),rgba(205,208,255,.3));border-color:rgba(47,107,255,.26)}
+  html[data-theme="light"] .ai-chat-form textarea{background:#fff;border-color:rgba(160,175,200,.45)}
+  html[data-theme="light"] .ai-chat-form{border-top-color:rgba(160,175,200,.26)}
+  html[data-theme="light"] .ai-suggestion{background:#fff;border-color:rgba(160,175,200,.42)}
+  html[data-theme="light"] .ai-icon-btn:hover{background:rgba(23,32,51,.06)}
+  html[data-theme="light"] .ai-msg.error .ai-bubble{border-color:rgba(200,50,50,.3);background:rgba(200,50,50,.06);color:#9e2222}
+  @media (prefers-reduced-motion: reduce){
+    .ai-mascot .mascot-bob,.ai-mascot .mascot-halo,.ai-mascot .mascot-wing,.ai-mascot .mascot-eye,.ai-mascot .mascot-note,.ai-mascot .mascot-spark,.ai-fab-orb::after{animation:none!important}
+  }
+  html[data-theme="light"] .ai-action-card{background:rgba(47,107,255,.045);border-color:rgba(47,107,255,.2)}
+  html[data-theme="light"] .ai-action-card.high-risk{background:rgba(210,50,50,.045);border-color:rgba(210,50,50,.25)}
+  html[data-theme="light"] .ai-action-card.medium-risk{background:rgba(190,120,20,.05);border-color:rgba(190,120,20,.25)}
+
   /* ---------- visual polish ---------- */
   ::selection{background:rgba(91,140,255,.35);color:#fff}
   ::-webkit-scrollbar{width:10px;height:10px}
@@ -319,6 +857,20 @@
       radial-gradient(600px 340px at -6% 104%,rgba(55,214,122,.05),transparent 70%),
       conic-gradient(from 215deg at 58% 8%,rgba(255,205,234,.16),rgba(198,202,255,.13),rgba(184,255,238,.11),rgba(255,205,234,.16));
     filter:blur(46px);opacity:.95}
+
+  /* pointer-following ambient wash */
+  .ambient-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.9;--ambient-hue:220}
+  .ambient-blob{position:absolute;left:0;top:0;width:min(820px,82vw);aspect-ratio:1;border-radius:50%;filter:blur(92px);will-change:transform;
+    transform:translate3d(-50%,-50%,0);opacity:.34;mix-blend-mode:screen}
+  .ambient-blob.a{background:radial-gradient(circle at 50% 50%,hsl(var(--ambient-hue) 90% 64% / .5),transparent 68%)}
+  .ambient-blob.b{background:radial-gradient(circle at 50% 50%,hsl(calc(var(--ambient-hue) + 52) 88% 66% / .36),transparent 70%);opacity:.22}
+  html[data-theme="light"] .ambient-bg{opacity:.72}
+  html[data-theme="light"] .ambient-blob{mix-blend-mode:normal}
+  html[data-theme="light"] .ambient-blob.a{opacity:.22}
+  html[data-theme="light"] .ambient-blob.b{opacity:.13}
+  @media (prefers-reduced-motion:reduce){
+    .ambient-blob{transition:none!important}
+  }
 
   .topbar{position:sticky;top:0;z-index:20;width:100%;margin:-8px 0 18px;padding:14px 18px;
     background:transparent;border:0;border-radius:0;box-shadow:none;isolation:isolate}
@@ -362,6 +914,22 @@
     background:linear-gradient(180deg,var(--acc),#8fb1ff);transform:translateY(-50%);transition:height .2s ease;opacity:.9}
   .nav-item.active::before{height:20px}
   .nav-item.active{box-shadow:inset 0 0 0 1px rgba(91,140,255,.08),0 6px 18px rgba(0,0,0,.18)}
+  .nav-item{animation:navItemIn .45s cubic-bezier(.2,.8,.25,1) both}
+  .nav-item:nth-child(1){animation-delay:.02s}
+  .nav-item:nth-child(2){animation-delay:.07s}
+  .nav-item:nth-child(3){animation-delay:.12s}
+  .nav-item:nth-child(4){animation-delay:.17s}
+  .nav-item:nth-child(5){animation-delay:.22s}
+  @keyframes navItemIn{from{opacity:0;transform:translateX(-7px)}to{opacity:1;transform:none}}
+  .nav-item::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+    background:linear-gradient(112deg,transparent 24%,rgba(255,255,255,.09) 46%,transparent 66%);
+    transform:translateX(-115%);transition:transform .55s cubic-bezier(.2,.8,.25,1);opacity:.8}
+  .nav-item:hover::after{transform:translateX(115%)}
+  .nav-item .ico{display:inline-block;transition:transform .24s cubic-bezier(.2,.8,.25,1),filter .24s,opacity .24s}
+  .nav-item:hover .ico{transform:translateY(-1px) scale(1.12);filter:drop-shadow(0 3px 7px rgba(120,150,255,.28))}
+  .nav-item.active .ico{transform:translateY(-1px) scale(1.1);filter:drop-shadow(0 0 8px rgba(145,175,255,.47))}
+  .nav-item.active::before{height:22px;background:linear-gradient(180deg,#a8c2ff,#78e4ce);box-shadow:0 0 12px rgba(120,190,255,.7)}
+  .nav-item:active{transform:translateX(1px) scale(.995)}
 
   .pill{transition:border-color .2s,background .2s,color .2s}
   .top-actions .pill.ok::before{animation:statusPulse 2.2s ease-in-out infinite}
@@ -522,8 +1090,14 @@
     .main{width:100%;max-width:100%;margin:0;padding:20px 16px 40px}
     .hero-grid{grid-template-columns:1fr}
     .top-actions{width:100%}
-    .bandrow{grid-template-columns:1fr 1fr 1fr;gap:6px}
-    .bandrow input[data-k="name"]{grid-column:1 / -1}
+    #sec-plan .sched-head{display:none}
+    #sec-plan .schedrow{grid-template-columns:92px minmax(0,1fr) 54px 30px;gap:6px}
+    .filter-table th:nth-child(1),.filter-table td:nth-child(1){width:38%}
+    .filter-table th:nth-child(2),.filter-table td:nth-child(2){width:14%}
+    .filter-table th:nth-child(3),.filter-table td:nth-child(3){width:14%}
+    .filter-table td:nth-child(4){width:34%}
+    .filter-table input{width:82px}
+    .filter-table td{padding:7px 5px}
     .brand,.nav,.side-foot{flex:0 0 auto}
     .brand-name,.nav-item,.side-theme{white-space:nowrap}
     .nav-item{padding:8px 9px;gap:7px}
@@ -539,6 +1113,7 @@
   }
 </style></head>
 <body>
+<div class="ambient-bg" id="ambientBg" aria-hidden="true"><span class="ambient-blob a"></span><span class="ambient-blob b"></span></div>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
@@ -550,6 +1125,7 @@
       <button class="nav-item" data-view="accounts"><span class="ico">👤</span>账户</button>
       <button class="nav-item" data-view="config"><span class="ico">⚙️</span>配置</button>
       <button class="nav-item" data-view="records"><span class="ico">📋</span>记录</button>
+      <button class="nav-item" data-view="diagnostics"><span class="ico">🩺</span>排查</button>
     </nav>
     <div class="side-foot">
       <button class="side-theme" id="themeToggle" type="button"><span id="themeIcon">🌙</span><span id="themeLabel">黑夜模式</span></button>
@@ -585,6 +1161,16 @@
         <button class="btn soft" id="btnRestart">重启服务</button>
         <button class="btn primary" id="btnSendNow">立即发送一次</button>
       </div>
+      <nav class="config-tabs" id="configNav" hidden role="tablist" aria-label="配置分区">
+        <button class="config-tab is-active" type="button" role="tab" data-config-tab="plan" aria-selected="true" aria-controls="sec-plan"><span class="n">01</span><span>发送计划</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="video" aria-selected="false" aria-controls="sec-video"><span class="n">02</span><span>视频来源</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="friends" aria-selected="false" aria-controls="sec-friends"><span class="n">03</span><span>发送好友</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="connection" aria-selected="false" aria-controls="sec-connection"><span class="n">04</span><span>纯 API 连接</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="ai" aria-selected="false" aria-controls="sec-ai"><span class="n">05</span><span>AI</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="database" aria-selected="false" aria-controls="sec-database"><span class="n">06</span><span>数据库</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="advanced" aria-selected="false" aria-controls="sec-advanced"><span class="n">07</span><span>高级与维护</span></button>
+      </nav>
+
     </header>
     <div class="alert" id="alert"></div>
 
@@ -632,13 +1218,13 @@
 
       <div class="two-col">
         <div class="card">
-          <div class="card-head"><div class="eyebrow">今天的时刻表</div><button class="btn ghost sm" id="homeReplan">重排</button></div>
+          <div class="card-head"><div class="eyebrow">今天的时刻表</div></div>
           <div class="chips timeline-wrap" id="homeTimeline"><span class="muted">加载中…</span></div>
           <div class="eyebrow mt">分类分布</div>
           <div class="chips mt" id="homeBuckets"><span class="muted">加载中…</span></div>
         </div>
         <div class="card quick-card">
-          <div class="card-head"><div class="eyebrow">快速发送（纯 API）</div><span class="pill blue" id="quickPill">API</span></div>
+          <div class="card-head"><div class="eyebrow">快速发送（纯 API）<span class="hint-tip" tabindex="0" role="button" aria-label="查看纯 API 快速发送说明" data-tip="互关好友来自账户页的互关列表。纯 HTTP 发送会按 userid 创建或复用会话，不会启动浏览器；列表为空时点「刷新互关」。只试选片不会发送。">?</span></div><span class="pill blue" id="quickPill">API</span></div>
           <div class="eyebrow">发送给互关好友（可多选）</div>
           <div class="friend-select" id="friendSelect">
             <button class="friend-select-btn" id="friendSelectBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="friendSelectPop">
@@ -668,12 +1254,7 @@
             <button class="btn ghost sm" id="btnApiDry">只试选片</button>
             <button class="btn primary sm" id="btnApiSend">发送给所选好友</button>
           </div>
-          <div class="field-note" id="homeSendMsg" style="margin-top:10px">互关好友来自账户页的互关列表；纯 HTTP 发送会按 userid 建会话，不会启动浏览器。列表为空时点「刷新互关」。</div>
-          <div class="eyebrow mt">或者</div>
-          <div class="rowbtns">
-            <button class="btn ghost sm" id="btnQuickBrowserSend">用浏览器发送一次</button>
-            <span class="field-note">走完整浏览器流程，约 1 分钟</span>
-          </div>
+          <div class="field-note" id="homeSendMsg" style="margin-top:10px">纯 API · 不启动浏览器</div>
         </div>
       </div>
 
@@ -691,14 +1272,14 @@
       <div class="card" style="margin-bottom:16px">
         <div class="card-head"><div class="eyebrow">最近发送</div><button class="btn ghost sm" data-goto="records">查看全部</button></div>
         <div class="table-wrap" style="border:0">
-          <table class="mini-table"><thead><tr><th style="width:140px">时间</th><th style="width:80px">分类</th><th>标题</th><th style="width:110px">好友</th><th style="width:100px">结果</th></tr></thead>
+          <table class="mini-table home-table"><thead><tr><th>时间</th><th>分类</th><th>标题</th><th>好友</th><th>结果</th></tr></thead>
           <tbody id="homeRows"><tr><td colspan="5" class="empty">加载中…</td></tr></tbody></table>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-head"><div class="eyebrow">最近事件</div><button class="btn ghost sm" id="homeEventsRefresh">刷新</button></div>
-        <div class="events-mini" id="homeEvents"><span class="muted">加载中…</span></div>
+        <div class="card-head"><div class="eyebrow">最近事件</div><div class="card-actions" style="margin:0"><button class="btn ghost sm" data-goto="diagnostics">排查中心</button><button class="btn ghost sm" id="homeEventsRefresh">刷新</button></div></div>
+        <div class="events-mini diag-mini-list" id="homeEvents"><span class="muted">加载中…</span></div>
       </div>
     </section>
 
@@ -781,77 +1362,369 @@
 
     <!-- ================= 配置 ================= -->
     <section class="view" id="view-config" data-view-panel="config" hidden>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head"><div class="eyebrow">发送计划</div><span class="field-note" id="configHint"></span></div>
-          <div class="form">
-            <label class="f">运行状态<select id="c_enabled"><option value="true">启用</option><option value="false">暂停</option></select></label>
-            <label class="f">两条之间最少间隔（分钟）<input id="c_gap" type="number" min="1" max="120"></label>
-            <label class="f">每日总条数（下限）<input id="c_tmin" type="number" min="0" max="200"></label>
-            <label class="f">每日总条数（上限）<input id="c_tmax" type="number" min="0" max="200"></label>
-            <label class="f">池间延迟（毫秒，越大越慢越安全）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
-            <label class="f">视频最多几天前（1-30）<input id="c_vmax" type="number" min="1" max="30"></label>
+      <div class="config-hero">
+        <div class="config-hero-main">
+          <div class="eyebrow">当前账户 · 独立配置</div>
+          <div class="config-hero-title">
+            <h2 id="configAccount">-</h2>
+            <span class="pill blue" id="configSourcePill">视频池</span>
           </div>
-          <div class="eyebrow mt">时段与条数</div>
-          <div id="bands" style="margin-top:10px"></div>
-          <div class="rowbtns"><button class="btn ghost sm" id="addBand">+ 添加时段</button><span class="hint" id="sumHint"></span></div>
-          <div class="eyebrow mt">视频池</div>
-          <div class="pools" id="pools" style="margin-top:8px"></div>
-          <div class="field-note" style="margin-top:6px">每个池会随机使用基础关键词和同类变体搜索；只发最近 N 天发布的视频（默认 7 天），最近 30 天成功发过的视频优先跳过。</div>
-          <div class="eyebrow mt">屏蔽词（每行一个，命中标题或作者就跳过）</div>
-          <textarea id="c_ban" style="width:100%;margin-top:8px"></textarea>
-          <div class="rowbtns">
-            <button class="btn primary" id="save">保存设置</button>
-            <button class="btn ghost" id="preview">预览一次</button>
-            <button class="btn ghost" id="btnSafe" title="把总条数调到 6-8、间隔 15 分钟，降低风控概率">安全模式</button>
-            <span class="field-note" id="msg"></span>
+          <div class="field-note" id="configHint">仅作用于当前账户</div>
+          <div class="config-hero-meta">
+            <span>每天 <b id="cfgHeroTotal">-</b> 条</span>
+            <span>好友 <b id="cfgHeroFriends">-</b> 位</span>
+            <span>推荐 feed <b id="cfgHeroFeed">-</b></span>
           </div>
-          <div id="previewBox" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <div class="config-col">
+          <section class="card settings-card" id="sec-plan">
+            <header class="section-head">
+              <div class="section-title">
+                <span class="section-num">01</span>
+                <div>
+                  <div class="eyebrow">发送计划</div>
+                  <div class="section-sub">每个触发点可以是固定时间，也可以在一个时间范围内随机触发。</div>
+                </div>
+              </div>
+              <span class="pill blue" id="planModePill">触发计划</span>
+            </header>
+            <div class="section-body">
+              <input type="hidden" id="c_enabled" value="true">
+              <div class="field-grid">
+                <label class="f" style="max-width:420px">视频来源<select id="c_source"><option value="pool">视频池搜索</option><option value="recommend">抖音默认推荐（纯 API）</option></select></label>
+              </div>
+              <div class="field-note" style="margin-top:6px">账户启停用页面顶部的「暂停 / 继续」控制，立即生效。</div>
+              <div class="source-note" id="sourceNote">视频池搜索：按分类关键词挑选，内容更可控；<b>推荐源</b>：使用抖音推荐 tab，需要纯 API 会话中的 feed。</div>
+
+              <div class="sub-head" style="margin-top:18px">
+                <div>
+                  <div class="eyebrow">触发计划</div>
+                  <div class="section-sub">每个触发点填条数；条数大于 1 时，到点后按下方「发送节奏」连续发送。</div>
+                </div>
+                <span class="hint" id="scheduleHint"></span>
+              </div>
+              <div class="sched-head"><span>触发方式</span><span>时间</span><span>条数</span><span></span></div>
+              <div id="schedulePoints"></div>
+              <div class="rowbtns">
+                <button class="btn ghost sm" id="scheduleAdd" type="button">+ 添加触发点</button>
+              </div>
+
+              <div class="sub-head" style="margin-top:18px">
+                <div>
+                  <div class="eyebrow">发送节奏</div>
+                  <div class="section-sub">同一个触发点内，每条视频之间随机等待；开启时长下限后，不会短于上一条视频的实际时长。</div>
+                </div>
+              </div>
+              <div class="field-grid">
+                <label class="f">间隔下限（秒）<input id="c_min_sec" type="number" min="1" max="600" placeholder="10"></label>
+                <label class="f">间隔上限（秒）<input id="c_max_sec" type="number" min="1" max="600" placeholder="50"></label>
+                <label class="f">不短于上条视频时长<select id="c_floor"><option value="true">开启</option><option value="false">关闭</option></select></label>
+                <label class="f">拿不到时长时按（秒）<input id="c_fallback" type="number" min="0" max="600" placeholder="15"></label>
+              </div>
+              <div class="inline-note">每个触发点发够自己的条数即停。某个点错过超过 30 分钟、或发送过程中断超过 10 分钟，只跳过该点，后面的触发点照常。</div>
+              <div class="config-actions">
+                <button class="btn primary" id="save" type="button">保存设置</button>
+                <button class="btn ghost" id="preview" type="button">预览一次</button>
+                <button class="btn ghost" id="scheduleReset" type="button">重新开始今天的计划</button>
+                <span class="field-note" id="msg"></span>
+              </div>
+              <div id="previewBox" style="margin-top:12px"></div>
+            </div>
+          </section>
+
+          <section class="card settings-card" id="sec-video" hidden>
+            <header class="section-head">
+              <div class="section-title">
+                <span class="section-num">02</span>
+                <div>
+                  <div class="eyebrow">视频来源与筛选</div>
+                  <div class="section-sub">先按视频时效和互动指标筛选，再交给 AI 和视频池挑选。</div>
+                </div>
+              </div>
+            </header>
+            <div class="section-body">
+              <div class="sub-block" id="filterBlock" style="margin-top:0">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">筛选条件</div>
+                    <div class="field-note">每个指标一行，可单独开启或关闭；关闭后不参与筛选。</div>
+                  </div>
+                  <span class="pill" id="metricPill">-</span>
+                </div>
+                <table class="filter-table">
+                  <thead><tr><th>筛选指标</th><th>启用</th><th>条件</th><th>阈值</th></tr></thead>
+                  <tbody>
+                    <tr data-filter-row="age">
+                      <td>视频发布时间</td>
+                      <td><span class="switch" id="sw_age" role="switch" aria-checked="false" tabindex="0" aria-label="视频发布时间筛选开关"></span></td>
+                      <td class="cond">最多</td>
+                      <td><div class="val">
+                        <input class="pool-only" id="c_vmax" type="number" min="1" max="30">
+                        <input class="recommend-only" id="c_rmax" type="number" min="0" max="365">
+                        <span class="unit">天前</span>
+                        <span class="hint" id="ageSourceHint" style="margin-left:auto;font-size:11.5px"></span>
+                      </div></td>
+                    </tr>
+                    <tr data-filter-row="likes">
+                      <td>点赞数</td>
+                      <td><span class="switch" id="sw_likes" role="switch" aria-checked="false" tabindex="0" aria-label="点赞数筛选开关"></span></td>
+                      <td class="cond">≥</td>
+                      <td><div class="val"><input id="c_min_likes" type="number" min="0" max="10000000" step="100" placeholder="0"><span class="unit">次</span></div></td>
+                    </tr>
+                    <tr data-filter-row="comments">
+                      <td>评论数</td>
+                      <td><span class="switch" id="sw_comments" role="switch" aria-checked="false" tabindex="0" aria-label="评论数筛选开关"></span></td>
+                      <td class="cond">≥</td>
+                      <td><div class="val"><input id="c_min_comments" type="number" min="0" max="10000000" step="10" placeholder="0"><span class="unit">次</span></div></td>
+                    </tr>
+                    <tr data-filter-row="favorites">
+                      <td>收藏数</td>
+                      <td><span class="switch" id="sw_favorites" role="switch" aria-checked="false" tabindex="0" aria-label="收藏数筛选开关"></span></td>
+                      <td class="cond">≥</td>
+                      <td><div class="val"><input id="c_min_favorites" type="number" min="0" max="10000000" step="10" placeholder="0"><span class="unit">次</span></div></td>
+                    </tr>
+                    <tr data-filter-row="shares">
+                      <td>转发数</td>
+                      <td><span class="switch" id="sw_shares" role="switch" aria-checked="false" tabindex="0" aria-label="转发数筛选开关"></span></td>
+                      <td class="cond">≥</td>
+                      <td><div class="val"><input id="c_min_shares" type="number" min="0" max="10000000" step="10" placeholder="0"><span class="unit">次</span></div></td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="inline-note" style="margin-top:12px">0 表示不限。关闭的指标不参与筛选；开启的指标按填写值过滤。互动指标只对纯 API 选片生效；浏览器回退只能校验点赞数。</div>
+              </div>
+
+              <div class="sub-block" id="aiFilterBlock">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">AI 参与视频筛选<span class="hint-tip" tabindex="0" role="button" aria-label="查看 AI 筛选说明" data-tip="关闭：只走规则筛选。安全过滤：AI 去掉广告、软色情、暴力、诈骗等风险内容，剩余随机选。过滤 + 排序：在安全过滤基础上，按当前账户启用的视频池兴趣排序。只对纯 API 选片生效，浏览器回退不经过 AI。">?</span></div>
+                    <div class="field-note" id="aiFilterHint">先在「05 AI」配置 Key，再选择筛选模式。</div>
+                  </div>
+                  <span class="pill" id="aiFilterPill">检查中…</span>
+                </div>
+                <div class="seg" id="aiModeSeg">
+                  <button data-ai-mode="off" type="button">关闭</button>
+                  <button data-ai-mode="moderate" type="button">安全过滤</button>
+                  <button data-ai-mode="rank" type="button">过滤 + 排序</button>
+                </div>
+                <div class="field-note" style="margin-top:7px">切换后立即生效；只作用于纯 API 选片。<span class="hint-tip" tabindex="0" role="button" aria-label="查看 AI 筛选范围" data-tip="推荐源和池搜索的纯 API 选片都会经过 AI 筛选；浏览器回退路径不经过 AI。AI 只读取视频标题、作者、点赞等公开信息，不接触 cookies、模板或好友 userid。">?</span></div>
+              </div>
+
+              <div class="sub-block pool-only" id="poolBlock">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">视频分类</div>
+                    <div class="field-note">下拉多选；父分类可让 AI 扩展出更具体的子分类并保存，下次仍可选。</div>
+                  </div>
+                  <div class="pool-tools"><span class="hint" id="poolCount">-</span></div>
+                </div>
+                <div class="pool-select" id="poolSelect">
+                  <button class="pool-trigger" id="poolTrigger" type="button" aria-expanded="false">
+                    <span class="pool-summary" id="poolSummary">选择分类…</span><span class="pool-caret">▾</span>
+                  </button>
+                  <div class="pool-backdrop" id="poolBackdrop" hidden></div>
+                  <div class="pool-panel" id="poolPanel" role="dialog" aria-modal="true" aria-label="选择视频分类" hidden>
+                    <div class="pool-modal-head">
+                      <div>
+                        <div class="eyebrow">选择视频分类</div>
+                        <div class="field-note">父分类可展开子级；点 ✨ 让 AI 扩展并保存新分类。</div>
+                      </div>
+                      <button class="ai-icon-btn" id="poolPanelClose" type="button" aria-label="关闭分类选择">×</button>
+                    </div>
+                    <div class="pool-searchbar">
+                      <input id="poolSearch" placeholder="搜索分类…" autocomplete="off">
+                      <button class="btn ghost sm" id="poolAll" type="button">全选</button>
+                      <button class="btn ghost sm" id="poolNone" type="button">清空</button>
+                    </div>
+                    <div class="pool-hint-row"><input id="poolAiHint" placeholder="AI 泛化方向（可选）：洛丽塔、cosplay…" autocomplete="off"></div>
+                    <div class="pool-list" id="poolList"></div>
+                    <div class="pool-panelfoot"><span id="poolHint">勾选后点「保存设置」生效</span><button class="btn primary sm" id="poolClose" type="button">完成</button></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="sub-block">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">屏蔽词</div>
+                    <div class="field-note">每行一个，命中标题或作者就跳过。推荐流里的汽车等内容也可以在这里过滤。</div>
+                  </div>
+                </div>
+                <textarea id="c_ban" style="width:100%;margin-top:2px" placeholder="例如：汽车&#10;电动车&#10;小鹏"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <section class="card settings-card" id="sec-friends" hidden>
+            <header class="section-head">
+              <div class="section-title">
+                <span class="section-num">03</span>
+                <div>
+                  <div class="eyebrow">发送好友</div>
+                  <div class="section-sub">排班优先选当天成功次数最少的好友；纯 API 需要好友在会话捕获列表或有 userid。</div>
+                </div>
+              </div>
+              <span class="pill" id="friendCountPill">-</span>
+            </header>
+            <div class="section-body">
+              <div id="friendList"><span class="muted">加载中…</span></div>
+              <div class="inline-input">
+                <input id="friendNew" placeholder="好友昵称" style="min-width:180px">
+                <button class="btn ghost sm" id="friendAdd" type="button">添加好友</button>
+              </div>
+              <div class="field-note" style="margin-top:8px">发给自己测试：启用「拍拍」并确认有 userid。<span class="hint-tip" tabindex="0" role="button" aria-label="查看自测说明" data-tip="纯 API 会按 userid 创建与你自己的会话；如果「拍拍」没有 userid，先重新导出会话或从互关导入。排班发送只选择启用好友。">?</span></div>
+            </div>
+          </section>
         </div>
 
-        <div>
-          <div class="card" style="margin-bottom:16px">
-            <div class="card-head"><div class="eyebrow">发送好友（当前账户）</div><span class="pill" id="friendCountPill">-</span></div>
-            <div id="friendList" style="margin-top:4px"><span class="muted">加载中…</span></div>
-            <div class="inline-input">
-              <input id="friendNew" placeholder="好友昵称" style="min-width:180px">
-              <button class="btn ghost sm" id="friendAdd">添加好友</button>
+        <aside class="config-col config-side">
+          <section class="card settings-card" id="sec-connection" hidden>
+            <header class="section-head">
+              <div class="section-title">
+                <span class="section-num">04</span>
+                <div>
+                  <div class="eyebrow">纯 API 连接</div>
+                  <div class="section-sub">发送通道、会话状态与推荐 feed 状态。</div>
+                </div>
+              </div>
+              <span class="pill" id="apiBadge">检查中…</span>
+            </header>
+            <div class="section-body">
+              <div class="seg" id="apiModeSeg">
+                <button data-mode="auto" type="button">纯 API 优先</button>
+                <button data-mode="browser" type="button">仅浏览器</button>
+              </div>
+              <div class="kv" style="margin-top:12px"><span>自动刷新</span>
+                <div style="display:flex;align-items:center;gap:10px"><span class="field-note" id="apiAutoText">-</span><span class="switch" id="apiAutoSwitch"></span></div>
+              </div>
+              <div class="field-note" style="margin-top:-2px">到期前 2 小时自动刷新。导出需要独占 Chrome 配置，会先关闭正在运行的抖音画面，完成后按需重新打开。</div>
+              <div class="card-actions">
+                <button class="btn ghost sm" id="btnApiRefresh" type="button">导出 / 刷新会话</button>
+              </div>
+              <details style="margin-top:12px;margin-bottom:0">
+                <summary>会话详情</summary>
+                <div id="apiLine" class="hint" style="line-height:1.8">检查中…</div>
+                <div class="eyebrow" style="margin-top:12px">可选好友（来自会话）</div>
+                <div class="chips" id="apiFriends" style="margin-top:6px"><span class="muted">-</span></div>
+                <div class="field-note" id="apiMsg" style="margin-top:8px"></div>
+              </details>
             </div>
-            <div class="field-note" style="margin-top:8px">排班发送时优先选当天成功发送次数最少的好友（先每人一轮，再开始下一轮）；纯 API 发送要求好友在导出会话时捕获的列表里，否则回退浏览器。</div>
-          </div>
-          <div class="card" style="margin-bottom:16px">
-            <div class="card-head"><div class="eyebrow">纯 API 会话</div><span class="pill" id="apiBadge">检查中…</span></div>
-            <div class="seg" id="apiModeSeg">
-              <button data-mode="auto">纯 API 优先</button>
-              <button data-mode="browser">仅浏览器</button>
+          </section>
+
+          <section class="card settings-card" id="sec-ai" hidden>
+            <header class="section-head">
+              <div class="section-title">
+                <span class="section-num">05</span>
+                <div>
+                  <div class="eyebrow">AI</div>
+                  <div class="section-sub">推荐源筛选、只读问诊与自然语言改配置；默认关闭。</div>
+                </div>
+              </div>
+              <span class="pill" id="aiPill">检查中…</span>
+            </header>
+            <div class="section-body">
+              <div class="inline-note">筛选开关已移到「02 视频来源」的「AI 参与视频筛选」，可对推荐源和池搜索的纯 API 选片生效。这里管理连接、问诊和配置草案。</div>
+              <details style="margin-top:12px">
+                <summary>连接设置</summary>
+                <div class="form" style="margin-top:10px">
+                  <label class="f">启用<select id="ai_enabled"><option value="false">关闭</option><option value="true">开启</option></select></label>
+                  <label class="f">Base URL<input id="ai_base" placeholder="https://api.deepseek.com/v1"></label>
+                  <label class="f">模型<input id="ai_model" placeholder="deepseek-chat"></label>
+                  <label class="f">API Key<input id="ai_key" type="password" placeholder="留空表示不修改"></label>
+                </div>
+                <div class="card-actions">
+                  <button class="btn ghost sm" id="ai_test" type="button">保存并测试</button>
+                </div>
+                <div class="field-note" id="aiMsg"></div><div class="field-note" style="margin-top:4px">「保存并测试」会先保存当前字段；只填不改旧 Key 时留空即可。</div>
+              </details>
+              <details style="margin-top:10px">
+                <summary>问 AI（只读）</summary>
+                <div class="inline-input">
+                  <input id="ai_question" placeholder="今天为什么只发了 3 条？" style="min-width:200px">
+                  <button class="btn ghost sm" id="ai_ask" type="button">提问</button>
+                </div>
+                <div class="field-note" id="ai_answer" style="white-space:pre-wrap;line-height:1.7"></div>
+              </details>
+              <details style="margin-top:10px;margin-bottom:0">
+                <summary>用一句话改配置</summary>
+                <div class="inline-input">
+                  <input id="ai_draft_text" placeholder="例如：每天 8 条，晚上为主，避开恐怖内容" style="min-width:200px">
+                  <button class="btn ghost sm" id="ai_draft" type="button">生成草案</button>
+                </div>
+                <div class="field-note" id="ai_draft_out" style="white-space:pre-wrap"></div>
+              </details>
             </div>
-            <div class="kv" style="margin-top:12px"><span>自动刷新</span>
-              <div style="display:flex;align-items:center;gap:10px"><span class="field-note" id="apiAutoText">-</span><span class="switch" id="apiAutoSwitch"></span></div>
+          </section>
+
+          <section class="card settings-card" id="sec-database" hidden>
+            <header class="section-head">
+              <div class="section-title">
+                <span class="section-num">06</span>
+                <div>
+                  <div class="eyebrow">数据库</div>
+                  <div class="section-sub">默认 SQLite；可选 MySQL / PostgreSQL，重启生效。</div>
+                </div>
+              </div>
+              <span class="pill" id="dbPill">检查中…</span>
+            </header>
+            <div class="section-body">
+              <details style="margin:0">
+                <summary>连接设置</summary>
+                <div class="form" style="margin-top:10px">
+                  <label class="f">类型<select id="db_driver"><option value="sqlite">SQLite</option><option value="postgres">PostgreSQL</option><option value="mysql">MySQL</option></select></label>
+                  <label class="f">SQLite 文件<input id="db_sqlite" readonly></label>
+                  <label class="f">主机<input id="db_host" placeholder="127.0.0.1"></label>
+                  <label class="f">端口<input id="db_port" type="number" placeholder="5432 / 3306"></label>
+                  <label class="f">数据库<input id="db_name" placeholder="douyin_forwarder"></label>
+                  <label class="f">用户<input id="db_user" placeholder="postgres / root"></label>
+                  <label class="f">密码<input id="db_password" type="password" placeholder="留空表示不修改"></label>
+                  <label class="f">SSL<select id="db_ssl"><option value="false">关闭</option><option value="true">开启</option></select></label>
+                  <label class="f">连接串（可选）<input id="db_url" placeholder="postgres://user:pass@host/db"></label>
+                </div>
+                <div class="card-actions">
+                  <button class="btn ghost sm" id="db_save" type="button">保存数据库配置</button>
+                  <button class="btn ghost sm" id="db_test" type="button">测试连接</button>
+                </div>
+                <div class="field-note" id="dbMsg"></div>
+              </details>
             </div>
-            <div id="apiLine" class="hint" style="margin-top:10px;line-height:1.8">检查中…</div>
-            <div class="card-actions">
-              <button class="btn ghost sm" id="btnApiRefresh">导出 / 刷新会话</button>
-              <button class="btn ghost sm" id="btnApiModeAuto">切到纯 API 优先</button>
-              <button class="btn ghost sm" id="btnBrowserMode">仅浏览器</button>
+          </section>
+
+          <section class="card settings-card" id="sec-advanced" hidden>
+            <header class="section-head">
+              <div class="section-title">
+                <span class="section-num">07</span>
+                <div>
+                  <div class="eyebrow">高级与维护</div>
+                  <div class="section-sub">节奏、自然分享和排障；日常通常不用改。</div>
+                </div>
+              </div>
+            </header>
+            <div class="section-body">
+              <div class="field-grid">
+                <label class="f">池间延迟（毫秒）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
+                <label class="f">自然分享<select id="c_natural"><option value="false">关闭</option><option value="true">开启（随机 1–2 个视频）</option></select></label>
+              </div>
+              <div class="switch-row">
+                <div>
+                  <b>发送文字附言</b>
+                  <div class="field-note">关闭后自然分享只发视频，不读取评论，也不调用 AI 生成文字。</div>
+                </div>
+                <div class="switch-control"><span class="switch-state" id="c_natural_text_state">开启</span><button class="switch on" id="c_natural_text_switch" type="button" role="switch" aria-checked="true" aria-label="发送文字附言"></button></div>
+              </div>
+              <div class="field-note" id="maintMsg" style="margin-top:10px">自然分享按需开启。<span class="hint-tip" tabindex="0" role="button" aria-label="查看自然分享说明" data-tip="自然分享：每次随机发 1–2 个视频，全部走纯 API。文字附言受上方开关控制：开启时读取公开评论、由 AI 写 1–2 句口语附言；关闭时不读评论、不发文字。暂停不拦截「立即发送一次」；推荐源失败不会回退浏览器。">?</span></div>
             </div>
-            <div class="eyebrow mt">可选好友（来自会话）</div>
-            <div class="chips" id="apiFriends" style="margin-top:8px"><span class="muted">-</span></div>
-            <div class="field-note" id="apiMsg" style="margin-top:10px"></div>
-          </div>
-          <div class="card" style="margin-bottom:16px">
-            <div class="eyebrow">维护</div>
-            <div class="card-actions">
-              <button class="btn ghost sm" id="btnSendNowCfg">立即发送一次</button>
-              <button class="btn ghost sm" id="btnReplanCfg">重排今日</button>
-              <button class="btn ghost sm" id="btnShowWinCfg">把浏览器移到台前</button>
-            </div>
-            <div class="field-note" id="maintMsg" style="margin-top:10px">发送失败会自动回退浏览器；人机验证请到首页「实时画面」完成。</div>
-          </div>
-          <details id="eventsCfg">
-            <summary>最近事件（排障用）</summary>
-            <div class="events-mini" id="cfgEvents" style="padding-bottom:12px">展开后加载…</div>
+          </section>
+
+          <details id="eventsCfg" hidden>
+            <summary>最近事件</summary>
+            <div class="events-mini diag-mini-list" id="cfgEvents" style="padding-bottom:8px">展开后加载…</div>
+            <button class="btn ghost sm" type="button" data-goto="diagnostics" style="margin-top:8px">打开排查中心</button>
           </details>
-        </div>
+        </aside>
       </div>
     </section>
 
@@ -872,8 +1745,8 @@
           <button class="btn ghost sm" id="recCsv">导出 CSV</button>
         </div>
         <div class="table-wrap">
-          <table><thead><tr>
-            <th style="width:140px">时间</th><th style="width:90px">分类</th><th>标题</th><th style="width:150px">作者</th><th style="width:110px">好友</th><th style="width:92px">赞</th><th style="width:150px">结果</th><th style="width:64px">截图</th>
+          <table id="recTable"><thead><tr>
+            <th>时间</th><th>分类</th><th>标题</th><th>作者</th><th>好友</th><th>赞</th><th>结果</th><th>截图</th>
           </tr></thead><tbody id="recRows"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody></table>
         </div>
         <div class="pager">
@@ -883,14 +1756,94 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-head"><div class="eyebrow">事件日志</div><div class="card-actions" style="margin:0"><button class="btn ghost sm" id="recEventsRefresh">刷新</button></div></div>
-        <div class="events-mini" id="recEvents"><span class="muted">加载中…</span></div>
+        <div class="card-head"><div class="eyebrow">最近事件</div><div class="card-actions" style="margin:0"><button class="btn ghost sm" data-goto="diagnostics">排查中心</button><button class="btn ghost sm" id="recEventsRefresh">刷新</button></div></div>
+        <div class="events-mini diag-mini-list" id="recEvents"><span class="muted">加载中…</span></div>
+      </div>
+    </section>
+
+    <!-- ================= 排查 ================= -->
+    <section class="view" id="view-diagnostics" data-view-panel="diagnostics" hidden>
+      <div class="diag-hero">
+        <div>
+          <div class="eyebrow">诊断 · 运行事件</div>
+          <h2>排查中心</h2>
+          <div class="field-note">发送、连接、配置和 AI 事件统一在这里；默认显示可读摘要，原始 JSON 按需展开。</div>
+        </div>
+        <div class="diag-stats">
+          <span class="pill blue" id="diagTotal">- 条事件</span>
+          <span class="pill bad" id="diagErrors">- 个异常</span>
+          <span class="pill" id="diagUpdated">尚未刷新</span>
+        </div>
+      </div>
+      <div class="card diag-card">
+        <div class="diag-toolbar">
+          <input class="grow" id="diagSearch" placeholder="搜索事件、账号、好友、标题、错误…">
+          <select id="diagFilter">
+            <option value="all">全部事件</option>
+            <option value="send">发送</option>
+            <option value="config">配置 / AI</option>
+            <option value="connection">连接 / 会话</option>
+            <option value="error">异常</option>
+            <option value="system">系统</option>
+          </select>
+          <button class="btn ghost sm" id="diagRefresh" type="button">刷新</button>
+          <span class="diag-count" id="diagCount">-</span>
+        </div>
+        <div class="diag-list" id="diagList"><div class="empty">加载中…</div></div>
       </div>
     </section>
 
     <div class="footer-note">心动投递 · 控制台 · v__APP_VERSION__ · 数据自动刷新 15s · <span id="footTime">-</span></div>
   </main>
 </div>
+<div class="ai-pet" id="aiFab" role="button" tabindex="0" aria-label="打开 AI 助手" aria-expanded="false" aria-controls="aiChat" title="动画素材：dsh-pet · MIT">
+  <div class="ai-pet-bubble" id="aiPetBubble"></div>
+  <video class="ai-pet-video" id="aiPetVideo" autoplay muted loop playsinline preload="auto" poster="/assets/dsh-pet/character-transparent.png">
+    <source src="/assets/dsh-pet/idle.webm" type="video/webm">
+  </video>
+  <img class="ai-pet-fallback" id="aiPetFallback" src="/assets/dsh-pet/character-transparent.png" alt="" hidden>
+  <div class="ai-pet-badge"><span class="ai-pet-dot"></span><span>AI 助手</span></div>
+</div>
+<div class="ai-pet-menu" id="aiPetMenu" hidden>
+  <button type="button" data-pet-action="chat">打开对话</button>
+  <button type="button" data-pet-action="random">换个动作</button>
+  <button type="button" data-pet-action="sleep">睡觉 / 起来</button>
+  <button type="button" data-pet-action="reset">回到右下角</button>
+  <div class="ai-pet-menu-foot">dsh-pet · MIT</div>
+</div>
+<aside class="ai-chat" id="aiChat" hidden aria-label="AI 助手">
+  <header class="ai-chat-head">
+    <div class="ai-chat-brand">
+      <span class="ai-chat-orb"><img class="ai-pet-face" src="/assets/dsh-pet/character-transparent.png" alt=""></span>
+      <div><div class="ai-chat-title">小蓝鲸 · AI 助手</div><div class="ai-chat-status" id="aiChatStatus">可操作（需确认）· 检查连接中…</div></div>
+    </div>
+    <div class="ai-chat-head-actions">
+      <button class="ai-icon-btn clear" id="aiChatClear" type="button" title="清空对话">清空</button>
+      <button class="ai-icon-btn" id="aiChatClose" type="button" aria-label="关闭 AI 助手" title="关闭">×</button>
+    </div>
+  </header>
+  <div class="ai-chat-body" id="aiChatMessages"></div>
+  <div class="ai-chat-suggestions" id="aiChatSuggestions">
+    <button class="ai-suggestion" type="button" data-ai-prompt="今天为什么没有按计划发送？">今天为什么没发？</button>
+    <button class="ai-suggestion" type="button" data-ai-prompt="推荐源和视频池应该怎么选？">推荐源怎么选？</button>
+    <button class="ai-suggestion" type="button" data-ai-prompt="帮我生成一份更保守的配置草案。">保守配置草案</button>
+    <button class="ai-suggestion" type="button" data-ai-prompt="把每天条数改成 8 条，晚上为主。">改成每天 8 条</button>
+    <button class="ai-suggestion" type="button" data-ai-prompt="暂停这个账户。">暂停账户</button>
+  </div>
+  <div class="ai-action-mode-row">
+    <span>写入操作</span>
+    <div class="seg" id="aiActionModeSeg">
+      <button data-ai-action-mode="confirm" type="button">确认一次</button>
+      <button data-ai-action-mode="auto" type="button">AI 自动执行</button>
+    </div>
+  </div>
+  <form class="ai-chat-form" id="aiChatForm">
+    <textarea id="aiChatInput" rows="1" maxlength="2000" placeholder="问运行状态、推荐源、配置…… Enter 发送"></textarea>
+    <button class="btn primary sm" id="aiChatSend" type="submit">发送</button>
+  </form>
+  <div class="ai-chat-foot"><span>读操作无需确认；写入按上方模式</span><button id="aiChatConfig" type="button">配置 AI</button></div>
+</aside>
+<div class="hint-pop" id="hintPop" role="tooltip" hidden></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -946,12 +1899,15 @@ async function postJSON(url, body, method = 'POST') {
 const VIEW_META = {
   home: ['首页', '总览 · 今日排班 · 快速发送'],
   accounts: ['账户', '当前账户 · 多账户切换 · 登录状态'],
-  config: ['配置', '发送计划 · 纯 API 会话 · 维护'],
+  config: ['配置', '计划 · 视频 · 好友 · 连接 · AI · 数据库'],
   records: ['记录', '发送历史 · 分类统计 · 事件日志'],
+  diagnostics: ['排查', '运行事件 · 失败归因 · 原始数据'],
 };
 function navigate(view) {
   if (!VIEW_META[view]) view = 'home';
   state.view = view;
+  document.body.classList.toggle('diag-view', view === 'diagnostics');
+  document.body.classList.toggle('records-view', view === 'records');
   $$('.nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
   $$('[data-view-panel]').forEach((p) => {
     const show = p.dataset.viewPanel === view;
@@ -965,12 +1921,96 @@ function navigate(view) {
   const [title, sub] = VIEW_META[view];
   $('#pageTitle').textContent = title;
   $('#pageSub').textContent = sub;
+  const configNav = document.getElementById('configNav');
+  if (configNav) configNav.hidden = view !== 'config';
   window.scrollTo({ top: 0, behavior: 'instant' });
   if (view === 'home') loadHome();
   if (view === 'accounts') loadAccounts();
   if (view === 'config') loadConfigPage();
   if (view === 'records') loadRecords();
+  if (view === 'diagnostics') loadDiagnostics();
 }
+function bindHintTips() {
+  const pop = $('#hintPop');
+  if (!pop) return;
+  let current = null;
+  let pinned = false;
+  let hideTimer = null;
+  let hideAnimation = null;
+  const hide = (force = false) => {
+    if (pinned && !force) return;
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      pop.classList.remove('show');
+      if (current) current.setAttribute('aria-expanded', 'false');
+      hideAnimation = setTimeout(() => { pop.hidden = true; }, 180);
+      current = null;
+      pinned = false;
+    }, 60);
+  };
+  const show = (el, keep = false) => {
+    const text = el && el.dataset ? el.dataset.tip : '';
+    if (!text) return;
+    clearTimeout(hideTimer);
+    clearTimeout(hideAnimation);
+    if (current && current !== el) current.setAttribute('aria-expanded', 'false');
+    current = el;
+    pinned = !!keep;
+    pop.textContent = text;
+    pop.hidden = false;
+    pop.classList.remove('show');
+    const r = el.getBoundingClientRect();
+    const pw = Math.min(340, pop.offsetWidth || 300);
+    const ph = pop.offsetHeight || 80;
+    const gap = 10;
+    const canTop = r.top - ph - gap >= 8;
+    const top = canTop ? r.top - ph - gap : r.bottom + gap;
+    const left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.left + r.width / 2 - pw / 2));
+    pop.style.left = Math.round(left) + 'px';
+    pop.style.top = Math.round(top) + 'px';
+    pop.dataset.placement = canTop ? 'top' : 'bottom';
+    const arrow = Math.max(14, Math.min(pw - 14, r.left + r.width / 2 - left));
+    pop.style.setProperty('--hint-arrow', Math.round(arrow) + 'px');
+    el.setAttribute('aria-expanded', 'true');
+    requestAnimationFrame(() => pop.classList.add('show'));
+  };
+  document.addEventListener('pointerover', (e) => {
+    const tip = e.target.closest && e.target.closest('.hint-tip');
+    if (!tip) return;
+    if (e.relatedTarget && tip.contains(e.relatedTarget)) return;
+    show(tip, false);
+  });
+  document.addEventListener('pointerout', (e) => {
+    const tip = e.target.closest && e.target.closest('.hint-tip');
+    if (!tip) return;
+    if (e.relatedTarget && tip.contains(e.relatedTarget)) return;
+    hide();
+  });
+  document.addEventListener('focusin', (e) => {
+    const tip = e.target.closest && e.target.closest('.hint-tip');
+    if (tip) show(tip, false);
+  });
+  document.addEventListener('focusout', (e) => {
+    if (e.target.closest && e.target.closest('.hint-tip')) hide();
+  });
+  document.addEventListener('click', (e) => {
+    const tip = e.target.closest && e.target.closest('.hint-tip');
+    if (tip) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (current === tip && pinned) hide(true);
+      else show(tip, true);
+      return;
+    }
+    if (pinned) hide(true);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !pop.hidden) hide(true);
+  });
+  window.addEventListener('scroll', () => { if (!pop.hidden) hide(true); }, true);
+  window.addEventListener('resize', () => { if (!pop.hidden) hide(true); });
+}
+
 function bindNav() {
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.view)));
   $$('[data-goto]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.goto)));
@@ -1333,7 +2373,8 @@ function renderHome() {
   const st = state.status || {};
   const api = state.api || {};
   const plan = d.todayPlan || 0;
-  const done = d.todayDone || 0;
+  // Schedule progress counts only planned shares; manual sends show up in the records page.
+  const done = d.schedule ? (d.schedule.sent || 0) : (d.todayDone || 0);
   const left = Math.max(0, plan - done);
   $('#homeDone').textContent = done;
   $('#homePlan').textContent = plan;
@@ -1371,17 +2412,21 @@ function renderHome() {
 
   $('#homeTimeline').innerHTML = d.todayTimeline && d.todayTimeline.length
     ? d.todayTimeline.map((t) => '<span class="chip ' + t.status + '">' + t.time + (t.status === 'done' ? ' ✓' : (t.status === 'failed' ? ' ✗' : '')) + '</span>').join('')
-    : '<span class="muted">今天还没有计划（暂停中或未到窗口）</span>';
+    : '<span class="muted">今天还没有触发计划（暂停中或未配置）</span>';
   const buckets = Object.entries(d.bucketStats || {}).sort((a, b) => b[1] - a[1]);
   $('#homeBuckets').innerHTML = buckets.length ? buckets.map(([k, v]) => '<span class="chip">' + esc(k) + ' · ' + v + '</span>').join('') : '<span class="muted">暂无记录</span>';
 
-  $('#homeRows').innerHTML = (d.sends || []).slice(0, 5).map((s) => '<tr>'
-    + '<td class="muted">' + esc(s.local) + '</td>'
-    + '<td><span class="tag">' + esc(s.bucket) + '</span></td>'
-    + '<td class="title-cell" title="' + esc(s.title) + '">' + esc(s.title) + '</td>'
-    + '<td class="muted">' + esc(s.friend || '-') + '</td>'
-    + '<td class="' + (s.ok ? 'ok' : 'bad') + '">' + esc(s.ok ? (s.toast || '成功') : (s.toast || '失败')) + '</td>'
-    + '</tr>').join('') || '<tr><td colspan="5" class="empty">还没有发送记录</td></tr>';
+  $('#homeRows').innerHTML = (d.sends || []).slice(0, 5).map((s) => {
+    const full = s.toast || (s.ok ? '成功' : '失败');
+    const result = !s.ok ? '失败' : (/自然分享/.test(full) ? '自然分享' : (/HTTP API/.test(full) ? 'API' : full));
+    return '<tr>'
+      + '<td class="muted">' + esc(s.local) + '</td>'
+      + '<td><span class="tag">' + esc(s.bucket) + '</span></td>'
+      + '<td class="title-cell" title="' + esc(s.title) + '">' + esc(s.title) + '</td>'
+      + '<td class="muted">' + esc(s.friend || '-') + '</td>'
+      + '<td class="' + (s.ok ? 'ok' : 'bad') + '" title="' + esc(full) + '">' + esc(result) + '</td>'
+      + '</tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">还没有发送记录</td></tr>';
   renderSidebar();
   renderTopbar();
   $('#footTime').textContent = '最近刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -1401,14 +2446,213 @@ async function loadHome() {
     toast('首页加载失败：' + e.message, 'bad');
   }
 }
+const DIAG_TITLES = {
+  'pool-ai-generalize': 'AI 扩充分类',
+  sent: '发送成功',
+  'sent-api': 'API 发送成功',
+  'manual-send': '手动操作',
+  'day-plan': '生成今日计划',
+  replan: '重排今日计划',
+  'feed-captured': '捕获 feed',
+  'feed-missing': '缺少 feed',
+  'api-send-error': 'API 发送失败',
+  'api-send-rejected': 'API 发送被拒',
+  'api-session-invalid': '会话已失效',
+  'captcha-blocked': '验证码/风控拦截',
+  'send-failed': '发送失败',
+  'slot-missed': '错过计划',
+  'friend-add': '添加好友',
+  'account-switch': '切换账户',
+  'config-update': '配置更新',
+  'ai-action': 'AI 执行配置',
+  'natural-text': '自然分享文字',
+  'natural-share': '自然分享',
+  'schedule-plan': '生成今日计划',
+  'schedule-send': '发送成功',
+  'schedule-trigger-done': '触发点完成',
+  'schedule-trigger-skipped': '触发点跳过',
+  'schedule-trigger-aborted': '触发点中止',
+  'schedule-retry': '发送重试',
+  'schedule-done': '今日计划完成',
+  'schedule-reset': '重置今日计划',
+  'schedule-state-sync': '计划状态同步',
+  'schedule-config': '计划配置更新',
+  'schedule-mail': '计划邮箱',
+  'ai-rank': 'AI 排序',
+  'ai-fallback': 'AI 回退',
+};
+function diagTime(ts, full = false) {
+  if (!ts) return '-';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return String(ts).slice(0, 19).replace('T', ' ');
+  return d.toLocaleString('zh-CN', full
+    ? { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+    : { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function diagCategory(event, tone) {
+  const e = String(event || '').toLowerCase();
+  if (tone === 'error') return 'error';
+  if (/(send|sent|manual-send|slot-missed|retry|natural-)/.test(e)) return 'send';
+  if (/(pool|plan|replan|humanize|account|friend|ban|schedule|ai|config)/.test(e)) return 'config';
+  if (/(session|feed|browser|server|connect)/.test(e)) return 'connection';
+  return 'system';
+}
+function diagTone(event) {
+  const e = String(event || '').toLowerCase();
+  if (/(fail|error|invalid|blocked|captcha|rejected|missing|denied|超时)/.test(e)) return 'error';
+  if (/(retry|missed|paused|fallback|warn)/.test(e)) return 'warn';
+  if (/(sent|captured|ready|resumed|ok|done|added|success)/.test(e)) return 'ok';
+  return 'info';
+}
+function accountDisplay(label) {
+  if (!label) return '';
+  const d = state.data || {};
+  if (d.account === label && d.accountName) return d.accountName;
+  const list = (state.accounts && state.accounts.accounts) || [];
+  const hit = list.find((a) => a.label === label);
+  return hit ? (hit.name || hit.label) : label;
+}
+function diagInfo(e) {
+  const event = String((e && e.event) || 'unknown');
+  let data = {};
+  try { data = typeof e.payload === 'string' ? JSON.parse(e.payload) : (e.payload || {}); } catch (err) { data = {}; }
+  const tone = diagTone(event);
+  const category = diagCategory(event, tone);
+  let title = DIAG_TITLES[event] || event.replace(/[-_]+/g, ' ');
+  let summary = '';
+  if (event === 'pool-ai-generalize') {
+    const added = Array.isArray(data.added) ? data.added : [];
+    summary = (data.account ? '账户 ' + accountDisplay(data.account) + ' · ' : '') + '「' + (data.parent || '分类') + '」新增 ' + added.length + ' 个子分类' + (added.length ? '：' + added.slice(0, 6).join('、') + (added.length > 6 ? '…' : '') : '');
+  } else if (event === 'humanize-delay') {
+    summary = '计划 ' + (data.at || '—') + ' · 额外等待 ' + Math.round(Number(data.jitterMs || 0) / 1000) + ' 秒 · 发送前停 ' + (Number(data.preSendMs || 0) / 1000).toFixed(1) + ' 秒';
+  } else if (event === 'sent' || event === 'sent-api' || event === 'natural-share') {
+    summary = '发给 ' + (data.friend || '—') + (data.title ? ' · ' + String(data.title).slice(0, 90) : '');
+  } else if (event === 'natural-text') {
+    summary = (data.friend ? '发给 ' + data.friend + ' · ' : '') + (data.text || '已发送一条附言');
+  } else if (event === 'manual-send') {
+    summary = (data.dry ? '只试选片' : '立即发送') + (data.friend ? ' · ' + data.friend : '') + (data.title ? ' · ' + String(data.title).slice(0, 80) : '');
+  } else if (event === 'api-send-error' || event === 'api-send-rejected' || event === 'send-failed') {
+    summary = (data.friend ? data.friend + ' · ' : '') + (data.error || data.reason || '发送失败，查看原始数据');
+  } else if (event === 'api-session-invalid') {
+    summary = data.message || '会话失效，需要重新导出或刷新纯 API 会话。';
+  } else if (event === 'feed-captured') {
+    summary = '推荐流 feed 已捕获' + (data.feedUrl ? ' · ' + String(data.feedUrl).slice(0, 80) : '');
+  } else if (event === 'feed-missing') {
+    summary = '当前会话没有捕获到推荐流 feed，推荐源不可用。';
+  } else if (event === 'day-plan' || event === 'replan') {
+    summary = (data.count != null ? '生成 ' + data.count + ' 个发送时刻' : '今日计划已更新') + (data.times ? ' · ' + (Array.isArray(data.times) ? data.times.join('、') : String(data.times).slice(0, 80)) : '');
+  } else if (event === 'schedule-plan') {
+    summary = '共 ' + ((Array.isArray(data.points) ? data.points.length : 0)) + ' 个触发点' + (Array.isArray(data.points) && data.points.length ? '：' + data.points.join('、') : '');
+  } else if (event === 'schedule-send') {
+    summary = '触发点 ' + (data.trigger || '—') + ' · 第 ' + (data.n ?? '-') + '/' + (data.count ?? '-') + ' 条' + (data.title ? ' · ' + String(data.title).slice(0, 80) : '');
+  } else if (event === 'schedule-trigger-done') {
+    summary = '触发点 ' + (data.trigger || '—') + ' 完成（' + (data.sent ?? 0) + '/' + (data.count ?? 0) + ' 条）';
+  } else if (event === 'schedule-trigger-skipped') {
+    summary = '触发点 ' + (data.trigger || '—') + ' 跳过 · ' + (data.reason === 'late-resume' ? '中断超过 10 分钟' : '错过开始超过 30 分钟') + (data.lateMin != null ? '（晚 ' + data.lateMin + ' 分钟）' : '');
+  } else if (event === 'schedule-trigger-aborted') {
+    summary = '触发点 ' + (data.trigger || '—') + ' 中止 · ' + (data.error || '发送失败');
+  } else if (event === 'schedule-done') {
+    summary = '今日计划结束：已发 ' + (data.sent ?? 0) + '/' + (data.total ?? 0) + ' 条';
+  } else if (event === 'schedule-reset') {
+    summary = (data.reason === 'regenerate' ? '重排' : '手动') + '重置今日计划' + (data.forceNow ? ' · 立即开始' : '');
+  } else if (event === 'schedule-config') {
+    summary = '触发点 ' + (data.points ?? 0) + ' 个 · 今日已发 ' + (data.sent ?? 0) + ' 条';
+  } else if (event === 'schedule-retry') {
+    summary = '触发点 ' + (data.trigger || '—') + ' 重试 · ' + (data.error || '发送失败');
+  } else if (event === 'friend-add') {
+    summary = '添加好友：' + (data.name || data.friend || '—');
+  } else if (event === 'account-switch') {
+    summary = '从「' + accountDisplay(data.from) + '」切换到「' + accountDisplay(data.to) + '」';
+  } else if (event === 'ai-rank') {
+    const bits = [];
+    if (data.kept != null) bits.push('保留 ' + data.kept + ' 个候选');
+    const filtered = /^filtered\s+(\d+)$/i.exec(String(data.reason || ''));
+    if (filtered) bits.push('过滤 ' + filtered[1] + ' 个');
+    else if (data.reason === 'all-filtered') bits.push('候选被全部过滤');
+    else if (data.reason === 'kept') bits.push('已排序');
+    if (data.source === 'pool') bits.push('视频池');
+    else if (data.source === 'recommend') bits.push('默认推荐');
+    if (data.via === 'panel') bits.push('面板选片');
+    summary = bits.join(' · ') || 'AI 排序完成';
+  } else if (event === 'ai-fallback') {
+    const reasons = {
+      off: 'AI 未开启',
+      'ai-not-configured': 'AI 未配置',
+      'empty-ai-output': 'AI 返回空结果',
+      'ai-cache-empty': 'AI 缓存为空',
+    };
+    summary = reasons[data.reason] || (data.reason ? '原因：' + String(data.reason).slice(0, 120) : 'AI 未参与本次选片');
+    if (data.mode) summary += ' · 模式 ' + data.mode;
+  } else if (event === 'config-update' || event === 'ai-action') {
+    summary = data.summary || data.action || '配置已更新';
+  } else {
+    const compactData = { ...data };
+    if (compactData.account) compactData.account = accountDisplay(compactData.account);
+    const compact = JSON.stringify(compactData);
+    summary = compact && compact !== '{}' ? compact.slice(0, 220) : (e.payload ? String(e.payload).slice(0, 220) : '无详细数据');
+  }
+  const raw = JSON.stringify(data, null, 2);
+  return { event, title, summary, tone, category, time: diagTime(e.ts), fullTime: diagTime(e.ts, true), raw: raw === '{}' ? String(e.payload || '') : raw };
+}
+function renderEvents(events) {
+  return (events || []).map((e) => {
+    const x = diagInfo(e);
+    return '<div class="diag-mini tone-' + x.tone + '">'
+      + '<span class="mini-dot"></span>'
+      + '<div><b>' + esc(x.title) + '</b><span title="' + esc(x.summary) + '">' + esc(x.summary) + '</span></div>'
+      + '<time>' + esc(x.time) + '</time>'
+      + '</div>';
+  }).join('') || '<span class="muted">暂无事件</span>';
+}
 async function loadHomeEvents() {
   try {
-    const d = await getJSON('/api/events?limit=6');
+    const d = await getJSON('/api/events?limit=5');
     $('#homeEvents').innerHTML = renderEvents(d.events || []);
   } catch (e) { /* ignore */ }
 }
-function renderEvents(events) {
-  return (events || []).map((e) => '<div class="ev"><b title="' + esc(e.event) + '">' + esc(e.event) + '</b><span title="' + esc(e.payload) + '">' + esc(String(e.payload || '').slice(0, 160)) + '</span><time>' + esc((e.ts || '').slice(5, 19).replace('T', ' ')) + '</time></div>').join('') || '<span class="muted">暂无事件</span>';
+function diagFiltered() {
+  const q = ($('#diagSearch') ? $('#diagSearch').value : '').trim().toLowerCase();
+  const f = $('#diagFilter') ? $('#diagFilter').value : 'all';
+  return (state.diagEvents || []).map(diagInfo).filter((x) => {
+    if (f !== 'all' && x.category !== f) return false;
+    if (!q) return true;
+    return (x.event + ' ' + x.title + ' ' + x.summary + ' ' + x.raw).toLowerCase().includes(q);
+  });
+}
+function renderDiagnostics() {
+  const all = (state.diagEvents || []).map(diagInfo);
+  const errors = all.filter((x) => x.tone === 'error').length;
+  if ($('#diagTotal')) $('#diagTotal').textContent = all.length + ' 条事件';
+  if ($('#diagErrors')) $('#diagErrors').textContent = errors + ' 个异常';
+  if ($('#diagUpdated')) $('#diagUpdated').textContent = '更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+  const list = diagFiltered();
+  if ($('#diagCount')) $('#diagCount').textContent = '显示 ' + list.length + ' / ' + all.length;
+  const box = $('#diagList');
+  if (!box) return;
+  box.innerHTML = list.map((x) => '<article class="diag-item tone-' + x.tone + '">'
+    + '<div class="diag-rail"><span class="diag-dot"></span></div>'
+    + '<div class="diag-content"><div class="diag-head"><span class="diag-title">' + esc(x.title) + '</span>'
+    + '<span class="diag-code">' + esc(x.event) + '</span><time class="diag-time" title="' + esc(x.fullTime) + '">' + esc(x.fullTime) + '</time></div>'
+    + '<div class="diag-summary">' + esc(x.summary) + '</div>'
+    + (x.raw ? '<details class="diag-raw"><summary>原始数据</summary><pre>' + esc(x.raw) + '</pre></details>' : '')
+    + '</div></article>').join('') || '<div class="diag-empty">没有匹配的事件</div>';
+}
+async function loadDiagnostics() {
+  const box = $('#diagList');
+  if (box && !state.diagEvents) box.innerHTML = '<div class="empty">加载中…</div>';
+  try {
+    const d = await getJSON('/api/events?limit=200');
+    state.diagEvents = d.events || [];
+    renderDiagnostics();
+  } catch (e) {
+    if (box) box.innerHTML = '<div class="diag-empty">事件读取失败：' + esc(e.message) + '</div>';
+    toast('排查事件读取失败：' + e.message, 'bad');
+  }
+}
+function bindDiagnosticsActions() {
+  if ($('#diagSearch')) $('#diagSearch').addEventListener('input', renderDiagnostics);
+  if ($('#diagFilter')) $('#diagFilter').addEventListener('change', renderDiagnostics);
+  if ($('#diagRefresh')) $('#diagRefresh').onclick = () => loadDiagnostics();
 }
 
 /* quick API send */
@@ -1438,20 +2682,26 @@ async function apiSendFriend(dry) {
 }
 
 /* send now */
+function setSendButtonsDisabled(disabled) {
+  ['#btnSendNow'].forEach((sel) => { const b = $(sel); if (b) b.disabled = disabled; });
+}
 async function triggerSendNow() {
-  const btn = $('#btnSendNow');
+  if (state.sendJobPolling) return;
+  setSendButtonsDisabled(true);
   try {
     const out = await postJSON('/api/send-now', {});
     if (!out.ok) throw new Error(out.error || '触发失败');
     toast('已触发发送，正在执行…', 'ok');
     pollSendJob();
-  } catch (e) { toast('触发失败：' + e.message, 'bad'); }
+  } catch (e) {
+    setSendButtonsDisabled(false);
+    toast('触发失败：' + e.message, 'bad');
+  }
 }
 async function pollSendJob() {
   if (state.sendJobPolling) return;
   state.sendJobPolling = true;
-  const btn = $('#btnSendNow');
-  btn.disabled = true;
+  setSendButtonsDisabled(true);
   try {
     for (let i = 0; i < 80; i++) {
       const d = await getJSON('/api/send-now');
@@ -1466,7 +2716,7 @@ async function pollSendJob() {
       break;
     }
   } catch (e) { /* ignore */ }
-  btn.disabled = false;
+  setSendButtonsDisabled(false);
   state.sendJobPolling = false;
   loadHome();
 }
@@ -1501,7 +2751,7 @@ function renderAccounts() {
       + '<div class="avatar">' + esc(String(a.name || a.label).slice(0, 1).toUpperCase()) + '</div>'
       + '<div class="account-main"><div class="account-name">' + esc(a.name || a.label) + (isActive ? ' <span class="pill blue" style="margin-left:6px">面板当前</span>' : '')
       + (a.enabled ? ' <span class="pill ok" style="margin-left:6px">运行中</span>' : ' <span class="pill warn" style="margin-left:6px">已暂停</span>') + '</div>'
-      + '<div class="account-meta">好友 ' + esc((a.friends || []).join('、') || '-') + ' · 端口 ' + a.port + ' · ' + a.bands + ' 时段 · ' + a.sends + ' 条</div></div>'
+      + '<div class="account-meta">好友 ' + esc((a.friends || []).join('、') || '-') + ' · 端口 ' + a.port + ' · ' + (a.points ?? 0) + ' 个触发点 · ' + a.sends + ' 条</div></div>'
       + '<div class="account-actions">'
       + (isActive ? '<button class="btn ghost sm" disabled>面板已选</button>' : '<button class="btn sm" data-switch="' + esc(a.label) + '">切到面板</button>')
       + '<button class="btn ghost sm" data-acc-enable="' + esc(a.label) + '" data-value="' + (a.enabled ? '0' : '1') + '">' + (a.enabled ? '暂停' : '继续') + '</button>'
@@ -1670,63 +2920,451 @@ async function switchAccount(label) {
 }
 
 /* ---------------- config ---------------- */
-function bandRow(b) {
-  return '<div class="bandrow">'
-    + '<input value="' + esc(b.name || '') + '" data-k="name" placeholder="名称">'
-    + '<input value="' + esc(b.from || '') + '" data-k="from" placeholder="07:00">'
-    + '<input value="' + esc(b.to || '') + '" data-k="to" placeholder="10:00">'
-    + '<input type="number" value="' + (b.min ?? 1) + '" data-k="min" placeholder="最少">'
-    + '<input type="number" value="' + (b.max ?? 3) + '" data-k="max" placeholder="最多">'
-    + '<button class="btn ghost sm" data-delband>删</button></div>';
+function localToday() {
+  return new Date().toLocaleDateString('sv-SE');
 }
-function updateHint() {
-  const rows = $$('.bandrow');
-  let lo = 0, hi = 0;
-  rows.forEach((r) => { lo += Number(r.querySelector('[data-k="min"]').value) || 0; hi += Number(r.querySelector('[data-k="max"]').value) || 0; });
-  $('#sumHint').textContent = '各时段下限之和 ' + lo + '，上限之和 ' + hi;
+function timeLabel(ms) {
+  const n = Number(ms);
+  return n > 0 ? new Date(n).toLocaleTimeString('zh-CN', { hour12: false }) : '-';
 }
-function renderBands(bands) { $('#bands').innerHTML = (bands || []).map(bandRow).join(''); }
-function renderPools(pools) {
-  $('#pools').innerHTML = POOLS.map((p) => '<label><input type="checkbox" data-pool="' + esc(p) + '" ' + ((pools && pools[p] === false) ? '' : 'checked') + '> ' + esc(p) + '</label>').join('');
+function hhmmMin(s) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '').trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+}
+function scheduleRow(p) {
+  const point = p && typeof p === 'object' ? p : {};
+  const mode = point.mode === 'random' ? 'random' : 'fixed';
+  return '<div class="schedrow" data-mode="' + mode + '">'
+    + '<select data-sk="mode">'
+    + '<option value="fixed"' + (mode === 'fixed' ? ' selected' : '') + '>固定时间</option>'
+    + '<option value="random"' + (mode === 'random' ? ' selected' : '') + '>时间范围</option>'
+    + '</select>'
+    + '<span class="sched-time">'
+    + '<input class="single" type="time" data-sk="time" value="' + esc(point.time || '09:00') + '">'
+    + '<span class="range">'
+    + '<input type="time" data-sk="from" value="' + esc(point.from || '12:00') + '">'
+    + '<span class="muted">–</span>'
+    + '<input type="time" data-sk="to" value="' + esc(point.to || '14:00') + '">'
+    + '</span>'
+    + '</span>'
+    + '<input type="number" min="1" max="50" data-sk="count" value="' + esc(point.count ?? 3) + '" placeholder="条数">'
+    + '<button class="btn ghost sm" data-delpoint type="button">删</button>'
+    + '</div>';
+}
+function renderSchedule(points) {
+  const list = Array.isArray(points) && points.length ? points : [{ mode: 'fixed', time: '09:00', count: 3 }];
+  $('#schedulePoints').innerHTML = list.map(scheduleRow).join('');
+}
+function scheduleRowMode(row) {
+  return row && row.querySelector('[data-sk="mode"]') && row.querySelector('[data-sk="mode"]').value === 'random'
+    ? 'random'
+    : 'fixed';
+}
+function syncScheduleRow(row) {
+  if (row) row.dataset.mode = scheduleRowMode(row);
+}
+function scheduleDraft() {
+  const num = (sel, dflt) => {
+    const el = $(sel);
+    if (!el || el.value === '') return dflt;
+    const n = Number(el.value);
+    return Number.isFinite(n) ? n : dflt;
+  };
+  let points = $$('.schedrow').map((row) => {
+    const mode = scheduleRowMode(row);
+    const val = (sel) => (row.querySelector(sel) ? row.querySelector(sel).value : '');
+    const count = Math.min(50, Math.max(1, Math.round(Number(val('[data-sk="count"]')) || 1)));
+    return mode === 'random'
+      ? { mode, from: val('[data-sk="from"]'), to: val('[data-sk="to"]'), count }
+      : { mode, time: val('[data-sk="time"]'), count };
+  }).filter((p) => (p.mode === 'random' ? !!(p.from && p.to) : !!p.time));
+  if (!points.length) points = [{ mode: 'fixed', time: '09:00', count: 3 }];
+  return {
+    points,
+    minSec: Math.min(600, Math.max(1, Math.round(num('#c_min_sec', 10)))),
+    maxSec: Math.min(600, Math.max(1, Math.round(num('#c_max_sec', 50)))),
+    floor: !$('#c_floor') || $('#c_floor').value === 'true',
+    fallbackSec: Math.min(600, Math.max(0, Math.round(num('#c_fallback', 15)))),
+  };
+}
+function nextScheduleTime() {
+  const used = new Set($$('.schedrow')
+    .filter((r) => scheduleRowMode(r) === 'fixed')
+    .map((r) => r.querySelector('[data-sk="time"]').value)
+    .filter(Boolean));
+  for (let h = 9; h <= 23; h++) {
+    const t = String(h).padStart(2, '0') + ':00';
+    if (!used.has(t)) return t;
+  }
+  return '09:00';
+}
+function scheduleConflict() {
+  const rows = $$('.schedrow');
+  const fixed = rows.filter((r) => scheduleRowMode(r) === 'fixed').map((r) => r.querySelector('[data-sk="time"]').value);
+  const dupFixed = fixed.find((t, i) => t && fixed.indexOf(t) !== i);
+  if (dupFixed) return '固定时间 ' + dupFixed + ' 重复了，请调整后再保存';
+  const ranges = rows.filter((r) => scheduleRowMode(r) === 'random').map((r) => {
+    const from = r.querySelector('[data-sk="from"]').value;
+    const to = r.querySelector('[data-sk="to"]').value;
+    return { from, to, label: from + '–' + to };
+  });
+  const bad = ranges.find((r) => hhmmMin(r.from) === null || hhmmMin(r.to) === null || hhmmMin(r.to) <= hhmmMin(r.from));
+  if (bad) return '时间范围 ' + (bad.label || '') + ' 的结束时间要晚于开始时间';
+  const dupRange = ranges.find((r, i) => ranges.findIndex((x) => x.label === r.label) !== i);
+  if (dupRange) return '时间范围 ' + dupRange.label + ' 重复了，请调整后再保存';
+  return '';
+}
+function updateScheduleHint() {
+  const hint = $('#scheduleHint');
+  if (!hint) return;
+  const plan = scheduleDraft();
+  const floorOff = $('#c_floor') && $('#c_floor').value === 'false';
+  if ($('#c_fallback')) $('#c_fallback').disabled = !!floorOff;
+  const avg = (Math.min(plan.minSec, plan.maxSec) + Math.max(plan.minSec, plan.maxSec)) / 2;
+  const per = Math.max(1, Math.round(plan.floor ? Math.max(avg, plan.fallbackSec) : avg));
+  const totalCount = plan.points.reduce((sum, p) => sum + p.count, 0);
+  const snap = state.config && state.config.scheduleState;
+  let progress = '';
+  if (snap && snap.day === localToday() && Array.isArray(snap.points)) {
+    const sent = snap.points.reduce((n, p) => n + (Number(p.sent) || 0), 0);
+    const total = snap.points.reduce((n, p) => n + (Number(p.count) || 0), 0);
+    const settled = snap.points.filter((p) => p.status === 'skipped' || p.status === 'aborted').length;
+    const active = snap.points[snap.active];
+    if (snap.status === 'done') {
+      progress = ' · 今天已完成 ' + sent + '/' + total + (settled ? '（' + settled + ' 个触发点跳过/中止）' : '');
+    } else if (active) {
+      const label = active.status === 'running' && Number(active.nextAt) > 0
+        ? '下一次 ' + timeLabel(active.nextAt)
+        : '下一个 ' + (active.mode === 'random' ? (active.from + '–' + active.to) : active.time);
+      progress = ' · 今天已发 ' + sent + '/' + total + ' · ' + label;
+    }
+  } else {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const upcoming = plan.points.find((p) => (hhmmMin(p.mode === 'random' ? p.from : p.time) ?? 9999) >= nowMin);
+    if (upcoming) {
+      progress = ' · 今天下一个：' + (upcoming.mode === 'random' ? (upcoming.from + '–' + upcoming.to) : upcoming.time);
+    } else {
+      progress = ' · 今天已无待触发点，可点下面按钮重新开始';
+    }
+  }
+  hint.textContent = plan.points.length + ' 个触发点，共 ' + totalCount + ' 条；约 ' + per + ' 秒/条' + progress;
+  if ($('#cfgHeroTotal')) $('#cfgHeroTotal').textContent = totalCount;
+}
+function selectedPoolMap() {
+  const map = {};
+  $$('[data-pool]').forEach((c) => { map[c.dataset.pool] = c.checked; });
+  return map;
+}
+function updatePoolCount() {
+  const all = $$('[data-pool]');
+  const checked = all.filter((c) => c.checked);
+  if ($('#poolCount')) $('#poolCount').textContent = checked.length + ' / ' + all.length + ' 已选';
+  if ($('#poolHint')) $('#poolHint').textContent = '已选 ' + checked.length + ' 个 · 勾选后点「保存设置」生效';
+  if ($('#poolSummary')) {
+    if (!checked.length) $('#poolSummary').textContent = '选择分类…';
+    else {
+      const names = checked.map((c) => c.dataset.pool);
+      $('#poolSummary').textContent = '已选 ' + names.length + ' 个分类：' + names.slice(0, 4).join('、') + (names.length > 4 ? '…' : '');
+    }
+  }
+}
+function poolEnabledMap(pools, selection = null) {
+  const prev = selection || ($$('[data-pool]').length ? selectedPoolMap() : null);
+  const map = {};
+  (pools || []).forEach((p) => { map[p.name] = prev && Object.prototype.hasOwnProperty.call(prev, p.name) ? !!prev[p.name] : !!p.enabled; });
+  return map;
+}
+function renderPoolDropdown(selection = null) {
+  const list = $('#poolList');
+  if (!list) return;
+  const pools = Array.isArray(state.pools) ? state.pools : [];
+  if (!(state.poolOpen instanceof Set)) state.poolOpen = new Set();
+  const enabled = poolEnabledMap(pools, selection);
+  const query = ($('#poolSearch') ? $('#poolSearch').value : '').trim().toLowerCase();
+  const matches = (p) => !query || p.name.toLowerCase().includes(query) || String(p.keyword || '').toLowerCase().includes(query);
+  const childrenByParent = new Map();
+  for (const p of pools) {
+    if (p.parent_id != null) {
+      if (!childrenByParent.has(String(p.parent_id))) childrenByParent.set(String(p.parent_id), []);
+      childrenByParent.get(String(p.parent_id)).push(p);
+    }
+  }
+  const roots = pools.filter((p) => p.parent_id == null);
+  let html = '';
+  let visible = 0;
+  for (const p of roots) {
+    const children = childrenByParent.get(String(p.id)) || [];
+    const visibleChildren = children.filter(matches);
+    const groupVisible = matches(p) || visibleChildren.length > 0;
+    if (groupVisible) visible++;
+    const open = state.poolOpen.has(p.name) || (!query && children.some((c) => enabled[c.name]));
+    html += '<div class="pool-group"' + (groupVisible ? '' : ' hidden') + '>'
+      + '<div class="pool-parent-row">'
+      + (children.length ? '<button class="pool-expand" type="button" data-pool-expand="' + esc(p.name) + '" title="展开/收起">' + (open ? '▾' : '▸') + '</button>' : '<span class="pool-expand empty"></span>')
+      + '<label><input type="checkbox" data-pool="' + esc(p.name) + '"' + (enabled[p.name] ? ' checked' : '') + '><span class="pool-parent-name">' + esc(p.name) + '</span></label>'
+      + (children.length ? '<span class="pool-child-count">' + children.length + ' 子类</span>' : '')
+      + '<button class="pool-ai" type="button" data-pool-ai="' + esc(p.name) + '" title="让 AI 泛化这个父分类" aria-label="AI 泛化 ' + esc(p.name) + '">✨</button>'
+      + '</div>';
+    if (children.length) {
+      html += '<div class="pool-children"' + (open ? '' : ' hidden') + '>' + children.map((c) => '<label class="pool-child"' + (query && !matches(c) ? ' hidden' : '') + '><input type="checkbox" data-pool="' + esc(c.name) + '"' + (enabled[c.name] ? ' checked' : '') + '><span>' + esc(c.name) + '</span></label>').join('') + '</div>';
+    }
+    html += '</div>';
+  }
+  if (!visible) html = '<div class="pool-empty">没有匹配的分类</div>';
+  list.innerHTML = html;
+  updatePoolCount();
+}
+async function loadPools() {
+  try {
+    const d = await getJSON('/api/pools');
+    state.pools = Array.isArray(d.pools) ? d.pools : [];
+  } catch (e) {
+    state.pools = Object.keys((state.config && state.config.pools) || {}).map((name) => ({ name, keyword: name, enabled: !!(state.config.pools[name]) }));
+  }
+  if (!(state.poolOpen instanceof Set)) state.poolOpen = new Set();
+  for (const p of state.pools) {
+    if (p.parent_id != null && p.enabled) {
+      const parent = state.pools.find((x) => String(x.id) === String(p.parent_id));
+      if (parent) state.poolOpen.add(parent.name);
+    }
+  }
+  renderPoolDropdown();
+}
+function togglePoolPanel(open) {
+  const panel = $('#poolPanel');
+  const trigger = $('#poolTrigger');
+  const backdrop = $('#poolBackdrop');
+  if (!panel || !trigger) return;
+  const next = open == null ? panel.hidden : !!open;
+  panel.hidden = !next;
+  if (backdrop) backdrop.hidden = !next;
+  document.body.classList.toggle('pool-open', next);
+  document.body.style.overflow = next ? 'hidden' : '';
+  trigger.setAttribute('aria-expanded', String(next));
+  if (next) {
+    updatePoolCount();
+    setTimeout(() => { const input = $('#poolSearch'); if (input) input.focus(); }, 30);
+  }
+}
+async function generalizePool(parent) {
+  const btn = $$('[data-pool-ai]').find((b) => b.dataset.poolAi === parent);
+  if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+  const before = selectedPoolMap();
+  try {
+    const hint = $('#poolAiHint') ? $('#poolAiHint').value.trim() : '';
+    const d = await postJSON('/api/pools/generalize', { parent, hint });
+    state.pools = Array.isArray(d.pools) ? d.pools : state.pools;
+    const added = new Set((d.categories || []).map((c) => c.name));
+    const merged = { ...before };
+    for (const name of added) merged[name] = true;
+    merged[parent] = true;
+    state.poolOpen.add(parent);
+    renderPoolDropdown(merged);
+    setTimeout(() => {
+      const list = $('#poolList');
+      const group = $$('.pool-group').find((g) => { const b = g.querySelector('[data-pool-ai]'); return b && b.dataset.poolAi === parent; });
+      if (list && group) list.scrollTop = Math.max(0, group.offsetTop - 4);
+    }, 0);
+    toast('AI 新增 ' + (d.categories || []).length + ' 个子分类，已保存', 'ok');
+  } catch (e) {
+    toast('AI 泛化失败：' + e.message, 'bad');
+    if (btn) { btn.disabled = false; btn.textContent = '✨'; }
+  }
+}
+const FILTER_DEFAULTS = { likes: 1000, comments: 10, favorites: 5, shares: 1 };
+const FILTER_SWITCHES = ['age', 'likes', 'comments', 'favorites', 'shares'];
+function filterEnabled(name) {
+  const sw = $('#sw_' + name);
+  return !!(sw && sw.classList.contains('on'));
+}
+function setFilterSwitch(name, on, { fillDefault = false } = {}) {
+  const sw = $('#sw_' + name);
+  const row = document.querySelector('[data-filter-row="' + name + '"]');
+  if (!sw || !row) return;
+  const enabled = !!on;
+  sw.classList.toggle('on', enabled);
+  sw.setAttribute('aria-checked', String(enabled));
+  row.classList.toggle('is-off', !enabled);
+  row.querySelectorAll('input').forEach((input) => {
+    input.disabled = !enabled;
+    if (enabled && fillDefault && !(Number(input.value) > 0)) {
+      if (name === 'age') input.value = input.id === 'c_vmax' ? '7' : '30';
+      else input.value = String(FILTER_DEFAULTS[name] || 0);
+    }
+  });
+  updateMetricFiltersUI();
+}
+function updateMetricFiltersUI() {
+  const pill = $('#metricPill');
+  if (!pill) return;
+  const ageOn = filterEnabled('age');
+  const pool = !$('#c_source') || $('#c_source').value !== 'recommend';
+  const ageEl = pool ? $('#c_vmax') : $('#c_rmax');
+  const ageVal = ageEl ? Number(ageEl.value) : 0;
+  const ageText = ageOn ? ('时效 ' + (ageVal > 0 ? ageVal + ' 天' : '不限')) : '时效不限';
+  const onCount = ['likes', 'comments', 'favorites', 'shares'].filter(filterEnabled).length;
+  pill.textContent = ageText + ' · ' + (onCount ? onCount + ' 项门槛' : '互动不限');
+  pill.className = 'pill ' + (ageOn || onCount ? 'blue' : '');
+}
+function initFilterSwitches() {
+  FILTER_SWITCHES.forEach((name) => {
+    const sw = $('#sw_' + name);
+    if (!sw) return;
+    const toggle = () => {
+      const next = !filterEnabled(name);
+      setFilterSwitch(name, next, { fillDefault: next });
+    };
+    sw.addEventListener('click', toggle);
+    sw.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
+    });
+  });
+}
+function setEnabledState(on) {
+  const el = $('#c_enabled');
+  if (el) el.value = on ? 'true' : 'false';
+  if (state.config) state.config.enabled = !!on;
+}
+function updateSourceUI() {
+  if (!$('#c_source')) return;
+  const src = $('#c_source').value === 'recommend' ? 'recommend' : 'pool';
+  const isRec = src === 'recommend';
+  const pill = $('#configSourcePill');
+  if (pill) {
+    pill.textContent = isRec ? '默认推荐' : '视频池';
+    pill.className = 'pill ' + (isRec ? 'blue' : '');
+  }
+  $$('.pool-only').forEach((el) => { el.hidden = isRec; });
+  $$('.recommend-only').forEach((el) => { el.hidden = !isRec; });
+  const note = $('#sourceNote');
+  if (note) {
+    note.innerHTML = isRec
+      ? '抖音默认推荐：使用「推荐」tab 的个性化内容，只走纯 API；需要会话里已捕获 feed。AI 过滤默认关闭。'
+      : '视频池搜索：按分类关键词挑选，内容更可控；每个池会轮换基础关键词和同类变体。';
+  }
+  const account = state.config && (state.config.accountName || state.config.account);
+  let hint = account ? ('独立保存 · ' + account) : '仅作用于当前账户';
+  if (isRec && state.config && state.config.sendMode === 'browser') {
+    hint = '推荐源只支持纯 API：请把「纯 API 连接」切到纯 API 优先';
+  } else if (isRec && state.api && !state.api.hasFeedUrl) {
+    hint = '推荐源已选，但当前会话没有捕获到 feed；请先导出/刷新纯 API 会话';
+  } else if (isRec) {
+    hint = '推荐源只走纯 API，不启动浏览器';
+  }
+  if ($('#configHint')) $('#configHint').textContent = hint;
+  if ($('#ageSourceHint')) {
+    $('#ageSourceHint').textContent = isRec ? '推荐流 0–365 天（0=不限）' : '池搜索 1–30 天';
+  }
+  updateMetricFiltersUI();
 }
 function collectConfig() {
-  const bands = $$('.bandrow').map((r) => {
-    const g = (k) => r.querySelector('[data-k="' + k + '"]').value;
-    return { name: g('name'), from: g('from'), to: g('to'), min: Number(g('min')), max: Number(g('max')) };
-  });
+  const plan = scheduleDraft();
   const pools = {};
   $$('[data-pool]').forEach((c) => { pools[c.dataset.pool] = c.checked; });
   return {
+    account: state.accounts && state.accounts.active ? state.accounts.active : undefined,
     enabled: $('#c_enabled').value === 'true',
-    minGapMinutes: Number($('#c_gap').value),
-    totalMin: Number($('#c_tmin').value),
-    totalMax: Number($('#c_tmax').value),
+    schedulePoints: plan.points,
+    burstMinSec: plan.minSec,
+    burstMaxSec: plan.maxSec,
+    burstDurationFloor: plan.floor,
+    burstFallbackSec: plan.fallbackSec,
+    videoSource: $('#c_source').value,
+    filterAgeEnabled: filterEnabled('age'),
+    filterLikesEnabled: filterEnabled('likes'),
+    filterCommentsEnabled: filterEnabled('comments'),
+    filterFavoritesEnabled: filterEnabled('favorites'),
+    filterSharesEnabled: filterEnabled('shares'),
+    filterMinLikes: Number($('#c_min_likes').value) || 0,
+    filterMinComments: Number($('#c_min_comments').value) || 0,
+    filterMinFavorites: Number($('#c_min_favorites').value) || 0,
+    filterMinShares: Number($('#c_min_shares').value) || 0,
     poolDelayMs: Number($('#c_pdelay').value),
+    naturalShare: $('#c_natural').value === 'true',
+    naturalText: $('#c_natural_text_switch') ? $('#c_natural_text_switch').classList.contains('on') : true,
     maxVideoAgeDays: Number($('#c_vmax').value),
-    bands, pools,
+    recommendMaxAgeDays: Number($('#c_rmax').value),
+    pools,
     banWords: $('#c_ban').value.split('\n').map((s) => s.trim()).filter(Boolean),
   };
+}
+const CONFIG_TABS = ['plan', 'video', 'friends', 'connection', 'ai', 'database', 'advanced'];
+function setNaturalTextSwitch(on) {
+  const el = $('#c_natural_text_switch');
+  if (!el) return;
+  el.classList.toggle('on', !!on);
+  el.setAttribute('aria-checked', String(!!on));
+  el.title = on ? '关闭后自然分享只发视频' : '开启后在视频后发送 AI 文字附言';
+  const state = $('#c_natural_text_state');
+  if (state) { state.textContent = on ? '开启' : '关闭'; state.style.color = on ? 'var(--ok)' : 'var(--dim2)'; }
+}
+function activateConfigTab(tab, { scroll = false } = {}) {
+  if (!CONFIG_TABS.includes(tab)) tab = 'plan';
+  state.configTab = tab;
+  $$('#configNav [data-config-tab]').forEach((b) => {
+    const on = b.dataset.configTab === tab;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-selected', String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+  $$('#view-config .settings-card').forEach((sec) => {
+    const on = sec.id === 'sec-' + tab;
+    sec.hidden = !on;
+    sec.classList.remove('config-section-enter');
+    if (on) { void sec.offsetWidth; sec.classList.add('config-section-enter'); }
+  });
+  const extra = $('#eventsCfg');
+  if (extra) extra.hidden = tab !== 'advanced';
+  if (scroll) {
+    const section = document.getElementById('sec-' + tab);
+    const header = document.querySelector('.topbar');
+    const offset = (header ? header.getBoundingClientRect().height : 140) + 16;
+    if (section) {
+      const top = section.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
+  }
 }
 async function loadConfigPage() {
   try {
     const cfg = await getJSON('/api/config');
     state.config = cfg; state.cfgLoaded = true;
-    $('#c_gap').value = cfg.minGapMinutes ?? 5;
-    $('#c_tmin').value = cfg.totalMin ?? 0;
-    $('#c_tmax').value = cfg.totalMax ?? 0;
+    $('#configAccount').textContent = cfg.accountName || cfg.account || '-';
+    renderSchedule(cfg.schedulePoints);
+    $('#c_min_sec').value = cfg.burstMinSec ?? 10;
+    $('#c_max_sec').value = cfg.burstMaxSec ?? 50;
+    $('#c_floor').value = cfg.burstDurationFloor === false ? 'false' : 'true';
+    $('#c_fallback').value = cfg.burstFallbackSec ?? 15;
+    $('#c_source').value = cfg.videoSource || 'pool';
+    $('#c_min_likes').value = cfg.filterMinLikes ?? 0;
+    $('#c_min_comments').value = cfg.filterMinComments ?? 0;
+    $('#c_min_favorites').value = cfg.filterMinFavorites ?? 0;
+    $('#c_min_shares').value = cfg.filterMinShares ?? 0;
     $('#c_pdelay').value = cfg.poolDelayMs ?? 2500;
+    $('#c_natural').value = cfg.naturalShare === true ? 'true' : 'false';
+    setNaturalTextSwitch(cfg.naturalText !== false);
     $('#c_vmax').value = cfg.maxVideoAgeDays ?? 7;
-    $('#c_enabled').value = cfg.enabled === false ? 'false' : 'true';
+    $('#c_rmax').value = cfg.recommendMaxAgeDays ?? 30;
+    setFilterSwitch('age', cfg.filterAgeEnabled !== false);
+    setFilterSwitch('likes', cfg.filterLikesEnabled === true);
+    setFilterSwitch('comments', cfg.filterCommentsEnabled === true);
+    setFilterSwitch('favorites', cfg.filterFavoritesEnabled === true);
+    setFilterSwitch('shares', cfg.filterSharesEnabled === true);
+    setEnabledState(cfg.enabled !== false);
     $('#c_ban').value = (cfg.banWords || []).join('\n');
-    renderBands(cfg.bands);
-    renderPools(cfg.pools);
-    updateHint();
+    await loadPools();
+    updateScheduleHint();
+    updateSourceUI();
     await loadApiSession();
+    updateSourceUI();
+    await loadAIStatus();
+    await loadDatabase();
     await loadFriends();
     loadCfgEvents();
+    activateConfigTab(state.configTab || 'plan');
   } catch (e) { toast('配置加载失败：' + e.message, 'bad'); }
 }
-let lastPreview = null;
 async function updateApiMode(mode) {
   try {
     await postJSON('/api/api-session/mode', { mode });
@@ -1739,7 +3377,9 @@ async function loadFriends() {
     const d = await getJSON('/api/friends');
     const friends = d.friends || [];
     const captured = new Set(((state.api && state.api.friends) || []).map((x) => x.name));
-    $('#friendCountPill').textContent = friends.filter((f) => f.enabled).length + ' / ' + friends.length + ' 启用';
+    const enabledFriends = friends.filter((f) => f.enabled).length;
+    $('#friendCountPill').textContent = enabledFriends + ' / ' + friends.length + ' 启用';
+    if ($('#cfgHeroFriends')) $('#cfgHeroFriends').textContent = enabledFriends;
     $('#friendList').innerHTML = friends.map((f) => '<div class="friend-row">'
       + '<label class="friend-check" style="padding:3px 8px"><input type="checkbox" data-friend-toggle="' + f.id + '"' + (f.enabled ? ' checked' : '') + '> ' + (f.enabled ? '启用' : '停用') + '</label>'
       + '<span class="name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
@@ -1775,6 +3415,10 @@ async function loadApiSession() {
       lines.push('账户：' + (d.accountName || d.account || '-') + ' · 当前好友 ' + (d.defaultFriend || '-') + ' · 账户好友 ' + ((d.accountFriends || []).length) + ' 人');
       lines.push('抓取于：' + dateTimeOf(d.createdAt) + '（' + (d.ageHours != null ? d.ageHours + 'h 前' : '-') + '，有效期 ' + d.maxAgeHours + 'h）');
       lines.push('模板 ' + d.templateBytes + ' 字符 · cookies ' + d.cookies + ' 条 · 好友 ' + d.friendCount + ' 人' + (d.hasCreateTemplate ? '（支持任意好友）' : ''));
+      lines.push('视频来源：' + (d.videoSource === 'recommend' ? '抖音默认推荐（纯 API）' : '视频池搜索') + ' · 首页推荐 feed：' + (d.hasFeedUrl ? '已捕获' : '未捕获（推荐源不可用，需重新导出）'));
+      if (!d.hasFeedUrl && Array.isArray(d.feedPaths) && d.feedPaths.length) {
+        lines.push('最近捕获到的相关请求：' + d.feedPaths.slice(-6).join(' , '));
+      }
     } else {
       lines.push('还没有导出会话。点「导出 / 刷新会话」会短暂启动一个最小化浏览器（不会发送消息）。');
     }
@@ -1782,12 +3426,713 @@ async function loadApiSession() {
     $('#apiFriends').innerHTML = (d.friends || []).length
       ? d.friends.map((f) => '<span class="chip">' + esc(f.name) + '</span>').join('')
       : '<span class="muted">暂无好友列表</span>';
-    $('#quickPill').textContent = d.sendMode === 'auto' ? 'API' : '浏览器';
+    $('#quickPill').textContent = d.sendMode === 'auto'
+      ? (d.videoSource === 'recommend' ? 'API · 推荐' : 'API')
+      : '浏览器';
+    if ($('#cfgHeroFeed')) {
+      $('#cfgHeroFeed').textContent = d.hasFeedUrl ? '已捕获' : '未捕获';
+      $('#cfgHeroFeed').className = d.hasFeedUrl ? 'ok' : 'warn';
+    }
+    updateSourceUI();
   } catch (e) { $('#apiLine').textContent = '读取失败：' + e.message; }
+}
+async function loadAIStatus() {
+  try {
+    const d = await getJSON('/api/ai/status');
+    state.ai = d;
+    const pill = $('#aiPill');
+    pill.textContent = d.config.enabled ? (d.config.hasApiKey ? '已开启' : '缺少 Key') : '关闭';
+    pill.className = 'pill ' + (d.config.enabled && d.config.hasApiKey ? 'ok' : (d.config.enabled ? 'warn' : ''));
+    $('#ai_enabled').value = d.config.enabled ? 'true' : 'false';
+    $('#ai_base').value = d.config.baseUrl || '';
+    $('#ai_model').value = d.config.model || '';
+    $$('#aiModeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.aiMode === (d.aiMode || 'off')));
+    $('#aiMsg').textContent = d.config.hasApiKey
+      ? ('已配置 Key（' + (d.config.model || '-') + '）· 本账户模式 ' + (d.aiMode || 'off'))
+      : '还没有 API Key；填入后点保存。AI 默认关闭，不影响发送。';
+    const filterPill = $('#aiFilterPill');
+    const filterHint = $('#aiFilterHint');
+    if (filterPill && filterHint) {
+      const mode = d.aiMode || 'off';
+      const enabled = !!d.config.enabled;
+      const hasKey = !!d.config.hasApiKey;
+      const ready = enabled && hasKey;
+      filterPill.textContent = mode === 'off' ? '关闭' : (!enabled ? '未开启' : (hasKey ? '已启用' : '缺少 Key'));
+      filterPill.className = 'pill ' + (mode === 'off' ? '' : (ready ? 'ok' : 'warn'));
+      filterHint.textContent = mode === 'off'
+        ? '关闭时使用规则筛选（去重、屏蔽词、时效、广告/直播过滤）；可在下方开启 AI。'
+        : (!enabled
+          ? 'AI 总开关未开启；到「05 AI → 连接设置」开启并保存后，筛选才会真正调用模型。'
+          : (hasKey
+            ? (mode === 'moderate' ? '安全过滤：AI 去掉广告/不安全内容，保留候选随机选。' : '过滤 + 排序：AI 去广告/不安全，并按账户兴趣排序。')
+            : 'AI 模式已选择，但缺少 API Key；当前会自动回退规则筛选。'));
+    }
+  } catch (e) {
+    $('#aiMsg').textContent = 'AI 状态读取失败：' + e.message;
+    if ($('#aiFilterPill')) $('#aiFilterPill').textContent = '读取失败';
+  }
+}
+function aiConfigPayload() {
+  const body = {
+    enabled: $('#ai_enabled').value === 'true',
+    baseUrl: $('#ai_base').value.trim(),
+    model: $('#ai_model').value.trim(),
+    aiMode: state.ai && state.ai.aiMode ? state.ai.aiMode : 'off',
+  };
+  const key = $('#ai_key').value.trim();
+  if (key) body.apiKey = key;
+  return body;
+}
+async function persistAIConfig({ quiet = false } = {}) {
+  const msg = $('#aiMsg');
+  if (!quiet) msg.textContent = '保存中…';
+  const d = await postJSON('/api/ai/config', aiConfigPayload());
+  $('#ai_key').value = '';
+  if (!quiet) {
+    msg.textContent = d.config.hasApiKey ? '已保存（Key 已配置）' : '已保存，但还没有 API Key';
+    toast('AI 配置已保存', 'ok');
+  }
+  await loadAIStatus();
+  return d;
+}
+async function setAIMode(mode) {
+  try {
+    await postJSON('/api/ai/config', { aiMode: mode });
+    toast('AI 模式：' + (mode === 'off' ? '关闭' : mode === 'moderate' ? '安全过滤' : '过滤 + 排序'), 'ok');
+    await loadAIStatus();
+  } catch (e) { toast('切换失败：' + e.message, 'bad'); }
+}
+async function testAI() {
+  const msg = $('#aiMsg');
+  msg.textContent = '保存并测试中…';
+  try {
+    // Test must use the fields currently on screen. Save them first; otherwise the
+    // server tests the old ai.json and reports "缺少 API Key".
+    const saved = await persistAIConfig({ quiet: true });
+    if (!saved.config.enabled) throw new Error('AI 未启用（启用选择为关闭）');
+    if (!saved.config.hasApiKey) throw new Error('保存后仍没有 API Key，请重新填写');
+    msg.textContent = '测试连接中…';
+    const d = await postJSON('/api/ai/test', {});
+    msg.textContent = '连接成功：' + (d.answer || 'OK');
+    toast('AI 连接成功', 'ok');
+  } catch (e) { msg.textContent = '连接失败：' + e.message; toast('AI 连接失败', 'bad'); }
+}
+function applyDraftToForm(draft) {
+  if (!draft) return;
+  if (Array.isArray(draft.schedulePoints) && draft.schedulePoints.length) renderSchedule(draft.schedulePoints);
+  if (draft.burstMinSec != null) $('#c_min_sec').value = draft.burstMinSec;
+  if (draft.burstMaxSec != null) $('#c_max_sec').value = draft.burstMaxSec;
+  if (draft.filters) {
+    $('#c_min_likes').value = draft.filters.minLikes || 0;
+    $('#c_min_comments').value = draft.filters.minComments || 0;
+    $('#c_min_favorites').value = draft.filters.minFavorites || 0;
+    $('#c_min_shares').value = draft.filters.minShares || 0;
+    setFilterSwitch('likes', draft.filters.likesEnabled ?? (Number(draft.filters.minLikes) > 0));
+    setFilterSwitch('comments', draft.filters.commentsEnabled ?? (Number(draft.filters.minComments) > 0));
+    setFilterSwitch('favorites', draft.filters.favoritesEnabled ?? (Number(draft.filters.minFavorites) > 0));
+    setFilterSwitch('shares', draft.filters.sharesEnabled ?? (Number(draft.filters.minShares) > 0));
+    updateMetricFiltersUI();
+  }
+  $('#c_source').value = draft.videoSource === 'recommend' ? 'recommend' : 'pool';
+  $('#c_ban').value = (draft.banWords || []).join('\n');
+  updateScheduleHint();
+  updateSourceUI();
+  $('#msg').textContent = 'AI 草案已填入，请检查后点「保存设置」';
+}
+async function draftAI() {
+  const text = $('#ai_draft_text').value.trim();
+  if (!text) return;
+  const box = $('#ai_draft_out');
+  box.textContent = '生成中…';
+  try {
+    const d = await postJSON('/api/ai/config-draft', { text });
+    const draft = d.draft;
+    box.innerHTML = '<div>' + esc(JSON.stringify(draft, null, 2)) + '</div><div class="rowbtns"><button class="btn primary sm" id="aiDraftApply">填入配置页</button></div>';
+    $('#aiDraftApply').onclick = () => { applyDraftToForm(draft); box.textContent = '已填入配置页，检查后保存。'; };
+  } catch (e) { box.textContent = '失败：' + e.message; }
+}
+async function askAI() {
+  const q = $('#ai_question').value.trim();
+  if (!q) return;
+  const box = $('#ai_answer');
+  box.textContent = '思考中…';
+  try {
+    const d = await postJSON('/api/ai/ask', { question: q });
+    box.textContent = d.answer || '(空回答)';
+  } catch (e) { box.textContent = '失败：' + e.message; }
+}
+
+/* ---------------- floating AI chat ---------------- */
+const AI_CHAT_KEY = 'heartbeat-ai-chat-v1';
+const AI_ACTION_MODE_KEY = 'heartbeat-ai-action-mode-v1';
+function aiActionMode() { try { return localStorage.getItem(AI_ACTION_MODE_KEY) === 'auto' ? 'auto' : 'confirm'; } catch (e) { return 'confirm'; } }
+function syncAIActionModeButtons() {
+  const mode = aiActionMode();
+  $$('#aiActionModeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.aiActionMode === mode));
+}
+function setAIActionMode(mode) {
+  const next = mode === 'auto' ? 'auto' : 'confirm';
+  try { localStorage.setItem(AI_ACTION_MODE_KEY, next); } catch (e) {}
+  syncAIActionModeButtons();
+  refreshAIChatStatus();
+  toast(next === 'auto' ? 'AI 将自动执行写入操作' : '写入操作需要确认一次', next === 'auto' ? 'warn' : 'ok');
+}
+function chatTime() { return new Date().toLocaleTimeString('zh-CN', { hour12: false, hour: '2-digit', minute: '2-digit' }); }
+function chatWelcome() {
+  return { role: 'assistant', content: '我是小蓝鲸，心动投递的 AI 助手。可以看当前账户的排班、会话、发送记录和配置；普通问答直接回答，写入操作按下方模式处理：确认一次，或由 AI 自动执行。', time: chatTime(), welcome: true };
+}
+const AI_PET_ASSETS = {
+  idle: '/assets/dsh-pet/idle.webm',
+  look: '/assets/dsh-pet/look.webm',
+  think: '/assets/dsh-pet/think.webm',
+  cheer: '/assets/dsh-pet/cheer.webm',
+  happy: '/assets/dsh-pet/happy.webm',
+  sleepStart: '/assets/dsh-pet/sleep-start.webm',
+  sleepLoop: '/assets/dsh-pet/sleep-loop.webm',
+  sleepWake: '/assets/dsh-pet/sleep-wake.webm',
+  surprised: '/assets/dsh-pet/surprised.webm',
+  stretch: '/assets/dsh-pet/stretch.webm'
+};
+const AI_PET_POS_KEY = 'heartbeat-ai-pet-pos-v1';
+function petReduceMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+function petElements() {
+  return { pet: $('#aiFab'), video: $('#aiPetVideo'), fallback: $('#aiPetFallback'), bubble: $('#aiPetBubble'), menu: $('#aiPetMenu') };
+}
+function showPetBubble(text, ms = 2800) {
+  const el = $('#aiPetBubble');
+  if (!el) return;
+  if (state.aiPetBubbleTimer) clearTimeout(state.aiPetBubbleTimer);
+  if (!text) { el.classList.remove('show'); el.textContent = ''; return; }
+  el.textContent = text;
+  el.classList.add('show');
+  state.aiPetBubbleTimer = setTimeout(() => el.classList.remove('show'), ms);
+}
+function playPetAnim(name, { once = false, next = null } = {}) {
+  const { video, fallback } = petElements();
+  if (!video || !AI_PET_ASSETS[name]) return;
+  if (petReduceMotion()) { if (fallback) fallback.hidden = false; video.hidden = true; return; }
+  video.hidden = false;
+  if (fallback) fallback.hidden = true;
+  const token = ++state.aiPetAnimToken;
+  if (video.dataset.anim === name && !once && !video.paused) return;
+  video.dataset.anim = name;
+  video.onended = null;
+  video.loop = !once;
+  video.src = AI_PET_ASSETS[name];
+  video.load();
+  video.play().catch(() => {});
+  if (once) {
+    video.onended = () => {
+      if (token !== state.aiPetAnimToken) return;
+      if (next) playPetAnim(next);
+      else if (!state.aiPetSleeping) playPetAnim('idle');
+    };
+    // Some transparent clips end without firing onended in background windows.
+    setTimeout(() => {
+      if (token !== state.aiPetAnimToken) return;
+      if (next) playPetAnim(next);
+      else if (!state.aiPetSleeping) playPetAnim('idle');
+    }, 12000);
+  }
+}
+function petThinking(message = '让我看看…') {
+  state.aiPetSleeping = false;
+  state.aiPetThinking = true;
+  clearTimeout(state.aiPetSleepTimer);
+  playPetAnim('think');
+  showPetBubble(message, 6000);
+}
+function petReply(message) {
+  state.aiPetThinking = false;
+  const line = message || ['搞定', '发你了', '我看看…好了', '收到'][Math.floor(Math.random() * 4)];
+  playPetAnim('cheer', { once: true, next: 'idle' });
+  showPetBubble(line, 2400);
+  schedulePetSleep();
+}
+function petError() {
+  state.aiPetThinking = false;
+  playPetAnim('surprised', { once: true, next: 'idle' });
+  showPetBubble('咦，出错了…', 3200);
+  schedulePetSleep();
+}
+function petWake() {
+  state.aiPetSleeping = false;
+  playPetAnim('sleepWake', { once: true, next: 'idle' });
+  showPetBubble('我醒啦', 1800);
+  schedulePetSleep();
+}
+function petSleep() {
+  state.aiPetSleeping = true;
+  state.aiPetThinking = false;
+  playPetAnim('sleepStart', { once: true, next: 'sleepLoop' });
+  showPetBubble('我先眯一会儿…', 2200);
+  clearTimeout(state.aiPetIdleTimer);
+  clearTimeout(state.aiPetSleepTimer);
+}
+function schedulePetIdle() {
+  clearTimeout(state.aiPetIdleTimer);
+  state.aiPetIdleTimer = setTimeout(() => {
+    if (state.aiPetSleeping || state.aiPetThinking || state.aiChatOpen) return;
+    const choices = ['look', 'stretch', 'happy'];
+    playPetAnim(choices[Math.floor(Math.random() * choices.length)], { once: true, next: 'idle' });
+    schedulePetIdle();
+  }, 22000 + Math.floor(Math.random() * 23000));
+}
+function schedulePetSleep() {
+  clearTimeout(state.aiPetSleepTimer);
+  if (petReduceMotion()) return;
+  state.aiPetSleepTimer = setTimeout(() => {
+    if (state.aiChatOpen || state.aiPetThinking) { schedulePetSleep(); return; }
+    petSleep();
+  }, 180000);
+}
+function savePetPosition(pet) {
+  try {
+    const r = pet.getBoundingClientRect();
+    localStorage.setItem(AI_PET_POS_KEY, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) }));
+  } catch (e) {}
+}
+function clampPetPosition(pet) {
+  const r = pet.getBoundingClientRect();
+  const x = Math.max(4, Math.min(window.innerWidth - r.width - 4, r.left));
+  const y = Math.max(4, Math.min(window.innerHeight - r.height - 4, r.top));
+  pet.style.left = Math.round(x) + 'px';
+  pet.style.top = Math.round(y) + 'px';
+  pet.style.right = 'auto';
+  pet.style.bottom = 'auto';
+}
+function resetPetPosition(pet) {
+  try { localStorage.removeItem(AI_PET_POS_KEY); } catch (e) {}
+  pet.style.left = '';
+  pet.style.top = '';
+  pet.style.right = '';
+  pet.style.bottom = '';
+}
+function initAIPet() {
+  const { pet, video, fallback, menu } = petElements();
+  if (!pet) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem(AI_PET_POS_KEY) || 'null');
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      pet.style.left = saved.x + 'px';
+      pet.style.top = saved.y + 'px';
+      pet.style.right = 'auto';
+      pet.style.bottom = 'auto';
+      setTimeout(() => clampPetPosition(pet), 0);
+    }
+  } catch (e) {}
+  if (petReduceMotion()) {
+    if (video) video.hidden = true;
+    if (fallback) fallback.hidden = false;
+  } else {
+    if (video) {
+      video.addEventListener('error', () => { video.hidden = true; if (fallback) fallback.hidden = false; });
+      video.addEventListener('loadeddata', () => { if (fallback) fallback.hidden = true; });
+    }
+    playPetAnim('idle');
+    setTimeout(() => { if (!state.aiChatOpen) showPetBubble('点我聊两句', 2600); }, 1200);
+  }
+  schedulePetIdle();
+  schedulePetSleep();
+
+  let drag = null;
+  let suppressClick = false;
+  pet.addEventListener('pointerdown', (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    const r = pet.getBoundingClientRect();
+    drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, left: r.left, top: r.top, moved: false };
+    pet.setPointerCapture && pet.setPointerCapture(e.pointerId);
+    document.body.style.userSelect = 'none';
+  });
+  pet.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.sx;
+    const dy = e.clientY - drag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 4) {
+      drag.moved = true;
+      pet.classList.add('dragging');
+      pet.style.left = Math.max(4, Math.min(window.innerWidth - 60, drag.left + dx)) + 'px';
+      pet.style.top = Math.max(4, Math.min(window.innerHeight - 60, drag.top + dy)) + 'px';
+      pet.style.right = 'auto';
+      pet.style.bottom = 'auto';
+    }
+  });
+  const endDrag = (e) => {
+    if (!drag || (e.pointerId !== undefined && e.pointerId !== drag.id)) return;
+    const moved = drag.moved;
+    drag = null;
+    pet.classList.remove('dragging');
+    document.body.style.userSelect = '';
+    if (moved) {
+      clampPetPosition(pet);
+      savePetPosition(pet);
+      suppressClick = true;
+      setTimeout(() => { suppressClick = false; }, 250);
+    }
+  };
+  pet.addEventListener('pointerup', endDrag);
+  pet.addEventListener('pointercancel', endDrag);
+  pet.addEventListener('click', (e) => {
+    if (suppressClick) { suppressClick = false; return; }
+    if (state.aiPetSleeping) petWake();
+    setAIChatOpen(!state.aiChatOpen);
+    if (state.aiChatOpen) playPetAnim('happy', { once: true, next: 'idle' });
+    schedulePetSleep();
+  });
+  pet.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pet.click(); }
+  });
+  pet.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (!menu) return;
+    menu.hidden = false;
+    const w = 160, h = 150;
+    menu.style.left = Math.max(6, Math.min(window.innerWidth - w - 6, e.clientX)) + 'px';
+    menu.style.top = Math.max(6, Math.min(window.innerHeight - h - 6, e.clientY)) + 'px';
+  });
+  if (menu) {
+    menu.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pet-action]');
+      if (!btn) return;
+      const action = btn.dataset.petAction;
+      menu.hidden = true;
+      if (action === 'chat') setAIChatOpen(true);
+      if (action === 'random') {
+        const pick = ['look', 'stretch', 'happy', 'surprised'][Math.floor(Math.random() * 4)];
+        playPetAnim(pick, { once: true, next: 'idle' });
+        showPetBubble(pick === 'surprised' ? '吓我一跳！' : '换个姿势～', 1800);
+      }
+      if (action === 'sleep') { if (state.aiPetSleeping) petWake(); else petSleep(); }
+      if (action === 'reset') { resetPetPosition(pet); showPetBubble('回到右下角', 1500); }
+    });
+  }
+  document.addEventListener('pointerdown', (e) => {
+    if (!menu || menu.hidden) return;
+    if (!menu.contains(e.target) && !pet.contains(e.target)) menu.hidden = true;
+  });
+  window.addEventListener('resize', () => { if (pet.style.left) clampPetPosition(pet); });
+}
+
+function ensureAIChat() {
+  if (Array.isArray(state.aiChat)) return;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(AI_CHAT_KEY) || '[]');
+    state.aiChat = Array.isArray(saved) && saved.length
+      ? saved.slice(-40).filter((m) => m && ['user', 'assistant'].includes(m.role) && typeof m.content === 'string').map((m) => ({ role: m.role, content: m.content, time: m.time || '', error: !!m.error, autoRun: !!m.autoRun, actions: Array.isArray(m.actions) ? m.actions.slice(0, 3).filter((a) => a && typeof a.type === 'string').map((a) => ({ ...a, status: ['pending', 'running', 'done', 'error', 'dismissed'].includes(a.status) ? a.status : 'pending' })).map((a) => (m.autoRun && a.status === 'pending' ? { ...a, status: 'error', result: '页面刷新，未自动执行；请重新提问。' } : a)) : undefined }))
+      : [];
+  } catch (e) { state.aiChat = []; }
+  if (!state.aiChat.length) state.aiChat.push(chatWelcome());
+}
+function saveAIChat() {
+  if (!Array.isArray(state.aiChat)) return;
+  try {
+    const clean = state.aiChat.filter((m) => !m.typing).slice(-40);
+    sessionStorage.setItem(AI_CHAT_KEY, JSON.stringify(clean));
+  } catch (e) { /* storage disabled */ }
+}
+function renderAIActionCards(m, mi) {
+  if (!m.actions || !m.actions.length) return '';
+  const auto = !!m.autoRun;
+  const pending = m.actions.filter((a) => a.status === 'pending');
+  const cards = m.actions.map((a, ai) => {
+    const status = a.status || 'pending';
+    const risk = a.risk === 'high' ? ' high-risk' : (a.risk === 'medium' ? ' medium-risk' : '');
+    const tag = status === 'pending' ? (auto ? '即将自动执行' : '待确认') : status === 'running' ? '执行中…' : status === 'done' ? '已执行' : status === 'error' ? '执行失败' : '已忽略';
+    const result = a.result ? '<div class="ai-action-result ' + (status === 'error' ? 'bad' : (status === 'done' ? 'ok' : '')) + '">' + esc(a.result) + '</div>' : '';
+    return '<div class="ai-action-card' + risk + '">'
+      + '<div class="ai-action-head"><span class="ai-action-tag">' + tag + '</span><span>' + (auto ? '自动执行' : '操作需确认') + '</span></div>'
+      + '<div class="ai-action-summary">' + esc(a.summary || a.type) + '</div>'
+      + result + '</div>';
+  }).join('');
+  const confirm = !auto && pending.length
+    ? '<div class="ai-action-buttons ai-action-group"><button class="btn primary sm" data-ai-run-all="1" data-mi="' + mi + '" type="button">确认执行全部（' + pending.length + ' 项）</button><button class="btn ghost sm" data-ai-dismiss-all="1" data-mi="' + mi + '" type="button">忽略</button></div>'
+    : '';
+  const autoNote = auto && pending.length ? '<div class="field-note" style="margin-top:2px">AI 自动执行模式：无需确认。</div>' : '';
+  return '<div class="ai-actions">' + cards + confirm + autoNote + '</div>';
+}
+function renderAIChat() {
+  ensureAIChat();
+  const box = $('#aiChatMessages');
+  if (!box) return;
+  box.innerHTML = state.aiChat.map((m, mi) => {
+    if (m.typing) return '<div class="ai-msg assistant"><div class="ai-bubble"><span class="ai-typing"><i></i><i></i><i></i> 思考中</span></div></div>';
+    const meta = m.role === 'user' ? '你' : 'AI';
+    return '<div class="ai-msg ' + (m.role === 'user' ? 'user' : 'assistant') + (m.error ? ' error' : '') + '">'
+      + '<div class="ai-bubble">' + esc(m.content) + '</div>'
+      + renderAIActionCards(m, mi)
+      + '<div class="ai-meta">' + meta + (m.time ? ' · ' + esc(m.time) : '') + '</div></div>';
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+async function refreshAIChatStatus() {
+  const box = $('#aiChatStatus');
+  if (!box) return;
+  try {
+    const d = await getJSON('/api/ai/status');
+    state.aiStatus = d;
+    if (d.config.enabled && d.config.hasApiKey) box.textContent = (aiActionMode() === 'auto' ? 'AI 自动执行 · ' : '可操作（确认一次）· ') + (d.config.model || 'AI');
+    else if (d.config.enabled) box.textContent = '只读 · 已开启，但缺少 API Key';
+    else box.textContent = '只读 · AI 未开启（可先问，会提示配置）';
+  } catch (e) { box.textContent = '只读 · AI 状态读取失败'; }
+}
+function setAIChatOpen(open) {
+  const chat = $('#aiChat');
+  const fab = $('#aiFab');
+  if (!chat || !fab) return;
+  state.aiChatOpen = !!open;
+  chat.hidden = !open;
+  fab.classList.toggle('open', !!open);
+  fab.setAttribute('aria-expanded', String(!!open));
+  if (open) {
+    if (state.aiPetSleeping) petWake();
+    syncAIActionModeButtons();
+    renderAIChat();
+    refreshAIChatStatus();
+    playPetAnim('happy', { once: true, next: 'idle' });
+    showPetBubble('我在', 1400);
+    schedulePetSleep();
+    setTimeout(() => { const input = $('#aiChatInput'); if (input) input.focus(); }, 40);
+  } else {
+    playPetAnim('idle');
+    schedulePetSleep();
+  }
+}
+async function sendAIChat(text) {
+  const value = String(text == null ? ($('#aiChatInput') ? $('#aiChatInput').value : '') : text).trim();
+  if (!value || state.aiChatBusy) return;
+  ensureAIChat();
+  const prior = state.aiChat.filter((m) => !m.typing && !m.welcome).slice(-12).map((m) => ({ role: m.role, content: m.content }));
+  state.aiChat.push({ role: 'user', content: value, time: chatTime() });
+  if ($('#aiChatInput')) $('#aiChatInput').value = '';
+  state.aiChatBusy = true;
+  const send = $('#aiChatSend');
+  if (send) send.disabled = true;
+  petThinking('让我看看…');
+  renderAIChat();
+  const typing = { role: 'assistant', typing: true };
+  state.aiChat.push(typing);
+  renderAIChat();
+  try {
+    const d = await postJSON('/api/ai/action', { question: value, history: prior });
+    state.aiChat = state.aiChat.filter((m) => m !== typing);
+    const actions = Array.isArray(d.actions) ? d.actions.map((a) => ({ ...a, status: 'pending' })) : [];
+    const autoRun = actions.length > 0 && aiActionMode() === 'auto';
+    state.aiChat.push({ role: 'assistant', content: d.answer || '(空回答)', time: chatTime(), actions, autoRun });
+    petReply();
+    if (autoRun) setTimeout(() => executeAIChatActions(state.aiChat.length - 1), 180);
+  } catch (e) {
+    state.aiChat = state.aiChat.filter((m) => m !== typing);
+    state.aiChat.push({ role: 'assistant', content: '请求失败：' + e.message + '\n\n请到「配置 AI」检查 Base URL、模型和 API Key。', time: chatTime(), error: true });
+    petError();
+  } finally {
+    state.aiChatBusy = false;
+    if (send) send.disabled = false;
+    saveAIChat();
+    renderAIChat();
+    const input = $('#aiChatInput'); if (input) input.focus();
+  }
+}
+async function executeAIChatActions(mi) {
+  ensureAIChat();
+  const m = state.aiChat[mi];
+  if (!m || !Array.isArray(m.actions) || state.aiActionBusy) return;
+  const pending = m.actions.filter((a) => a.status === 'pending');
+  if (!pending.length) return;
+  state.aiActionBusy = true;
+  petThinking('正在处理…');
+  let okCount = 0;
+  let lastError = '';
+  for (const a of pending) {
+    a.status = 'running';
+    renderAIChat();
+    try {
+      const d = await postJSON('/api/ai/execute', { action: { type: a.type, args: a.args || {} } });
+      let result = d.summary || a.summary || '已执行';
+      if (d.result && d.result.started) result += '（已开始）';
+      if (d.result && d.result.count != null) result += '，今天共 ' + d.result.count + ' 条';
+      a.status = 'done';
+      a.result = result;
+      okCount += 1;
+    } catch (e) {
+      a.status = 'error';
+      a.result = '失败：' + e.message;
+      lastError = e.message;
+    }
+  }
+  state.aiActionBusy = false;
+  if (okCount) petReply(); else if (lastError) petError();
+  saveAIChat();
+  renderAIChat();
+  if (okCount) {
+    toast('已执行 ' + okCount + ' 项 AI 操作', 'ok');
+    await loadHome();
+    if (state.view === 'config') await loadConfigPage();
+    if (pending.some((a) => a.type === 'send_now')) setTimeout(() => pollSendJob(), 400);
+    if (pending.some((a) => a.type === 'refresh_session')) setTimeout(refreshAIChatStatus, 8000);
+  }
+  if (lastError) toast('部分操作失败：' + lastError, 'bad');
+}
+function dismissAIChatActions(mi) {
+  const m = state.aiChat[mi];
+  if (!m || !Array.isArray(m.actions)) return;
+  let changed = false;
+  m.actions.forEach((a) => { if (a.status === 'pending') { a.status = 'dismissed'; a.result = '已忽略，不会执行。'; changed = true; } });
+  if (changed) { saveAIChat(); renderAIChat(); }
+}
+
+const AI_MASCOT_SVG = `
+<svg class="ai-mascot" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+  <g class="mascot-halo" fill="none" stroke="#ffd76a" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2.5 3.5" opacity=".9">
+    <ellipse cx="32" cy="9.5" rx="12.5" ry="3.2"/>
+  </g>
+  <g class="mascot-wing left">
+    <path d="M18 31 C10 26 6.5 18 11.5 16.5 C16 20 20 25 22 31 Z" fill="#c9f3ff" stroke="#74c7e8" stroke-width="1"/>
+    <path d="M13 22 L17.5 26 M11.5 19.5 L15.5 23.5" fill="none" stroke="#74c7e8" stroke-width="1" stroke-linecap="round"/>
+  </g>
+  <g class="mascot-wing right">
+    <path d="M46 31 C54 26 57.5 18 52.5 16.5 C48 20 44 25 42 31 Z" fill="#c9f3ff" stroke="#74c7e8" stroke-width="1"/>
+    <path d="M51 22 L46.5 26 M52.5 19.5 L48.5 23.5" fill="none" stroke="#74c7e8" stroke-width="1" stroke-linecap="round"/>
+  </g>
+  <g class="mascot-bob">
+    <path d="M18 27 C16 13 48 9 47 27 L46 43 C41 49 23 49 18 43 Z" fill="#5d8ff1"/>
+    <circle cx="32" cy="31" r="12.5" fill="#ffe7d9"/>
+    <path d="M19 26 C21 16 43 14 46 26 C42 22 39 22 36 24 C33 19 27 20 25 25 C23 22 21 24 19 26Z" fill="#4f7fe0"/>
+    <path d="M19 26 C17 32 18 39 21 44 L24 41 C22 36 22 31 23 27Z" fill="#4f7fe0"/>
+    <path d="M45 26 C47 32 46 39 43 44 L40 41 C42 36 42 31 41 27Z" fill="#4f7fe0"/>
+    <path d="M31 17 C30 13 34 11 35 14 C36 16 34 18 32 20Z" fill="#75a7ff"/>
+    <g class="mascot-eye">
+      <ellipse cx="26.8" cy="32" rx="2.9" ry="4" fill="#173b6d"/>
+      <circle cx="27.7" cy="30.5" r="1.1" fill="#fff"/>
+      <circle cx="25.8" cy="33.4" r=".55" fill="#8edfff"/>
+    </g>
+    <g class="mascot-eye">
+      <ellipse cx="37.2" cy="32" rx="2.9" ry="4" fill="#173b6d"/>
+      <circle cx="38.1" cy="30.5" r="1.1" fill="#fff"/>
+      <circle cx="36.2" cy="33.4" r=".55" fill="#8edfff"/>
+    </g>
+    <path d="M30 38.5 Q32 40 34 38.5" fill="none" stroke="#b96b7a" stroke-width="1" stroke-linecap="round"/>
+    <ellipse cx="23" cy="37" rx="2" ry="1.1" fill="#ffb9c7" opacity=".65"/>
+    <ellipse cx="41" cy="37" rx="2" ry="1.1" fill="#ffb9c7" opacity=".65"/>
+    <path d="M24 43 L32 48 L40 43 L43 50 L21 50 Z" fill="#eef8ff" stroke="#a9d8f0" stroke-width=".8"/>
+    <path d="M32 48 L32 51" stroke="#7fb7d6" stroke-width=".8"/>
+  </g>
+  <g class="mascot-note n1" fill="#ffd76a">
+    <ellipse cx="48" cy="25" rx="2.6" ry="1.8" transform="rotate(-16 48 25)"/>
+    <path d="M50.4 24.4 L50.4 18.2 L53.4 17.4 L53.4 19.2 L51.6 19.8 L51.6 24.2 Z"/>
+  </g>
+  <g class="mascot-note n2" fill="#ffd76a">
+    <ellipse cx="13" cy="34" rx="2" ry="1.4" transform="rotate(-18 13 34)"/>
+    <path d="M14.8 33.5 L14.8 28.8 L17 28.2 L17 29.7 L15.7 30.1 L15.7 33.3 Z"/>
+  </g>
+  <g class="mascot-spark s1" fill="#fff" opacity=".8"><circle cx="49" cy="38" r="1"/></g>
+  <g class="mascot-spark s2" fill="#fff" opacity=".65"><circle cx="15" cy="40" r=".8"/></g>
+</svg>`;
+function mountAIMascot() {
+  $$('[data-ai-mascot]').forEach((el) => { if (!el.querySelector('svg')) el.innerHTML = AI_MASCOT_SVG; });
+}
+function bindAIChat() {
+  mountAIMascot();
+  ensureAIChat();
+  const fab = $('#aiFab');
+  const chat = $('#aiChat');
+  if (!fab || !chat) return;
+  initAIPet();
+  $('#aiChatClose').onclick = () => { setAIChatOpen(false); fab.focus(); };
+  $('#aiChatClear').onclick = () => {
+    state.aiChat = [chatWelcome()];
+    saveAIChat(); renderAIChat();
+    const input = $('#aiChatInput'); if (input) input.focus();
+  };
+  $('#aiChatMessages').addEventListener('click', (e) => {
+    const run = e.target.closest('[data-ai-run-all]');
+    if (run) { executeAIChatActions(Number(run.dataset.mi)); return; }
+    const dis = e.target.closest('[data-ai-dismiss-all]');
+    if (dis) dismissAIChatActions(Number(dis.dataset.mi));
+  });
+  $$('#aiActionModeSeg button').forEach((b) => b.addEventListener('click', () => setAIActionMode(b.dataset.aiActionMode)));
+  syncAIActionModeButtons();
+  $('#aiChatForm').addEventListener('submit', (e) => { e.preventDefault(); sendAIChat(); });
+  $('#aiChatInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAIChat(); }
+  });
+  $$('#aiChatSuggestions [data-ai-prompt]').forEach((b) => b.addEventListener('click', () => sendAIChat(b.dataset.aiPrompt)));
+  $('#aiChatConfig').onclick = () => {
+    setAIChatOpen(false);
+    navigate('config');
+    setTimeout(() => {
+      const card = document.querySelector('#sec-ai');
+      if (!card) return;
+      const first = card.querySelector('details');
+      if (first) first.open = true;
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 500);
+  };
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.aiChatOpen) { setAIChatOpen(false); fab.focus(); }
+    if (e.key === 'Escape' && $('#poolPanel') && !$('#poolPanel').hidden) togglePoolPanel(false);
+  });
+}
+function collectDatabase() {
+  const driver = $('#db_driver').value;
+  return {
+    driver,
+    sqliteFile: $('#db_sqlite').value.trim(),
+    host: $('#db_host').value.trim(),
+    port: $('#db_port').value.trim() ? Number($('#db_port').value) : undefined,
+    database: $('#db_name').value.trim(),
+    user: $('#db_user').value.trim(),
+    password: $('#db_password').value,
+    ssl: $('#db_ssl').value === 'true',
+    url: $('#db_url').value.trim(),
+  };
+}
+async function loadDatabase() {
+  try {
+    const d = await getJSON('/api/database');
+    state.database = d;
+    const label = d.active === 'sqlite' ? 'SQLite' : d.active === 'postgres' ? 'PostgreSQL' : 'MySQL';
+    $('#dbPill').textContent = label + (d.restartRequired ? ' · 待重启' : '');
+    $('#dbPill').className = 'pill ' + (d.restartRequired ? 'warn' : 'ok');
+    $('#db_driver').value = d.config.driver || 'sqlite';
+    $('#db_sqlite').value = d.config.sqliteFile || '';
+    $('#db_host').value = d.config.host || '';
+    $('#db_port').value = d.config.port || '';
+    $('#db_name').value = d.config.database || '';
+    $('#db_user').value = d.config.user || '';
+    $('#db_password').value = '';
+    $('#db_ssl').value = d.config.ssl ? 'true' : 'false';
+    $('#db_url').value = d.config.url || '';
+    $('#dbMsg').textContent = d.restartRequired
+      ? '已保存为 ' + (d.config.driver || '') + '，但当前进程仍在使用 ' + d.active + '；重启应用/服务后生效。'
+      : '当前使用 ' + label + '。密码只存在本机 0600 文件，不会回显。';
+    $('#db_driver').dispatchEvent(new Event('change'));
+  } catch (e) { $('#dbMsg').textContent = '数据库状态读取失败：' + e.message; }
+}
+async function saveDatabase() {
+  const msg = $('#dbMsg');
+  msg.textContent = '保存中…';
+  try {
+    const d = await postJSON('/api/database', collectDatabase());
+    $('#db_password').value = '';
+    msg.textContent = d.restartRequired
+      ? '已保存；重启应用/服务后切换到 ' + d.config.driver + '。'
+      : '已保存，当前使用 ' + d.active + '。';
+    toast(d.restartRequired ? '数据库配置已保存，需重启生效' : '数据库配置已保存', 'ok');
+    await loadDatabase();
+  } catch (e) { msg.textContent = '保存失败：' + e.message; }
+}
+async function testDatabase() {
+  const msg = $('#dbMsg');
+  msg.textContent = '测试中…';
+  try {
+    const d = await postJSON('/api/database/test', collectDatabase());
+    msg.textContent = '连接成功：' + (d.detail || d.driver);
+    toast('数据库连接成功', 'ok');
+  } catch (e) { msg.textContent = '连接失败：' + e.message; toast('数据库连接失败', 'bad'); }
 }
 async function loadCfgEvents() {
   try {
-    const d = await getJSON('/api/events?limit=30');
+    const d = await getJSON('/api/events?limit=8');
     $('#cfgEvents').innerHTML = renderEvents(d.events || []);
   } catch (e) { /* ignore */ }
 }
@@ -1821,16 +4166,20 @@ function renderRecords() {
   const buckets = [...new Set(all.map((s) => s.bucket).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh'));
   const curBucket = f.bucket;
   $('#recBucket').innerHTML = '<option value="">全部分类</option>' + buckets.map((b) => '<option value="' + esc(b) + '"' + (b === curBucket ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
-  $('#recRows').innerHTML = rows.map((s) => '<tr>'
-    + '<td class="muted">' + esc(s.local) + '</td>'
-    + '<td><span class="tag">' + esc(s.bucket) + '</span></td>'
-    + '<td class="title-cell" title="' + esc(s.title) + '">' + esc(s.title) + '</td>'
-    + '<td class="muted">' + esc((s.author || '').replace(/^@/, '')) + '</td>'
-    + '<td class="muted">' + esc(s.friend || '-') + '</td>'
-    + '<td class="muted">' + fmt(s.likes) + '</td>'
-    + '<td class="' + (s.ok ? 'ok' : 'bad') + '">' + esc(s.ok ? (s.toast || '成功') : (s.toast || '失败')) + '</td>'
-    + '<td>' + (s.shot ? '<a href="/shot/' + encodeURIComponent(s.shot) + '" target="_blank">查看</a>' : '<span class="muted">-</span>') + '</td>'
-    + '</tr>').join('') || '<tr><td colspan="8" class="empty">' + (all.length ? '没有符合筛选的记录' : '还没有发送记录') + '</td></tr>';
+  $('#recRows').innerHTML = rows.map((s) => {
+    const full = s.toast || (s.ok ? '成功' : '失败');
+    const result = !s.ok ? '失败' : (/自然分享/.test(full) ? '自然分享' : (/HTTP API/.test(full) ? 'API' : full));
+    return '<tr>'
+      + '<td class="muted">' + esc(s.local) + '</td>'
+      + '<td><span class="tag">' + esc(s.bucket) + '</span></td>'
+      + '<td class="title-cell" title="' + esc(s.title) + '">' + esc(s.title) + '</td>'
+      + '<td class="muted" title="' + esc((s.author || '').replace(/^@/, '')) + '">' + esc((s.author || '').replace(/^@/, '')) + '</td>'
+      + '<td class="muted">' + esc(s.friend || '-') + '</td>'
+      + '<td class="muted">' + fmt(s.likes) + '</td>'
+      + '<td class="' + (s.ok ? 'ok' : 'bad') + '" title="' + esc(full) + '">' + esc(result) + '</td>'
+      + '<td>' + (s.shot ? '<a href="/shot/' + encodeURIComponent(s.shot) + '" target="_blank">查看</a>' : '<span class="muted">-</span>') + '</td>'
+      + '</tr>';
+  }).join('') || '<tr><td colspan="8" class="empty">' + (all.length ? '没有符合筛选的记录' : '还没有发送记录') + '</td></tr>';
   $('#recPagerInfo').textContent = '第 ' + f.page + ' / ' + totalPages + ' 页 · ' + filtered.length + ' 条';
   $('#recPrev').disabled = f.page <= 1;
   $('#recNext').disabled = f.page >= totalPages;
@@ -1847,7 +4196,7 @@ async function loadRecords() {
 }
 async function loadRecEvents() {
   try {
-    const d = await getJSON('/api/events?limit=80');
+    const d = await getJSON('/api/events?limit=8');
     state.events = d.events || [];
     $('#recEvents').innerHTML = renderEvents(state.events);
   } catch (e) { /* ignore */ }
@@ -1911,44 +4260,97 @@ async function clickScreen(ev) {
 async function control(action) {
   try {
     const out = await postJSON('/api/control', { action });
+    if (action === 'pause' || action === 'resume') setEnabledState(action === 'resume');
     const label = { pause: '已暂停', resume: '已继续', restart: '服务已重启' }[action] || '已执行';
     toast(label + (out.restarted && out.restarted.ok ? '' : '（需手动重启调度）'), 'ok');
     await loadHome();
     if (state.view === 'accounts') await loadAccounts();
   } catch (e) { toast('操作失败：' + e.message, 'bad'); }
 }
-async function replan() {
-  if (!window.confirm('按当前设置重新随机今天的时刻表？已发送的记录不会重复。')) return;
-  try {
-    const out = await postJSON('/api/today/regenerate');
-    toast(out.ok ? ('已重排：今天 ' + out.count + ' 条') : ('重排失败：' + (out.error || '')), out.ok ? 'ok' : 'bad');
-    await loadHome();
-  } catch (e) { toast('重排失败：' + e.message, 'bad'); }
-}
 
 function bindConfigActions() {
-  $('#bands').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-delband]');
-    if (btn) { btn.closest('.bandrow').remove(); updateHint(); }
+  $('#schedulePoints').addEventListener('input', (e) => {
+    const row = e.target.closest('.schedrow');
+    if (row) syncScheduleRow(row);
+    updateScheduleHint();
   });
-  $('#bands').addEventListener('input', updateHint);
-  $('#addBand').onclick = () => { $('#bands').insertAdjacentHTML('beforeend', bandRow({ name: '时段', from: '15:00', to: '17:00', min: 1, max: 2 })); updateHint(); };
-  $('#save').onclick = async () => {
-    const msg = $('#msg'); msg.textContent = '保存中…';
+  $('#schedulePoints').addEventListener('change', (e) => {
+    const row = e.target.closest('.schedrow');
+    if (row && e.target.matches('[data-sk="mode"]')) syncScheduleRow(row);
+    updateScheduleHint();
+  });
+  $('#schedulePoints').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-delpoint]');
+    if (!btn) return;
+    if ($$('.schedrow').length <= 1) { toast('至少保留一个触发点', 'bad'); return; }
+    btn.closest('.schedrow').remove();
+    updateScheduleHint();
+  });
+  if ($('#scheduleAdd')) {
+    $('#scheduleAdd').onclick = () => {
+      $('#schedulePoints').insertAdjacentHTML('beforeend', scheduleRow({ mode: 'fixed', time: nextScheduleTime(), count: 3 }));
+      updateScheduleHint();
+    };
+  }
+  ['#c_min_sec', '#c_max_sec', '#c_fallback'].forEach((sel) => {
+    if ($(sel)) $(sel).addEventListener('input', updateScheduleHint);
+  });
+  if ($('#c_floor')) $('#c_floor').addEventListener('change', updateScheduleHint);
+  $('#scheduleReset').onclick = async () => {
+    if (!window.confirm('清空今天的发送进度，让计划从现在重新开始？')) return;
     try {
-      await postJSON('/api/config', collectConfig());
-      msg.textContent = ''; toast('设置已保存，下一轮生成计划时生效', 'ok');
+      await postJSON('/api/today/burst-reset', { account: state.accounts && state.accounts.active });
+      toast('已重置今天的计划', 'ok');
+      await loadConfigPage(); await loadHome();
+    } catch (e) { toast('重置失败：' + e.message, 'bad'); }
+  };
+  $('#c_source').addEventListener('change', updateSourceUI);
+  initFilterSwitches();
+  ['#c_min_likes', '#c_min_comments', '#c_min_favorites', '#c_min_shares', '#c_vmax', '#c_rmax'].forEach((sel) => {
+    if ($(sel)) $(sel).addEventListener('input', updateMetricFiltersUI);
+  });
+  $('#poolTrigger').onclick = () => togglePoolPanel();
+  $('#poolClose').onclick = () => togglePoolPanel(false);
+  $('#poolPanelClose').onclick = () => togglePoolPanel(false);
+  $('#poolBackdrop').addEventListener('pointerdown', () => togglePoolPanel(false));
+  $('#poolSearch').addEventListener('input', () => renderPoolDropdown());
+  $('#poolAll').onclick = () => { $$('[data-pool]').forEach((c) => { c.checked = true; }); updatePoolCount(); };
+  $('#poolNone').onclick = () => { $$('[data-pool]').forEach((c) => { c.checked = false; }); updatePoolCount(); };
+  $('#poolList').addEventListener('change', (e) => { if (e.target.matches('[data-pool]')) updatePoolCount(); });
+  $('#poolList').addEventListener('click', (e) => {
+    const exp = e.target.closest('[data-pool-expand]');
+    if (exp) {
+      const name = exp.dataset.poolExpand;
+      if (state.poolOpen.has(name)) state.poolOpen.delete(name); else state.poolOpen.add(name);
+      renderPoolDropdown();
+      return;
+    }
+    const ai = e.target.closest('[data-pool-ai]');
+    if (ai) generalizePool(ai.dataset.poolAi);
+  });
+  document.addEventListener('pointerdown', (e) => {
+    if (!e.target.closest('#poolSelect')) togglePoolPanel(false);
+  });
+  $$('#configNav [data-config-tab]').forEach((b) => b.addEventListener('click', () => activateConfigTab(b.dataset.configTab, { scroll: true })));
+  $('#configNav').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const tabs = $$('#configNav [data-config-tab]');
+    const i = tabs.findIndex((b) => b.dataset.configTab === state.configTab);
+    const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
+    if (next) { e.preventDefault(); next.focus(); activateConfigTab(next.dataset.configTab, { scroll: true }); }
+  });
+  $('#c_natural_text_switch').onclick = () => setNaturalTextSwitch(!$('#c_natural_text_switch').classList.contains('on'));
+  $('#save').onclick = async () => {
+    const msg = $('#msg');
+    const conflict = scheduleConflict();
+    if (conflict) { msg.textContent = conflict; toast(conflict, 'bad'); return; }
+    msg.textContent = '保存中…';
+    try {
+      const saved = await postJSON('/api/config', collectConfig());
+      msg.textContent = '已保存到 ' + ((saved.config && saved.config.accountName) || '当前账户');
+      toast('设置已保存；调度器会在下一轮读取新计划', 'ok');
       await loadConfigPage(); await loadHome();
     } catch (e) { msg.textContent = '保存失败：' + e.message; toast('保存失败：' + e.message, 'bad'); }
-  };
-  $('#btnSafe').onclick = async () => {
-    $('#c_tmin').value = 6; $('#c_tmax').value = 8; $('#c_gap').value = 15;
-    $('#msg').textContent = '应用中…';
-    try {
-      await postJSON('/api/config', collectConfig());
-      toast('已切到安全模式：每天 6-8 条，间隔 ≥15 分钟', 'ok');
-      await loadConfigPage(); await loadHome();
-    } catch (e) { $('#msg').textContent = '失败：' + e.message; }
   };
   $('#preview').onclick = async () => {
     const box = $('#previewBox');
@@ -1956,22 +4358,16 @@ function bindConfigActions() {
     try {
       const out = await postJSON('/api/preview', collectConfig());
       if (!out.ok) { box.innerHTML = '<div class="bad">预览失败：' + esc(out.error) + '</div>'; return; }
-      lastPreview = out;
-      let html = '<div class="field-note">共 ' + out.count + ' 条 · 窗口 ' + esc(out.window) + (out.count < out.requested ? '（时段容量不足）' : '') + '</div>';
-      html += '<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>时段</th><th>范围</th><th>条数</th><th>时刻</th></tr></thead><tbody>';
-      out.bands.forEach((b) => { html += '<tr><td>' + esc(b.name) + '</td><td class="muted">' + esc(b.from) + '-' + esc(b.to) + '</td><td>' + b.n + '</td><td class="muted">' + esc(b.times.join(' ')) + '</td></tr>'; });
-      html += '</tbody></table></div><div class="rowbtns"><button class="btn primary sm" id="applyBtn">保存并生效</button><button class="btn ghost sm" id="cancelBtn">取消</button><span class="field-note" id="applyMsg"></span></div>';
+      const points = Array.isArray(out.points) ? out.points : [];
+      let html = '<div class="field-note">' + esc(out.summary || '') + '</div>';
+      html += '<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>触发</th><th>条数</th><th>预计结束</th></tr></thead><tbody>';
+      points.forEach((p) => {
+        html += '<tr><td>' + esc(p.label || (p.mode === 'random' ? p.from + '–' + p.to + ' 随机' : p.time)) + '</td><td>' + p.count + '</td><td class="muted">' + esc(p.end) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      html += '<div class="field-note" style="margin-top:6px">共 ' + out.pointCount + ' 个触发点、' + out.count + ' 条 · 每条约 ' + ((out.estimate && out.estimate.perSec) || '-') + ' 秒' + (out.estimate && out.estimate.totalMinutes ? ' · 合计约 ' + out.estimate.totalMinutes + ' 分钟' : '') + '</div>';
+      html += '<div class="field-note">预览不会保存；确认无误后点「保存设置」。</div>';
       box.innerHTML = html;
-      $('#applyBtn').onclick = async () => {
-        $('#applyMsg').textContent = '应用中…';
-        try {
-          const o = await postJSON('/api/apply', { config: collectConfig(), times: lastPreview.times });
-          toast('已生效：今天 ' + o.applied + ' 条', 'ok');
-          $('#applyMsg').textContent = '已生效';
-          loadHome();
-        } catch (e) { $('#applyMsg').textContent = '失败：' + e.message; }
-      };
-      $('#cancelBtn').onclick = () => { box.innerHTML = ''; lastPreview = null; };
     } catch (e) { box.innerHTML = '<div class="bad">预览失败：' + esc(e.message) + '</div>'; }
   };
   $('#friendAdd').onclick = async () => {
@@ -1987,8 +4383,8 @@ function bindConfigActions() {
   $('#btnApiRefresh').onclick = async () => {
     try {
       await postJSON('/api/api-session/refresh');
-      $('#apiMsg').textContent = '导出已启动（最小化浏览器，不会发送消息）';
-      toast('会话导出已启动，稍等片刻自动刷新', 'ok');
+      $('#apiMsg').textContent = '导出已启动：会先关闭抖音画面，再最小化浏览器导出；稍等片刻自动刷新';
+      toast('会话导出已启动；如画面开着会先关闭，稍等片刻自动刷新', 'ok');
       setTimeout(loadApiSession, 8000); setTimeout(loadApiSession, 25000);
     } catch (e) { $('#apiMsg').textContent = '启动失败：' + e.message; }
   };
@@ -1997,21 +4393,29 @@ function bindConfigActions() {
     try { await postJSON('/api/api-session/auto-refresh', { enabled: !d.autoRefresh }); await loadApiSession(); } catch (e) { toast(e.message, 'bad'); }
   };
   $$('#apiModeSeg button').forEach((b) => b.onclick = () => updateApiMode(b.dataset.mode));
-  $('#btnApiModeAuto').onclick = () => updateApiMode('auto');
-  $('#btnBrowserMode').onclick = () => updateApiMode('browser');
-  $('#btnSendNowCfg').onclick = triggerSendNow;
-  $('#btnReplanCfg').onclick = replan;
-  $('#btnShowWinCfg').onclick = () => windowAction(true);
+  $('#ai_test').onclick = testAI;
+  $('#ai_ask').onclick = askAI;
+  $('#ai_draft').onclick = draftAI;
+  $$('#aiModeSeg button').forEach((b) => b.onclick = () => setAIMode(b.dataset.aiMode));
+  $('#db_save').onclick = saveDatabase;
+  $('#db_test').onclick = testDatabase;
+  $('#db_driver').onchange = () => {
+    const driver = $('#db_driver').value;
+    const sqlite = driver === 'sqlite';
+    ['db_host', 'db_port', 'db_name', 'db_user', 'db_password', 'db_url'].forEach((id) => { $('#' + id).disabled = sqlite; });
+    $('#db_ssl').disabled = sqlite;
+    const port = $('#db_port').value;
+    if (driver === 'mysql' && (!port || port === '5432')) $('#db_port').value = 3306;
+    if (driver === 'postgres' && (!port || port === '3306')) $('#db_port').value = 5432;
+  };
   $('#eventsCfg').addEventListener('toggle', (e) => { if (e.target.open) loadCfgEvents(); });
 }
 
 function bindHomeActions() {
-  $('#homeReplan').onclick = replan;
   $('#btnPause').onclick = () => control('pause');
   $('#btnResume').onclick = () => control('resume');
   $('#btnRestart').onclick = () => control('restart');
   $('#btnSendNow').onclick = triggerSendNow;
-  $('#btnQuickBrowserSend').onclick = triggerSendNow;
   $('#homeScreenToggle').onclick = () => showScreen($('#homeScreenCard').style.display === 'none');
   $('#screenClose').onclick = () => showScreen(false);
   $('#homeShowWin').onclick = () => windowAction(true);
@@ -2107,9 +4511,71 @@ function bindHeaderExpand() {
   apply();
 }
 
+function bindAmbientBackground() {
+  const layer = $('#ambientBg');
+  if (!layer) return;
+  const blobs = $$('.ambient-blob', layer);
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pointerFine = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+  const setStatic = () => {
+    layer.style.setProperty('--ambient-hue', '224');
+    const w = window.innerWidth || 1200;
+    const h = window.innerHeight || 800;
+    const size = blobs[0] ? blobs[0].offsetWidth || 700 : 700;
+    if (blobs[0]) blobs[0].style.transform = `translate3d(${w * 0.72 - size / 2}px, ${h * 0.26 - size / 2}px, 0)`;
+    if (blobs[1]) blobs[1].style.transform = `translate3d(${w * 0.22 - size / 2}px, ${h * 0.82 - size / 2}px, 0)`;
+  };
+  if (reduce || !pointerFine) { setStatic(); return; }
+  let targetX = 0.5;
+  let targetY = 0.36;
+  let x = targetX;
+  let y = targetY;
+  let hue = 224;
+  let raf = 0;
+  let last = performance.now();
+  const updateTarget = (e) => {
+    const w = window.innerWidth || 1;
+    const h = window.innerHeight || 1;
+    targetX = Math.max(0, Math.min(1, e.clientX / w));
+    targetY = Math.max(0, Math.min(1, e.clientY / h));
+  };
+  const tick = (now) => {
+    const dt = Math.min(48, now - last || 16);
+    last = now;
+    const ease = 1 - Math.pow(0.001, dt / 1000); // ~natural exponential follow
+    x += (targetX - x) * ease;
+    y += (targetY - y) * ease;
+    const w = window.innerWidth || 1;
+    const h = window.innerHeight || 1;
+    const size = blobs[0] ? blobs[0].offsetWidth || 700 : 700;
+    const driftX = Math.sin(now / 5400) * 16;
+    const driftY = Math.cos(now / 6800) * 12;
+    const ax = x * w + driftX;
+    const ay = y * h + driftY;
+    const bx = (1 - x) * w - driftX;
+    const by = (1 - y) * h - driftY;
+    if (blobs[0]) blobs[0].style.transform = `translate3d(${ax - size / 2}px, ${ay - size / 2}px, 0)`;
+    if (blobs[1]) blobs[1].style.transform = `translate3d(${bx - size / 2}px, ${by - size / 2}px, 0)`;
+    const targetHue = 205 + x * 65 + (1 - y) * 16;
+    hue += (targetHue - hue) * Math.min(1, dt / 280);
+    layer.style.setProperty('--ambient-hue', hue.toFixed(1));
+    raf = requestAnimationFrame(tick);
+  };
+  window.addEventListener('pointermove', updateTarget, { passive: true });
+  document.addEventListener('pointerleave', () => { targetX = 0.5; targetY = 0.36; });
+  window.addEventListener('blur', () => { targetX = 0.5; targetY = 0.36; });
+  window.addEventListener('resize', () => { if (!raf) setStatic(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { cancelAnimationFrame(raf); raf = 0; }
+    else if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
+  });
+  raf = requestAnimationFrame(tick);
+}
+
 async function init() {
-  bindNav(); bindSideAccount(); bindHomeActions(); bindConfigActions(); bindRecordsActions();
+  bindNav(); bindSideAccount(); bindHomeActions(); bindConfigActions(); bindRecordsActions(); bindAIChat(); bindHintTips(); bindDiagnosticsActions();
   bindHeaderExpand();
+  bindAmbientBackground();
   applyTheme(document.documentElement.dataset.theme || 'dark', false);
   $('#themeToggle').onclick = toggleTheme;
   navigate('home');

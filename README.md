@@ -1,10 +1,10 @@
 # douyin-forwarder
 
-把「定时从抖音挑视频 → 转发给好友」做成一个可移植、数据落在 SQLite 里的后台程序。
+把「定时从抖音挑视频 → 转发给好友」做成一个可移植、数据默认落在 SQLite（可选 MySQL/PostgreSQL）里的后台程序。
 
 它不是一个网页爬虫,而是一个**受控的浏览器代理**:用 Playwright 驱动本机 Chrome,
-按数据库里配置的时段和数量,挑选视频并发给指定好友。所有可调参数、计划、发送记录、
-事件流水都在 SQLite 里,并提供本地控制面板。
+按配置好的触发计划,挑选视频并发给指定好友。所有可调参数、计划、发送记录、
+事件流水都在本机数据库里,并提供本地控制面板。
 
 ```
  ┌──────────────┐   排班   ┌───────────────┐   HTTP   ┌──────────────────┐
@@ -19,9 +19,12 @@
 
 ## 特性
 
-- **按数据库排班**:时段、每天条数、最小间隔、视频池开关、屏蔽词全部存在 SQLite,改完即生效
-- **总数优先的分配**:设定「每天 10–18 条」后按时段容量加权随机拆分,超限自动放宽、不足自动收紧
-- **选片来源可配**:20 个视频池(日番/韩剧/沙雕/发癫/鬼畜/整活/搞笑/二次元/萌宠/美食/…),每池随机选搜索词并随机扫若干池;默认只发最近 7 天发布的视频,30 天内发过的视频优先跳过
+- **按账户独立配置**:触发计划、发送节奏、视频时效、屏蔽词、池延迟、发送模式、视频来源都按账户保存;新增 `account_settings` / `account_pools`
+- **统一触发计划**:每行可选「固定时间」或在「时间范围」内随机触发,每行单独填条数;条数大于 1 时按 10–50 秒(可配)的随机间隔连续分享,间隔不短于上一条视频时长
+- **筛选条件表格**:视频时效、点赞/评论/收藏/转发各一行,每行独立开关;关闭后不参与筛选,开启时可设门槛;纯 API 选片全量校验,浏览器回退只能校验点赞
+- **选片来源可配**:视频池搜索(20 个池、随机搜索词),或抖音首页默认推荐(纯 HTTP,零浏览器,需要导出的 feed URL);默认只发最近 7 天发布的视频,30 天内发过的视频优先跳过
+- **AI 旁路**:可选 AI 运维助手(只读问诊/日报上下文)、自然语言配置草案,以及推荐源的 AI 安全过滤/排序;默认关闭,失败自动回退规则
+- **数据库可选**:默认 SQLite;面板可配置 MySQL / PostgreSQL(单机,重启生效)
 - **精确投递**:按昵称 + `data-userid` 双重校验命中好友,不靠坐标猜
 - **好友轮换**:优先发给当天成功次数最少的好友,先每人一轮再进入下一轮,避免连着发给同一个人
 - **互关好友下拉发送**:快速发送改用互关好友下拉多选,支持搜索/全选/清空,按 userid 直接建会话
@@ -40,7 +43,7 @@ cp .env.example .env      # 可选,默认值即可跑
 
 npm run doctor            # 环境自检:Node / sqlite / 数据目录 / 浏览器 / 端口
 npm run init              # 建库 + 灌入 20 个视频池 + 默认账号与时段
-npm run verify            # 跨层冒烟(14 项,不碰调度和浏览器)
+npm run verify            # 跨层冒烟(15 项,不碰调度和浏览器)
 npm run dashboard         # http://127.0.0.1:9400
 ```
 
@@ -53,8 +56,9 @@ npm run dashboard         # http://127.0.0.1:9400
 ```bash
 npm run schedule          # 常驻,按数据库里的时段发送
 node src/index.js api:export    # 导出纯 API 会话(短暂开一次最小化浏览器,不发送)
-node src/index.js api:status    # 会话是否可用
-node src/index.js api:mode auto|browser
+node src/index.js api:status    # 会话是否可用、是否捕获到推荐 feed
+node src/index.js api:feed      # 只读验证推荐 feed(重放,不发送)
+node src/index.js api:mode auto|browser [account]
 
 ```
 
@@ -64,8 +68,13 @@ node src/index.js api:mode auto|browser
 src/
   index.js           CLI 入口
   env.js             环境变量与路径解析
-  db.js              SQLite 连接 + 迁移执行器
+  db.js              SQLite / 可选 MySQL/PG 连接 + 迁移执行器
+  db-config.js       数据库后端配置(data/database.json)
+  db-worker.js       外部数据库 worker(同步门面)
+  db-sql.js          SQL 方言小工具
+  external-schema.js MySQL/PG 最终 schema
   repos.js           所有 SQL 集中于此
+  ai/                AI 客户端 / 推荐源 ranker / 只读助手
   planner.js         纯函数排班(可单测)
   pools.js           视频池种子数据
   picker.js          选片(经 browser-server)
@@ -101,17 +110,21 @@ scripts/             开发辅助脚本(如 app:dev 启动器)
 | `BROWSER_POS` | `-20000,-20000` | 自动化窗口初始位置(默认屏幕外,不打扰) |
 | `BROWSER_VISIBLE_POS` | `80,80` | 面板点「移到台前」时的位置 |
 | `SHOTS_DIR` | `data/shots` | 发送截图目录 |
+| `DB_DRIVER` / `DB_URL` / `DB_HOST` … | `sqlite` | 可选数据库后端;面板 `data/database.json` 优先,环境变量覆盖 |
+| `AI_ENABLED` / `AI_BASE_URL` / `AI_MODEL` / `AI_API_KEY` | 关闭 | 可选 AI;面板 `data/ai.json` 优先,环境变量覆盖 |
 
 ## 数据模型
 
 | 表 | 作用 |
 |---|---|
 | `accounts` | 发送账号:配置目录、端口、好友、启用状态 |
-| `settings` | 全局参数:总条数区间、最小间隔、池间延迟、屏蔽词 |
-| `pools` | 视频来源:名称、搜索词、开关 |
-| `bands` | 每个账号的时段区间与条数上下限 |
-| `plans` | 每天的时刻表 + 已发 / 失败 / 跳过 |
-| `sends` | 每次发送的结果(分类、标题、作者、赞、toast、截图、视频 id) |
+| `settings` | 全局默认值/应用级参数(账户级配置的回退) |
+| `account_settings` | 每账户配置:触发计划、发送节奏、屏蔽词、视频来源、发送模式、AI 模式等 |
+| `pools` | 视频来源目录:名称、搜索词、默认开关 |
+| `account_pools` | 每账户的视频池启用状态 |
+| `bands` | 历史时段配置(旧版本迁移用;新触发计划不再依赖它) |
+| `plans` | 旧版每日时刻表(历史记录/迁移用;统一计划改用 `burstState`) |
+| `sends` | 每次发送的结果(分类、来源、标题、作者、赞、toast、截图、视频 id) |
 | `events` | 计划、重排、失败、验证码、人工操作等流水 |
 
 ## 命令
@@ -151,14 +164,25 @@ node src/index.js account move-profile work --to data/profile-work
 | GET | `/api/send-now` | 任务进度 |
 | POST | `/api/preview` | 按当前参数试算一份计划,不落库 |
 | POST | `/api/apply` | 保存配置并采用预览结果 |
-| POST | `/api/today/regenerate` | 重排今日剩余时刻 |
+| POST | `/api/today/regenerate` | 重置今日计划（兼容旧入口） |
 | GET | `/api/accounts` | 账号列表 |
 | GET | `/api/events` | 最近事件 |
+| GET | `/api/ai/status` | AI 配置/本账户模式 |
+| POST | `/api/ai/config` | 保存 AI 连接、账户级模式 |
+| POST | `/api/ai/test` | 测试 AI 连接 |
+| POST | `/api/ai/ask` | 只读运维问答 |
+| POST | `/api/ai/config-draft` | 自然语言生成配置草案(需确认后保存) |
+| GET | `/api/database` | 数据库后端/当前驱动/是否需重启 |
+| POST | `/api/database` | 保存数据库连接配置(重启生效) |
+| POST | `/api/database/test` | 测试数据库连接 |
 
 ## 测试
 
 ```bash
 npm test        # 数据库 / 排班 / 导入 / 浏览器层(本地 fixture,不访问抖音)
+npm run test:pg # PostgreSQL schema/repos 回归(pg-mem,无服务)
+npm run test:mysql # 真实 MySQL 8 回归(会启动临时 mysqld,默认不在 npm test 里)
+npm run test:pg:real # 真实 PostgreSQL 回归(自带二进制,默认不在 npm test 里)
 npm run verify  # 环境 + 表结构 + HTTP 接口冒烟
 ```
 

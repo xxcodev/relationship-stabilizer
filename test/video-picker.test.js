@@ -3,7 +3,10 @@
  */
 const test = require('node:test');
 const assert = require('node:assert');
-const { normalizeTitle, buildHistory, parseAgeDays, publishWindow, filterRecent, chooseVideo } = require('../src/video-picker');
+const {
+  normalizeTitle, buildHistory, parseAgeDays, publishWindow, filterRecent, chooseVideo,
+  normalizeMetricFilters, normalizeFilterSwitches, passesMetrics, filterMetrics, describeMetricFilters,
+} = require('../src/video-picker');
 
 test('normalizes titles for duplicate comparison', () => {
   assert.equal(normalizeTitle('  Hello   World  '), 'helloworld');
@@ -72,4 +75,43 @@ test('publishWindow maps to the supported search windows', () => {
   assert.equal(publishWindow(7), 7);
   assert.equal(publishWindow(10), 30);
   assert.equal(publishWindow(90), 180);
+});
+
+test('metric filters require known values only when a threshold is set', () => {
+  const candidates = [
+    { id: 'a', likes: 100, comments: 10, collects: 5, shares: 1 },
+    { id: 'b', likes: 50, comments: 0, collects: 0, shares: 0 },
+    { id: 'c', likes: 500 },
+  ];
+  assert.deepEqual(filterMetrics(candidates, { minLikes: 80 }).map((c) => c.id), ['a', 'c']);
+  assert.deepEqual(filterMetrics(candidates, { minComments: 1 }).map((c) => c.id), ['a']);
+  assert.deepEqual(filterMetrics(candidates, { minFavorites: 1, minShares: 1 }).map((c) => c.id), ['a']);
+  assert.equal(passesMetrics(candidates[2], { minLikes: 100 }), true);
+  assert.equal(passesMetrics(candidates[2], { minComments: 1 }), false);
+  assert.deepEqual(filterMetrics(candidates, {}).map((c) => c.id), ['a', 'b', 'c']);
+});
+
+test('metric filters clamp thresholds and describe them for errors', () => {
+  assert.deepEqual(
+    normalizeMetricFilters({ minLikes: -5, minComments: '12', minFavorites: 1e12, minShares: 'x' }),
+    { minLikes: 0, minComments: 12, minFavorites: 100000000, minShares: 0 }
+  );
+  assert.equal(describeMetricFilters({ minLikes: 100, minComments: 0, minFavorites: 3, minShares: 0 }), '点赞≥100、收藏≥3');
+  assert.equal(describeMetricFilters({}), '');
+});
+
+test('filter switches can disable a threshold independently', () => {
+  const candidates = [
+    { id: 'a', likes: 100, comments: 10, collects: 5, shares: 1 },
+    { id: 'b', likes: 50, comments: 0, collects: 0, shares: 0 },
+  ];
+  assert.deepEqual(filterMetrics(candidates, { minLikes: 80 }).map((c) => c.id), ['a']);
+  assert.deepEqual(filterMetrics(candidates, { minLikes: 80, likesEnabled: false }).map((c) => c.id), ['a', 'b']);
+  assert.deepEqual(filterMetrics(candidates, { filterMinLikes: 80, filterLikesEnabled: '0' }).map((c) => c.id), ['a', 'b']);
+  assert.deepEqual(
+    normalizeFilterSwitches({ minLikes: 80, minComments: 2, likesEnabled: false }),
+    { likes: false, comments: true, favorites: false, shares: false }
+  );
+  assert.equal(describeMetricFilters({ minLikes: 100, likesEnabled: false, minComments: 5 }), '评论≥5');
+  assert.equal(passesMetrics(candidates[1], { minComments: 5, commentsEnabled: false }), true);
 });

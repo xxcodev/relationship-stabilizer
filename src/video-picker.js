@@ -71,6 +71,94 @@ function filterRecent(candidates = [], maxAgeDays = 7, { now = new Date() } = {}
   });
 }
 
+const METRIC_LABELS = { minLikes: '点赞', minComments: '评论', minFavorites: '收藏', minShares: '转发' };
+const METRIC_KEYS = { likes: 'minLikes', comments: 'minComments', favorites: 'minFavorites', shares: 'minShares' };
+
+/** Clamp interaction thresholds (0 = no limit) from config/form values. */
+function normalizeMetricFilters(src = {}) {
+  const clean = (value) => {
+    const n = Math.round(Number(value));
+    return Number.isFinite(n) && n > 0 ? Math.min(100000000, n) : 0;
+  };
+  const raw = src && typeof src === 'object' ? src : {};
+  return {
+    minLikes: clean(raw.minLikes ?? raw.filterMinLikes),
+    minComments: clean(raw.minComments ?? raw.filterMinComments),
+    minFavorites: clean(raw.minFavorites ?? raw.filterMinFavorites),
+    minShares: clean(raw.minShares ?? raw.filterMinShares),
+  };
+}
+
+/**
+ * Per-metric switches. Explicit `likesEnabled`/`filterLikesEnabled` wins; without one the
+ * threshold decides, which keeps old configs (threshold > 0 means enabled) working.
+ */
+function normalizeFilterSwitches(src = {}, thresholds = null) {
+  const raw = src && typeof src === 'object' ? src : {};
+  const f = thresholds || normalizeMetricFilters(raw);
+  const read = (metric) => {
+    const filterKey = 'filter' + metric[0].toUpperCase() + metric.slice(1) + 'Enabled';
+    const value = raw[metric + 'Enabled'] !== undefined ? raw[metric + 'Enabled'] : raw[filterKey];
+    if (value === undefined || value === null || value === '') return f[METRIC_KEYS[metric]] > 0;
+    return !(value === false || value === 'false' || value === 0 || value === '0');
+  };
+  return {
+    likes: read('likes'),
+    comments: read('comments'),
+    favorites: read('favorites'),
+    shares: read('shares'),
+  };
+}
+
+function activeMetricKeys(filters) {
+  const f = normalizeMetricFilters(filters);
+  const enabled = normalizeFilterSwitches(filters, f);
+  return Object.keys(METRIC_KEYS).filter((metric) => enabled[metric] && f[METRIC_KEYS[metric]] > 0);
+}
+
+function metricFiltersActive(filters) {
+  return activeMetricKeys(filters).length > 0;
+}
+
+/** Read one interaction metric from a candidate; null when the source did not provide it. */
+function candidateMetric(candidate, key) {
+  if (!candidate) return null;
+  const raw = key === 'minLikes' ? candidate.likes
+    : key === 'minComments' ? candidate.comments
+      : key === 'minFavorites' ? candidate.collects
+        : candidate.shares;
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** True when every enabled threshold is known and met (missing metrics fail a threshold). */
+function passesMetrics(candidate, filters) {
+  const f = normalizeMetricFilters(filters);
+  const enabled = normalizeFilterSwitches(filters, f);
+  for (const metric of Object.keys(METRIC_KEYS)) {
+    if (!enabled[metric]) continue;
+    const min = f[METRIC_KEYS[metric]];
+    if (!min) continue;
+    const value = candidateMetric(candidate, METRIC_KEYS[metric]);
+    if (value === null || value < min) return false;
+  }
+  return true;
+}
+
+function filterMetrics(candidates, filters) {
+  const list = Array.isArray(candidates) ? candidates : [];
+  if (!metricFiltersActive(filters)) return list.slice();
+  return list.filter((candidate) => passesMetrics(candidate, filters));
+}
+
+/** Human readable thresholds for logs and error messages; disabled rows are omitted. */
+function describeMetricFilters(filters) {
+  return activeMetricKeys(filters)
+    .map((metric) => `${METRIC_LABELS[METRIC_KEYS[metric]]}≥${normalizeMetricFilters(filters)[METRIC_KEYS[metric]]}`)
+    .join('、');
+}
+
 /** Turn recent send rows into sets of video ids / normalized titles to avoid. */
 function buildHistory(rows = []) {
   const ids = new Set();
@@ -106,4 +194,7 @@ function chooseVideo(candidates = [], history = {}, random = Math.random) {
   return pool[index];
 }
 
-module.exports = { DEFAULT_HISTORY_DAYS, normalizeTitle, buildHistory, parseAgeDays, publishWindow, filterRecent, chooseVideo };
+module.exports = {
+  DEFAULT_HISTORY_DAYS, normalizeTitle, buildHistory, parseAgeDays, publishWindow, filterRecent, chooseVideo,
+  METRIC_LABELS, METRIC_KEYS, normalizeMetricFilters, normalizeFilterSwitches, metricFiltersActive, candidateMetric, passesMetrics, filterMetrics, describeMetricFilters,
+};
