@@ -419,13 +419,21 @@ function createWindow() {
 }
 
 function trayIcon() {
-  const paths = [path.join(ROOT, 'logo.png'), path.join(ROOT, 'build', 'icon.png')];
-  for (const p of paths) {
-    try {
-      const img = nativeImage.createFromPath(p);
-      if (!img.isEmpty()) return img.resize({ width: 18, height: 18, quality: 'best' });
-    } catch (e) {}
-  }
+  const isMac = process.platform === 'darwin';
+  const iconPath = path.join(ROOT, 'app', 'assets', isMac ? 'trayTemplate.png' : 'tray-light.png');
+  try {
+    const img = nativeImage.createFromPath(iconPath);
+    if (!img.isEmpty()) {
+      // macOS template images are tinted by the system (no white plate, follows menu bar theme).
+      if (isMac) img.setTemplateImage(true);
+      return img;
+    }
+  } catch (e) {}
+  // Fallback for a broken/missing asset: keep a usable icon rather than an empty tray.
+  try {
+    const img = nativeImage.createFromPath(path.join(ROOT, 'logo.png'));
+    if (!img.isEmpty()) return img.resize({ width: 18, height: 18, quality: 'best' });
+  } catch (e) {}
   return nativeImage.createEmpty();
 }
 
@@ -508,7 +516,7 @@ function refreshTrayMenu() {
 function createTray() {
   tray = new Tray(trayIcon());
   tray.setToolTip(TITLE);
-  if (process.platform === 'darwin') tray.setTitle(DEV ? ` ${TITLE}(dev)` : ` ${TITLE}`);
+  // Icon-only menu bar item: no text label next to the template icon.
   refreshTrayMenu();
   tray.on('double-click', () => showWindow());
   trayTimer = setInterval(refreshTrayMenu, 5000);
