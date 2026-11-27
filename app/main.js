@@ -6,9 +6,11 @@
  *
  * The two long-lived processes stay in src/host.js, so CLI usage and the app share one model.
  */
-const { app, BrowserWindow, Tray, Menu, dialog, shell, nativeImage, screen, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, dialog, shell, nativeImage, screen, Notification, session } = require('electron');
 const { spawn } = require('child_process');
+const crypto = require('crypto');
 const fs = require('fs');
+const http = require('http');
 const net = require('net');
 const path = require('path');
 const { Host } = require('../src/host');
@@ -53,6 +55,11 @@ let viewerPort = null;
 let viewerStarted = false;
 let viewerChild = null;
 let apiExportChild = null;
+let loginWin = null;
+let appBridgeServer = null;
+let appBridgeUrl = '';
+const APP_BRIDGE_TOKEN = crypto.randomBytes(24).toString('hex');
+const qrStates = new Map();
 let lastApiRefreshAt = 0;
 let lastApiRefreshFailed = false;
 let quitting = false;
@@ -643,8 +650,282 @@ async function openViewer({ login = false } = {}) {
   log(`viewer opened login=${login} browser-port=${acc.port} started=${ready.started}`);
 }
 
+function partitionFor(label) {
+  const hash = crypto.createHash('sha1').update(String(label || 'default')).digest('hex').slice(0, 12);
+  return `persist:dyf-${hash}`;
+}
+
+function formatElectronCookies(rawList = []) {
+  return rawList
+    .filter((c) => c && c.name && /douyin\.com$/i.test(String(c.domain || '').replace(/^\./, '')))
+    .map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path || '/',
+      expires: typeof c.expirationDate === 'number' ? c.expirationDate : -1,
+      httpOnly: !!c.httpOnly,
+      secure: !!c.secure,
+      sameSite: c.sameSite || 'unspecified',
+    }));
+}
+
+async function openInAppLogin({ label = null, name = '', friend = '', isNew = false } = {}) {
+  const repos = require('../src/repos');
+  const apiSession = require('../src/api-session');
+  const apiExport = require('../src/api-export');
+  const acc = label ? repos.getAccount(String(label)) : account();
+  if (!acc) {
+    throw new Error('没有找到目标账户');
+  }
+  const targetLabel = acc.label;
+  if (loginWin && !loginWin.isDestroyed()) {
+    try { loginWin.close(); } catch (e) {}
+    loginWin = null;
+  }
+
+  const st = {
+    status: 'waiting',
+    startedAt: Date.now(),
+    nickname: '',
+    uid: '',
+    hasCookies: false,
+    hasFeed: false,
+    hasSearch: false,
+    error: '',
+  };
+  qrStates.set(targetLabel, st);
+
+  const partition = partitionFor(targetLabel);
+  const ses = session.fromPartition(partition);
+  const ua = ses.getUserAgent().replace(/\s*Electron\/[^\s]+/g, '').replace(/\s*心动投递\/[^\s]+/g, '');
+
+  let bounds = {};
+  try {
+    const anchor = win && !win.isDestroyed() ? win.getBounds() : null;
+    const display = anchor ? screen.getDisplayMatching(anchor) : screen.getPrimaryDisplay();
+    bounds = {
+      x: Math.round(display.workArea.x + Math.max(40, (display.workArea.width - 1100) / 2)),
+      y: Math.round(display.workArea.y + Math.max(40, (display.workArea.height - 820) / 2)),
+    };
+  } catch (e) {}
+
+  const lw = new BrowserWindow({
+    ...bounds,
+    width: 1100,
+    height: 820,
+    title: isNew ? `${TITLE} · 扫码添加账户` : `${TITLE} · 扫码登录（${acc.display_name || acc.label}）`,
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      partition,
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
+  loginWin = lw;
+  lw.webContents.setUserAgent(ua);
+  lw.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\/[^/]*douyin\.com/i.test(url)) lw.loadURL(url);
+    else shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  let capturedFeed = null;
+  let capturedSearchUrl = null;
+  let capturedSend = null;
+  let capturedCreate = null;
+  let finishing = false;
+  let pollTimer = null;
+
+  try {
+    lw.webContents.debugger.attach('1.3');
+    await lw.webContents.debugger.sendCommand('Network.enable');
+    lw.webContents.debugger.on('message', (_ev, method, params) => {
+      if (method !== 'Network.requestWillBeSent' || !params || !params.request) return;
+      const req = params.request;
+      const url = String(req.url || '');
+      if (!url) return;
+      if (apiExport.isFeedRequestUrl(url)) {
+        const nextFeed = {
+          url,
+          method: req.method || 'GET',
+          headers: req.headers || {},
+          bodyB64: req.postData ? Buffer.from(req.postData).toString('base64') : null,
+        };
+        if (!capturedFeed || /\/aweme\/v1\/web\/tab\/feed\/?/.test(url)) capturedFeed = nextFeed;
+      }
+      if (/general\/search\/single/.test(url)) capturedSearchUrl = url;
+      if (/imapi\.douyin\.com\/v1\/message\/send/.test(url)) {
+        capturedSend = {
+          url,
+          headers: req.headers || {},
+          bodyB64: req.postData ? Buffer.from(req.postData).toString('base64') : null,
+        };
+      }
+      if (/imapi\.douyin\.com\/v2\/conversation\/create/.test(url)) {
+        capturedCreate = {
+          url,
+          headers: req.headers || {},
+          bodyB64: req.postData ? Buffer.from(req.postData).toString('base64') : null,
+        };
+      }
+    });
+  } catch (e) {
+    log(`in-app login debugger attach failed: ${e.message}`);
+  }
+
+  const checkLogin = async () => {
+    if (finishing || lw.isDestroyed()) return;
+    try {
+      const currentUrl = lw.webContents.getURL();
+      if (!/^https:\/\/(?:www\.)?douyin\.com/i.test(currentUrl)) return;
+      const cookies = formatElectronCookies(await ses.cookies.get({}));
+      const hasAuthCookie = cookies.some((c) => /^(sessionid|sessionid_ss|uid_tt|sid_tt)$/.test(c.name) && c.value);
+      if (!hasAuthCookie) return;
+      const prof = await lw.webContents.executeJavaScript(
+        `fetch('/aweme/v1/web/user/profile/self/?device_platform=webapp&aid=6383&channel=channel_pc_web&publish_video_strategy_type=2&source=channel_pc_web',{credentials:'include'}).then(r=>r.json()).catch(()=>null)`,
+        true
+      );
+      if (!prof || prof.status_code !== 0 || !prof.user || !prof.user.nickname) return;
+
+      finishing = true;
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      st.status = 'capturing';
+      st.nickname = String(prof.user.nickname || '').trim();
+      st.uid = String(prof.user.uid || '');
+
+      const freshAcc = repos.getAccount(targetLabel) || acc;
+      const autoName = !freshAcc.display_name || /^新账户/.test(freshAcc.display_name) || freshAcc.display_name === freshAcc.label;
+      if (autoName && st.nickname) {
+        repos.updateAccountDisplayName(freshAcc.id, st.nickname);
+        repos.logEvent('account-detected', { label: freshAcc.label, nickname: st.nickname, uid: st.uid, source: 'in-app-qr' });
+      }
+
+      // Reload recommend + search with authenticated cookies so feedUrl & searchUrl carry login state.
+      capturedFeed = null;
+      capturedSearchUrl = null;
+      await lw.loadURL('https://www.douyin.com/?recommend=1').catch(() => {});
+      for (let i = 0; i < 8 && !capturedFeed && !lw.isDestroyed(); i++) await sleep(500);
+      if (!capturedSearchUrl && !lw.isDestroyed()) {
+        await lw.loadURL(`https://www.douyin.com/search/${encodeURIComponent('搞笑')}`).catch(() => {});
+        for (let i = 0; i < 10 && !capturedSearchUrl && !lw.isDestroyed(); i++) await sleep(500);
+      }
+
+      const finalCookies = formatElectronCookies(await ses.cookies.get({}));
+      const prev = apiSession.load(freshAcc.label) || {};
+      const feedHeaders = capturedFeed ? apiExport.pickFeedHeaders(capturedFeed.headers) : (prev.feedHeaders || {});
+      const nextSession = {
+        ...prev,
+        version: 4,
+        createdAt: new Date().toISOString(),
+        account: freshAcc.label,
+        accountName: st.nickname || freshAcc.display_name || freshAcc.label,
+        friend: friend || prev.friend || freshAcc.friend || '',
+        searchUrl: capturedSearchUrl || prev.searchUrl || null,
+        feedUrl: (capturedFeed && capturedFeed.url) || prev.feedUrl || null,
+        feedHeaders,
+        feedMethod: (capturedFeed && capturedFeed.method) || prev.feedMethod || 'GET',
+        feedBodyB64: (capturedFeed && capturedFeed.bodyB64) || prev.feedBodyB64 || null,
+        template: (capturedSend && capturedSend.bodyB64 ? capturedSend : prev.template) || null,
+        createTemplate: (capturedCreate && capturedCreate.bodyB64 ? capturedCreate : prev.createTemplate) || null,
+        friends: Array.isArray(prev.friends) ? prev.friends : [],
+        cookies: finalCookies,
+      };
+      apiSession.save(nextSession, freshAcc.label);
+
+      st.hasCookies = finalCookies.length > 0;
+      st.hasFeed = !!nextSession.feedUrl;
+      st.hasSearch = !!nextSession.searchUrl;
+      st.status = 'done';
+      log(`in-app qr login ok label=${freshAcc.label} nickname=${st.nickname} cookies=${finalCookies.length} feed=${st.hasFeed} search=${st.hasSearch}`);
+      refreshTrayMenu();
+      notify(`「${st.nickname || freshAcc.label}」扫码登录成功`);
+      if (!lw.isDestroyed()) lw.close();
+    } catch (e) {
+      log(`in-app login check err: ${e.message}`);
+      finishing = false;
+    }
+  };
+
+  lw.on('closed', () => {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    try { lw.webContents.debugger.detach(); } catch (e) {}
+    if (loginWin === lw) loginWin = null;
+    if (st.status === 'waiting') st.status = 'closed';
+  });
+
+  pollTimer = setInterval(checkLogin, 2000);
+  await lw.loadURL('https://www.douyin.com/');
+  log(`in-app qr login opened label=${targetLabel} isNew=${isNew}`);
+  return st;
+}
+
 function login() {
-  return openViewer({ login: true });
+  const acc = account();
+  if (!acc) {
+    dialog.showErrorBox('没有账号', '请先在面板里创建或导入数据目录。');
+    return;
+  }
+  return openInAppLogin({ label: acc.label, name: acc.display_name || acc.label, isNew: false }).catch((e) => {
+    dialog.showErrorBox('打开扫码登录失败', e.message);
+  });
+}
+
+function startAppBridge() {
+  if (appBridgeServer) return Promise.resolve(appBridgeUrl);
+  appBridgeServer = http.createServer(async (req, res) => {
+    const sendJson = (code, data) => {
+      res.writeHead(code, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    };
+    if (req.headers['x-bridge-token'] !== APP_BRIDGE_TOKEN) {
+      return sendJson(403, { ok: false, error: 'forbidden' });
+    }
+    try {
+      const u = new URL(req.url, 'http://127.0.0.1');
+      if (u.pathname === '/qr-login' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        await openInAppLogin({
+          label: input.label,
+          name: input.name,
+          friend: input.friend,
+          isNew: input.isNew !== false,
+        });
+        return sendJson(200, { ok: true, label: input.label, status: 'waiting' });
+      }
+      if (u.pathname === '/qr-status' && req.method === 'GET') {
+        const label = String(u.searchParams.get('label') || '').trim();
+        const st = qrStates.get(label) || { status: 'waiting', nickname: '', uid: '', hasCookies: false, hasFeed: false, hasSearch: false, error: '' };
+        return sendJson(200, { ok: true, label, ...st });
+      }
+      if (u.pathname === '/clear-partition' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}');
+        if (input.label) {
+          qrStates.delete(String(input.label));
+          const ses = session.fromPartition(partitionFor(String(input.label)));
+          await ses.clearStorageData().catch(() => {});
+        }
+        return sendJson(200, { ok: true });
+      }
+      return sendJson(404, { ok: false, error: 'not found' });
+    } catch (e) {
+      return sendJson(500, { ok: false, error: e.message });
+    }
+  });
+  return new Promise((resolve, reject) => {
+    appBridgeServer.once('error', reject);
+    appBridgeServer.listen(0, '127.0.0.1', () => {
+      const actual = appBridgeServer.address().port;
+      appBridgeUrl = `http://127.0.0.1:${actual}`;
+      log(`app bridge listening on ${appBridgeUrl}`);
+      resolve(appBridgeUrl);
+    });
+  });
 }
 
 function about() {
@@ -695,6 +976,7 @@ async function boot() {
   }
 
   process.env.BROWSER_VISIBLE_POS = visiblePosition();
+  const bridgeUrl = await startAppBridge();
   host = new Host({
     dataDir,
     port,
@@ -702,6 +984,8 @@ async function boot() {
       ELECTRON_RUN_AS_NODE: '1',
       DASH_PORT: String(port),
       BROWSER_VISIBLE_POS: process.env.BROWSER_VISIBLE_POS,
+      DF_APP_BRIDGE_URL: bridgeUrl,
+      DF_APP_BRIDGE_TOKEN: APP_BRIDGE_TOKEN,
       ...(DEV ? { ACCOUNT_PORT: '9433' } : {}),
     },
     onLog: log,
@@ -775,6 +1059,14 @@ app.on('before-quit', (event) => {
         tray.destroy();
       } catch (e) {}
       tray = null;
+    }
+    if (loginWin && !loginWin.isDestroyed()) {
+      try { loginWin.destroy(); } catch (e) {}
+      loginWin = null;
+    }
+    if (appBridgeServer) {
+      try { appBridgeServer.close(); } catch (e) {}
+      appBridgeServer = null;
     }
     // Second pass: `quitting` is already true, so the handler above lets the quit proceed.
     // Calling app.exit() directly from a prevented before-quit can leave the process alive.

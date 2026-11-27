@@ -1789,12 +1789,97 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         if (friend) repos.addFriend(acc.id, friend);
         repos.seedAccountDefaults(acc.id);
         repos.setSetting('activeAccount', acc.label);
-        repos.logEvent('account-add-qr', { label: acc.label, port: acc.port });
-        try { startBrowserFor(acc); } catch (e) {}
+        repos.logEvent('account-add-qr', { label: acc.label, port: acc.port, mode: process.env.DF_APP_BRIDGE_URL ? 'electron' : 'external' });
+        let mode = 'external';
+        if (process.env.DF_APP_BRIDGE_URL) {
+          try {
+            const br = await fetch(`${process.env.DF_APP_BRIDGE_URL}/qr-login`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-bridge-token': process.env.DF_APP_BRIDGE_TOKEN || '',
+              },
+              body: JSON.stringify({ label: acc.label, name: wanted || acc.display_name || acc.label, friend, isNew: true }),
+              signal: AbortSignal.timeout(5000),
+            });
+            const bd = await br.json().catch(() => ({}));
+            if (!br.ok || !bd.ok) throw new Error(bd.error || `HTTP ${br.status}`);
+            mode = 'electron';
+          } catch (e) {
+            return send(res, 502, { ok: false, error: '打开应用内扫码窗口失败：' + e.message });
+          }
+        } else {
+          try { startBrowserFor(acc); } catch (e) {}
+        }
         const restarted = service.restartScheduler();
         return send(res, 200, {
           ok: true,
+          mode,
           account: { label: acc.label, name, port: acc.port, profile: acc.profile_dir },
+          restarted,
+        });
+      }
+      if (u.pathname === '/api/accounts/qr-status' && req.method === 'GET') {
+        const label = String(u.searchParams.get('label') || '').trim();
+        if (!label) return send(res, 400, { ok: false, error: '缺少 label' });
+        const acc = repos.getAccount(label);
+        let bridgeState = null;
+        if (process.env.DF_APP_BRIDGE_URL) {
+          try {
+            const br = await fetch(`${process.env.DF_APP_BRIDGE_URL}/qr-status?label=${encodeURIComponent(label)}`, {
+              headers: { 'x-bridge-token': process.env.DF_APP_BRIDGE_TOKEN || '' },
+              signal: AbortSignal.timeout(3000),
+            });
+            if (br.ok) bridgeState = await br.json();
+          } catch (e) {}
+        }
+        const sess = apiSession.load(label);
+        const nickname = (bridgeState && bridgeState.nickname) || (sess && sess.accountName) || (acc && acc.display_name) || '';
+        const hasCookies = Boolean((bridgeState && bridgeState.hasCookies) || (sess && Array.isArray(sess.cookies) && sess.cookies.length));
+        return send(res, 200, {
+          ok: true,
+          label,
+          status: (bridgeState && bridgeState.status) || (hasCookies ? 'done' : 'waiting'),
+          nickname,
+          accountName: (acc && acc.display_name) || nickname || label,
+          hasCookies,
+          hasFeed: Boolean((bridgeState && bridgeState.hasFeed) || (sess && sess.feedUrl)),
+          hasSearch: Boolean((bridgeState && bridgeState.hasSearch) || (sess && sess.searchUrl)),
+          error: (bridgeState && bridgeState.error) || '',
+        });
+      }
+      if ((u.pathname === '/api/accounts' && req.method === 'DELETE') || (u.pathname === '/api/accounts/delete' && req.method === 'POST')) {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = body ? JSON.parse(body) : {};
+        const label = String(input.label || u.searchParams.get('label') || '').trim();
+        if (!label) return send(res, 400, { ok: false, error: '缺少账户标识' });
+        let out;
+        try {
+          out = repos.deleteAccount(label);
+        } catch (e) {
+          return send(res, 400, { ok: false, error: e.message });
+        }
+        if (!out.deleted) return send(res, 404, { ok: false, error: '账户不存在' });
+        apiSession.clearAccount(out.label);
+        if (process.env.DF_APP_BRIDGE_URL) {
+          await fetch(`${process.env.DF_APP_BRIDGE_URL}/clear-partition`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-bridge-token': process.env.DF_APP_BRIDGE_TOKEN || '',
+            },
+            body: JSON.stringify({ label: out.label }),
+            signal: AbortSignal.timeout(2000),
+          }).catch(() => {});
+        }
+        repos.logEvent('account-delete', { label: out.label, name: out.name, nextActive: out.nextActive });
+        const restarted = service.restartScheduler();
+        return send(res, 200, {
+          ok: true,
+          deleted: out.label,
+          name: out.name,
+          active: out.nextActive || currentAccount().label,
           restarted,
         });
       }

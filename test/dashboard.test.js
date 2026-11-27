@@ -405,3 +405,76 @@ test('POST and DELETE /api/pools manage custom top-level categories and protect 
   assert.equal(delJson.ok, true);
   assert.equal(delJson.pools.some((p) => p.name === '健身测试'), false);
 });
+
+test('accounts support in-app QR bridge and deletion with last-account guard', async () => {
+  const http = require('node:http');
+  const calls = [];
+  const bridge = http.createServer(async (req, res) => {
+    let body = '';
+    for await (const c of req) body += c;
+    const u = new URL(req.url, 'http://127.0.0.1');
+    calls.push({ method: req.method, path: u.pathname, token: req.headers['x-bridge-token'], body: body ? JSON.parse(body) : null });
+    res.setHeader('Content-Type', 'application/json');
+    if (u.pathname === '/qr-login') return res.end(JSON.stringify({ ok: true, status: 'waiting' }));
+    if (u.pathname === '/qr-status') {
+      return res.end(JSON.stringify({ ok: true, status: 'done', nickname: '扫码新号', hasCookies: true, hasFeed: true, hasSearch: true }));
+    }
+    if (u.pathname === '/clear-partition') return res.end(JSON.stringify({ ok: true }));
+    res.writeHead(404);
+    res.end('{}');
+  });
+  await new Promise((r) => bridge.listen(0, '127.0.0.1', r));
+  const bridgePort = bridge.address().port;
+  const prevUrl = process.env.DF_APP_BRIDGE_URL;
+  const prevToken = process.env.DF_APP_BRIDGE_TOKEN;
+  process.env.DF_APP_BRIDGE_URL = `http://127.0.0.1:${bridgePort}`;
+  process.env.DF_APP_BRIDGE_TOKEN = 'test-bridge-token';
+
+  try {
+    // Delete 'B' first so 'A' is the only remaining account, then verify deleting the last account fails (400)
+    const delB = await fetch(url + '/api/accounts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'B' }),
+    });
+    assert.equal(delB.status, 200);
+
+    const delLast = await fetch(url + '/api/accounts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: 'A' }),
+    });
+    assert.equal(delLast.status, 400);
+
+    // Add account via in-app QR bridge
+    const qrRes = await post('/api/accounts/add-qr', { name: '小号测试', friend: '小美' });
+    assert.equal(qrRes.ok, true);
+    assert.equal(qrRes.mode, 'electron');
+    assert.equal(qrRes.account.label, '小号测试');
+    assert.ok(calls.some((c) => c.path === '/qr-login' && c.token === 'test-bridge-token' && c.body.label === '小号测试'));
+
+    const stRes = await fetch(url + '/api/accounts/qr-status?label=' + encodeURIComponent('小号测试'));
+    assert.equal(stRes.status, 200);
+    const stJson = await stRes.json();
+    assert.equal(stJson.status, 'done');
+    assert.equal(stJson.nickname, '扫码新号');
+
+    // Delete the newly added account ('小号测试'), which should also switch activeAccount back to 'A'
+    const delNew = await fetch(url + '/api/accounts', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: '小号测试' }),
+    });
+    assert.equal(delNew.status, 200);
+    const delNewJson = await delNew.json();
+    assert.equal(delNewJson.ok, true);
+    assert.equal(delNewJson.deleted, '小号测试');
+    assert.equal(delNewJson.active, 'A');
+    assert.equal(repos.getAccount('小号测试'), null);
+    assert.ok(calls.some((c) => c.path === '/clear-partition' && c.body.label === '小号测试'));
+  } finally {
+    if (prevUrl === undefined) delete process.env.DF_APP_BRIDGE_URL; else process.env.DF_APP_BRIDGE_URL = prevUrl;
+    if (prevToken === undefined) delete process.env.DF_APP_BRIDGE_TOKEN; else process.env.DF_APP_BRIDGE_TOKEN = prevToken;
+    await new Promise((r) => bridge.close(r));
+  }
+});

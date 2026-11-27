@@ -199,6 +199,37 @@ function setAccountEnabled(accountId, enabled) {
   db.open().prepare('UPDATE accounts SET enabled = ? WHERE id = ?').run(enabled ? 1 : 0, accountId);
 }
 
+function deleteAccount(label) {
+  const clean = String(label || '').trim();
+  if (!clean) return { deleted: false };
+  const conn = db.open();
+  const acc = getAccount(clean);
+  if (!acc) return { deleted: false };
+  const all = listAccounts();
+  if (all.length <= 1) {
+    throw new Error('至少保留一个账户，无法删除最后一个账户');
+  }
+  for (const table of ['bands', 'plans', 'sends', 'friends', 'account_settings', 'account_pools']) {
+    conn.prepare(`DELETE FROM ${table} WHERE account_id = ?`).run(acc.id);
+  }
+  conn.prepare('DELETE FROM settings WHERE key = ?').run(`mutualFriends:${acc.label}`);
+  conn.prepare('DELETE FROM accounts WHERE id = ?').run(acc.id);
+  let nextActive = getSetting('activeAccount', null);
+  if (nextActive === acc.label || !getAccount(nextActive)) {
+    const next = listAccounts()[0];
+    nextActive = next ? next.label : null;
+    if (nextActive) setSetting('activeAccount', nextActive);
+  }
+  return {
+    deleted: true,
+    id: acc.id,
+    label: acc.label,
+    name: acc.display_name || acc.label,
+    profileDir: acc.profile_dir,
+    nextActive,
+  };
+}
+
 function upsertAccount({ label, profileDir, port, friend = '', enabled = true }) {
   const conn = db.open();
   const sql = isMysql()
@@ -659,7 +690,7 @@ module.exports = {
   getBurstState, saveBurstState, clearBurstState,
   getSlowMailState, saveSlowMailState, clearSlowMailState,
   seedAccountDefaults, deriveDailyTotal, DEFAULT_ACCOUNT_SETTINGS,
-  getAccount, upsertAccount, updateAccountDisplayName, listAccounts, setAccountEnabled,
+  getAccount, upsertAccount, updateAccountDisplayName, listAccounts, setAccountEnabled, deleteAccount,
   listFriends, listEnabledFriendNames, addFriend, getFriendByName, getFriendByUid,
   updateFriendName, setFriendUserid, upsertFriendByUid,
   setFriendEnabled, removeFriend, batchAddFriends, copyAccountConfig, syncAccountFriend,

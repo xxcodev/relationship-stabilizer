@@ -92,7 +92,7 @@
   .acct-menu-more:hover{background:rgba(255,255,255,.055);color:var(--txt)}
 
   /* main */
-  .main{flex:1;min-width:0;padding:0 32px 48px;max-width:none;margin:0}
+  .main{flex:1;min-width:0;padding:0 32px 150px;max-width:none;margin:0}
   .view,.alert,.footer-note{max-width:1440px;margin-left:auto;margin-right:auto}
   .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
   h1{font-size:24px;line-height:1.2;margin:0 0 5px;letter-spacing:.2px}
@@ -108,6 +108,8 @@
   .btn.primary:hover{background-position:100% 50%}
   .btn.success{background:rgba(55,214,122,.1);border-color:rgba(55,214,122,.42);color:#b9f2d0}
   .btn.success:hover{background:rgba(55,214,122,.17);border-color:rgba(55,214,122,.62)}
+  .btn.danger{background:rgba(255,93,93,.08);border-color:rgba(255,93,93,.34);color:#ffb3b3}
+  .btn.danger:hover{background:rgba(255,93,93,.16);border-color:rgba(255,93,93,.56)}
   .btn.ghost{background:transparent}
   .btn.soft{background:rgba(255,255,255,.045);border-color:var(--line2);color:var(--txt)}
   .btn.soft:hover{background:rgba(255,255,255,.09);border-color:#3b4962}
@@ -971,7 +973,7 @@
   @keyframes mascot-spark{0%,100%{transform:scale(.65);opacity:.25}50%{transform:scale(1.15);opacity:1}}
 
   /* ---------- interactive dsh-pet assistant ---------- */
-  .ai-pet{position:fixed;right:18px;bottom:14px;width:176px;height:176px;z-index:42;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
+  .ai-pet{position:fixed;right:16px;bottom:12px;width:124px;height:128px;z-index:42;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
     filter:drop-shadow(0 12px 20px rgba(30,60,110,.18));transition:filter .2s,transform .2s,bottom .18s ease;outline:none}
   .ai-pet:hover{filter:drop-shadow(0 16px 26px rgba(30,60,110,.28))}
   .ai-pet:focus-visible{outline:2px solid rgba(91,140,255,.65);outline-offset:6px;border-radius:18px}
@@ -1312,6 +1314,8 @@
   html[data-theme="light"] .btn.primary{background:linear-gradient(135deg,#4a7dff,#6f83ff 48%,#3fa9d8);background-size:160% 160%;border-color:rgba(132,150,245,.7);color:#fff;box-shadow:0 8px 20px rgba(47,107,255,.22),0 0 18px rgba(200,205,255,.3)}
   html[data-theme="light"] .btn.primary:hover{background-position:100% 50%;box-shadow:0 10px 26px rgba(47,107,255,.28)}
   html[data-theme="light"] .btn.success{background:rgba(18,138,70,.08);border-color:rgba(18,138,70,.36);color:#0e763c}
+  html[data-theme="light"] .btn.danger{background:rgba(217,45,32,.06);border-color:rgba(217,45,32,.28);color:#b42318}
+  html[data-theme="light"] .btn.danger:hover{background:rgba(217,45,32,.12);border-color:rgba(217,45,32,.46)}
 
   html[data-theme="light"] .pill{background:rgba(23,32,51,.03);border-color:var(--line2);color:var(--dim)}
   html[data-theme="light"] .pill.ok{color:#0e763c;border-color:rgba(18,138,70,.34);background:rgba(18,138,70,.07)}
@@ -1377,7 +1381,7 @@
     .side-acct,.side-link{display:none}
     .side-theme{width:auto;padding:8px 10px;white-space:nowrap}
     .friend-select-pop{top:calc(100% + 7px);bottom:auto}
-    .main{width:100%;max-width:100%;margin:0;padding:0 16px 40px}
+    .main{width:100%;max-width:100%;margin:0;padding:0 16px 140px}
     .topbar{width:calc(100% + 32px);margin:0 -16px 18px;padding:12px 16px}
     .hero-grid{grid-template-columns:1fr}
     .top-actions{width:100%}
@@ -1875,11 +1879,11 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
 
         <div class="card add-account-card">
           <div class="card-head">
-            <div><div class="eyebrow">添加账户</div><div class="add-account-sub">手机扫码登录，自动识别昵称</div></div>
+            <div><div class="eyebrow">添加账户</div><div class="add-account-sub">应用内扫码登录，不依赖外部浏览器</div></div>
           </div>
           <button class="btn primary add-account-cta" id="newAcctQr">扫码添加账户</button>
           <div class="field-note add-account-msg" id="newAcctMsg"></div>
-          <div class="field-note">新账户默认暂停，登录后添加好友再启用。</div>
+          <div class="field-note">新账户默认暂停，扫码登录后自动识别昵称并保存会话。</div>
           <details class="advanced-add">
             <summary>高级选项：手动创建</summary>
             <div class="form">
@@ -3968,21 +3972,41 @@ function renderAccounts() {
     $('#acctRename').value = active.name || active.label;
     setPill($('#acctPill'), active.enabled ? '运行中' : '已暂停', active.enabled ? 'ok' : 'warn');
   }
-  const rows = (acc.accounts || []).map((a) => {
+  const list = acc.accounts || [];
+  const canDelete = list.length > 1;
+  const rows = list.map((a) => {
     const isActive = a.label === acc.active;
+    const displayName = a.name || a.label;
     return '<div class="account-row' + (isActive ? ' active' : '') + '">'
-      + '<div class="avatar">' + esc(String(a.name || a.label).slice(0, 1).toUpperCase()) + '</div>'
-      + '<div class="account-main"><div class="account-name">' + esc(a.name || a.label) + (isActive ? ' <span class="pill blue" style="margin-left:6px">面板当前</span>' : '')
+      + '<div class="avatar">' + esc(String(displayName).slice(0, 1).toUpperCase()) + '</div>'
+      + '<div class="account-main"><div class="account-name">' + esc(displayName) + (isActive ? ' <span class="pill blue" style="margin-left:6px">面板当前</span>' : '')
       + (a.enabled ? ' <span class="pill ok" style="margin-left:6px">运行中</span>' : ' <span class="pill warn" style="margin-left:6px">已暂停</span>') + '</div>'
       + '<div class="account-meta">好友 ' + esc((a.friends || []).join('、') || '-') + ' · 端口 ' + a.port + ' · ' + (a.points ?? 0) + ' 个触发点 · ' + a.sends + ' 条</div></div>'
       + '<div class="account-actions">'
       + (isActive ? '<button class="btn ghost sm" disabled>面板已选</button>' : '<button class="btn sm" data-switch="' + esc(a.label) + '">切到面板</button>')
       + '<button class="btn ghost sm" data-acc-enable="' + esc(a.label) + '" data-value="' + (a.enabled ? '0' : '1') + '">' + (a.enabled ? '暂停' : '继续') + '</button>'
+      + '<button class="btn danger sm" data-acc-del="' + esc(a.label) + '" data-acc-name="' + esc(displayName) + '"' + (canDelete ? '' : ' disabled title="至少保留一个账户"') + '>删除</button>'
       + '</div></div>';
   }).join('');
   $('#acctList').innerHTML = rows || '<div class="empty">还没有账户</div>';
   $$('[data-switch]').forEach((b) => b.addEventListener('click', () => switchAccount(b.dataset.switch)));
   $$('[data-acc-enable]').forEach((b) => b.addEventListener('click', () => setAccountEnabled(b.dataset.accEnable, b.dataset.value === '1')));
+  $$('[data-acc-del]').forEach((b) => b.addEventListener('click', () => deleteAccount(b.dataset.accDel, b.dataset.accName)));
+}
+
+async function deleteAccount(label, name) {
+  const isActive = state.accounts && state.accounts.active === label;
+  const tip = '确定删除账户「' + (name || label) + '」？\n将清理该账户的排班配置、好友列表与纯 API 会话。'
+    + (isActive ? '\n（删除后将自动切换到其他账户）' : '');
+  if (!window.confirm(tip)) return;
+  try {
+    await postJSON('/api/accounts', { label }, 'DELETE');
+    state.config = null;
+    state.cfgLoaded = false;
+    resetMutualView();
+    toast('已删除账户「' + (name || label) + '」', 'ok');
+    await Promise.all([loadAccounts(), loadHome()]);
+  } catch (e) { toast('删除失败：' + e.message, 'bad'); }
 }
 
 async function setAccountEnabled(label, enabled) {
@@ -4273,37 +4297,60 @@ function pollAccountLogin(label) {
   }, 3000);
 }
 
+function pollQrBridgeStatus(label) {
+  if (loginPollTimer) clearInterval(loginPollTimer);
+  let ticks = 0;
+  const msg = document.getElementById('newAcctMsg');
+  loginPollTimer = setInterval(async () => {
+    ticks++;
+    try {
+      const d = await getJSON('/api/accounts/qr-status?label=' + encodeURIComponent(label));
+      if (d.status === 'capturing') {
+        if (msg) msg.textContent = '已登录「' + (d.nickname || label) + '」，正在同步会话信息…';
+        return;
+      }
+      if (d.status === 'done') {
+        clearInterval(loginPollTimer);
+        loginPollTimer = null;
+        const display = d.nickname || d.accountName || label;
+        if (msg) msg.textContent = '登录成功：' + display + '（已保存纯 API 会话）';
+        toast('扫码成功：' + display, 'ok', 7000);
+        await Promise.all([loadAccounts(), loadHome()]);
+        return;
+      }
+      if (d.status === 'closed') {
+        clearInterval(loginPollTimer);
+        loginPollTimer = null;
+        if (msg) msg.textContent = '扫码窗口已关闭；如需继续可再次点击「扫码添加账户」或使用纯 API 识别昵称';
+        return;
+      }
+    } catch (e) { /* ignore */ }
+    if (ticks >= 180) {
+      clearInterval(loginPollTimer);
+      loginPollTimer = null;
+      if (msg) msg.textContent = '等待扫码超时，可重新打开扫码或手动识别昵称';
+      toast('等待登录超时', 'warn', 6000);
+    }
+  }, 1500);
+}
+
 async function qrAddAccount() {
   const msg = document.getElementById('newAcctMsg');
   const name = document.getElementById('newAcctName').value.trim();
   const friend = document.getElementById('newAcctFriend').value.trim();
-  msg.textContent = '正在创建账户并打开浏览器…';
+  msg.textContent = '正在创建账户并打开扫码窗口…';
   try {
     const r = await postJSON('/api/accounts/add-qr', { name, friend, port: Number(document.getElementById('newAcctPort').value) || undefined });
     if (!r.ok) throw new Error(r.error || '创建失败');
-    msg.textContent = '已创建「' + (r.account.name || r.account.label) + '」，等待浏览器启动…';
-    await loadAccounts();
-    // wait for browser to come up, then bring it to front and show live screen
-    let up = false;
-    for (let i = 0; i < 25; i++) {
-      await new Promise((res) => setTimeout(res, 1000));
-      try {
-        const st = await getJSON('/api/status');
-        if (st.browser && st.browser.up) { up = true; break; }
-      } catch (e) {}
+    await Promise.all([loadAccounts(), loadHome()]);
+    if (r.mode === 'electron') {
+      msg.textContent = '已在应用内打开抖音扫码窗口，请用手机抖音 App 扫码登录…';
+      toast('请在应用内置窗口中扫码登录抖音', 'ok', 7000);
+      pollQrBridgeStatus(r.account.label);
+      return;
     }
-    if (up) {
-      await windowAction(true).catch(() => {});
-      navigate('home');
-      setTimeout(() => showScreen(true), 500);
-      msg.textContent = '请在浏览器窗口用手机扫码登录，登录后会自动识别昵称…';
-      toast('已打开扫码窗口，请用抖音 App 扫码登录', 'ok', 8000);
-      pollAccountLogin(r.account.label);
-    } else {
-      msg.textContent = '浏览器启动较慢或未启动；请切到该账户点「打开实时画面」再扫码';
-      toast('浏览器未就绪，可稍后点「打开实时画面」', 'warn', 6000);
-    }
-    await loadHome();
+    msg.textContent = '已创建「' + (r.account.name || r.account.label) + '」，当前处于独立网页模式，请导入或刷新纯 API 会话';
+    pollAccountLogin(r.account.label);
   } catch (e) {
     msg.textContent = '扫码添加失败：' + e.message;
     toast('扫码添加失败：' + e.message, 'bad');
