@@ -408,7 +408,7 @@
     padding:4px 9px;border-radius:8px;font-size:11px;color:#cfd8e6;backdrop-filter:blur(6px)}
 
   /* toast */
-  .toast{position:fixed;left:22px;right:auto;bottom:22px;z-index:50;display:flex;flex-direction:column;gap:8px;pointer-events:none;align-items:flex-start}
+  .toast{position:fixed;left:22px;right:auto;bottom:22px;z-index:95;display:flex;flex-direction:column;gap:8px;pointer-events:none;align-items:flex-start}
   .toast .t{pointer-events:auto;background:#1a2333;border:1px solid var(--line2);border-left:3px solid var(--acc);border-radius:10px;
     padding:11px 14px;font-size:13px;box-shadow:0 12px 30px rgba(0,0,0,.45);min-width:220px;max-width:380px;animation:in .18s ease-out}
   .toast .t.ok{border-left-color:var(--ok)} .toast .t.bad{border-left-color:var(--bad)} .toast .t.warn{border-left-color:var(--warn)}
@@ -517,94 +517,248 @@
   #sec-plan .schedrow .btn{padding:7px 0;width:34px}
   #sec-plan .schedrow[data-mode="fixed"] .sched-time .range{display:none}
   #sec-plan .schedrow[data-mode="random"] .sched-time .single{display:none}
-  /* pool dropdown / hierarchy */
+  /* pool category summary & modal redesign */
+  .pool-source-hint{margin-top:0;margin-bottom:10px}
   .pool-select{position:relative;margin-top:10px}
-  .pool-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;
-    border:1px solid var(--line2);background:rgba(0,0,0,.14);color:var(--txt);font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
-  .pool-trigger:hover{border-color:rgba(91,140,255,.45);background:rgba(91,140,255,.06)}
-  .pool-trigger[aria-expanded="true"]{border-color:rgba(91,140,255,.55);box-shadow:0 0 0 3px rgba(91,140,255,.1)}
-  .pool-summary{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .pool-caret{color:var(--dim2);flex:0 0 auto;transition:transform .15s}
+  .pool-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border-radius:12px;
+    border:1px solid var(--line2);background:rgba(0,0,0,.16);color:var(--txt);font:inherit;text-align:left;cursor:pointer;
+    transition:border-color .16s,background .16s,box-shadow .16s}
+  .pool-trigger:hover{border-color:rgba(91,140,255,.48);background:rgba(91,140,255,.06)}
+  .pool-trigger[aria-expanded="true"]{border-color:rgba(91,140,255,.6);box-shadow:0 0 0 3px rgba(91,140,255,.12)}
+  .pool-summary{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .pool-summary-empty{color:var(--dim2);font-size:12.5px}
+  .pool-sum-chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:11.5px;line-height:1.4;
+    border:1px solid rgba(91,140,255,.28);background:rgba(91,140,255,.1);color:#d7e4ff;max-width:100%}
+  .pool-sum-chip b{font-weight:600;color:#fff}
+  .pool-sum-chip span{font-size:10.5px;color:#9eb9ff;font-variant-numeric:tabular-nums}
+  .pool-sum-chip.is-full{border-color:rgba(91,140,255,.42);background:rgba(91,140,255,.16)}
+  .pool-sum-chip.is-more{border-style:dashed;border-color:var(--line2);background:rgba(255,255,255,.03);color:var(--dim)}
+  .pool-trigger-action{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;padding:5px 10px;border-radius:8px;
+    font-size:12px;font-weight:500;color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--line);transition:.15s}
+  .pool-trigger:hover .pool-trigger-action{color:var(--txt);border-color:rgba(91,140,255,.35);background:rgba(91,140,255,.12)}
+  .pool-caret{color:var(--dim2);flex:0 0 auto;transition:transform .16s}
   .pool-trigger[aria-expanded="true"] .pool-caret{transform:rotate(180deg)}
-  .pool-panel{position:absolute;z-index:35;left:0;right:0;top:calc(100% + 6px);border:1px solid rgba(160,180,255,.32);border-radius:14px;
-    background:rgba(12,17,26,.98);box-shadow:0 20px 50px rgba(0,0,0,.42);padding:8px;backdrop-filter:blur(18px)}
-  .pool-searchbar{display:flex;align-items:center;gap:6px;padding:2px 2px 8px;border-bottom:1px solid rgba(255,255,255,.07)}
-  .pool-searchbar input{flex:1;min-width:0;padding:7px 9px;border-radius:8px;border:1px solid var(--line2);background:rgba(0,0,0,.16);color:var(--txt);font:inherit;font-size:12px;outline:none}
-  .pool-searchbar input:focus{border-color:rgba(91,140,255,.55)}
-  .pool-hint-row{padding:6px 2px 2px}
-  .pool-hint-row input{width:100%;padding:6px 9px;border-radius:8px;border:1px dashed rgba(255,211,106,.32);background:rgba(255,211,106,.04);
-    color:var(--txt);font:inherit;font-size:11px;outline:none}
-  .pool-hint-row input::placeholder{color:var(--dim2)}
-  .pool-hint-row input:focus{border-color:rgba(255,211,106,.6);background:rgba(255,211,106,.07)}
-  .pool-list{max-height:280px;overflow:auto;padding:5px 2px 2px}
-  .pool-group{border-bottom:1px solid rgba(255,255,255,.055);padding:3px 0}
-  .pool-group:last-child{border-bottom:0}
-  .pool-parent-row{display:flex;align-items:center;gap:7px;padding:5px 3px}
-  .pool-parent-row label,.pool-child label{display:inline-flex;align-items:center;gap:7px;min-width:0;cursor:pointer}
-  .pool-parent-row input,.pool-child input{appearance:none;-webkit-appearance:none;width:14px;height:14px;margin:0;border:1px solid var(--line2);border-radius:4px;
-    background:rgba(0,0,0,.16);display:grid;place-items:center;flex:0 0 14px;cursor:pointer}
-  .pool-parent-row input:checked,.pool-child input:checked{background:var(--acc);border-color:var(--acc)}
-  .pool-parent-row input:checked::after,.pool-child input:checked::after{content:"✓";font-size:10px;line-height:1;color:#fff;font-weight:700}
-  .pool-parent-name{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .pool-child-count{font-size:10px;color:var(--dim2);flex:0 0 auto}
-  .pool-expand{width:22px;height:22px;border:0;border-radius:6px;background:transparent;color:var(--dim);cursor:pointer;padding:0;display:grid;place-items:center;font-size:13px;line-height:1;flex:0 0 22px}
-  .pool-expand:hover{background:rgba(255,255,255,.07);color:var(--txt)}
-  .pool-expand.empty{visibility:hidden}
-  .pool-ai{margin-left:auto;border:1px solid rgba(255,211,106,.28);background:rgba(255,211,106,.07);color:#ffd76a;border-radius:999px;
-    padding:3px 8px;font:inherit;font-size:10px;cursor:pointer;white-space:nowrap;flex:0 0 auto}
-  .pool-ai:hover{background:rgba(255,211,106,.14);border-color:rgba(255,211,106,.5)}
-  .pool-ai:disabled{opacity:.55;cursor:wait}
-  .pool-children{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 18px;padding:2px 3px 8px 27px}
-  .pool-child{display:flex;align-items:center;gap:8px;min-width:0;padding:6px 5px;font-size:12px;color:var(--dim);border-radius:7px;cursor:pointer}
-  .pool-child span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .pool-child:hover{color:var(--txt);background:rgba(91,140,255,.06)}
-  .pool-child input{flex:0 0 14px}
-  .pool-empty{padding:16px 8px;text-align:center;color:var(--dim2);font-size:12px}
-  .pool-panelfoot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 3px 2px;border-top:1px solid rgba(255,255,255,.07);font-size:10.5px;color:var(--dim2)}
-  .pool-hint{color:var(--dim2)}
-  html[data-theme="light"] .pool-trigger{background:#fff;border-color:rgba(160,175,200,.45)}
-  html[data-theme="light"] .pool-panel{background:rgba(255,255,255,.98);border-color:rgba(160,175,200,.42);box-shadow:0 20px 45px rgba(50,60,100,.18)}
-  html[data-theme="light"] .pool-searchbar input{background:#fff;border-color:rgba(160,175,200,.42)}
-  html[data-theme="light"] .pool-searchbar{border-bottom-color:rgba(160,175,200,.24)}
-  html[data-theme="light"] .pool-group{border-bottom-color:rgba(160,175,200,.2)}
-  html[data-theme="light"] .pool-parent-row input,html[data-theme="light"] .pool-child input{background:#fff}
-  html[data-theme="light"] .pool-parent-row input:checked,
-  html[data-theme="light"] .pool-child input:checked{background:var(--acc);border-color:var(--acc)}
-  html[data-theme="light"] .pool-ai{color:#9a6b00;background:rgba(255,190,40,.1);border-color:rgba(210,150,20,.3)}
-  html[data-theme="light"] .pool-panelfoot{border-top-color:rgba(160,175,200,.24)}
 
-  /* pool modal */
   body.pool-open .ai-pet,body.pool-open .ai-pet-menu,body.pool-open .ai-chat,
   body.diag-view .ai-pet,body.diag-view .ai-pet-menu,body.diag-view .ai-chat,
   body.records-view .ai-pet,body.records-view .ai-pet-menu,body.records-view .ai-chat{display:none!important}
-  .pool-backdrop{position:fixed;inset:0;z-index:79;background:rgba(3,7,14,.56);backdrop-filter:blur(4px);animation:pool-fade .18s ease-out}
-  .pool-panel{position:fixed;z-index:80;left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);
-    width:min(760px,calc(100vw - 32px));max-width:760px;max-height:min(82vh,760px);padding:0;border-radius:16px;
-    display:flex;flex-direction:column;background:rgba(13,18,28,.98);border:1px solid rgba(145,170,255,.34);
-    box-shadow:0 30px 80px rgba(0,0,0,.52);backdrop-filter:blur(24px);animation:pool-pop .2s cubic-bezier(.2,.8,.25,1.08)}
-  .pool-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 18px 12px;border-bottom:1px solid rgba(255,255,255,.07)}
-  .pool-modal-head .field-note{margin-top:3px}
-  .pool-panel .pool-searchbar{padding:10px 18px 8px;border-bottom:0}
-  .pool-panel .pool-hint-row{padding:4px 18px 6px}
-  .pool-panel .pool-list{flex:1;min-height:180px;max-height:none;overflow:auto;padding:4px 18px 10px}
-  .pool-panel .pool-panelfoot{padding:10px 18px 13px;border-top:1px solid rgba(255,255,255,.08)}
-  .pool-panel .pool-group{padding:4px 2px}
-  .pool-panel .pool-parent-row{padding:7px 4px}
-  .pool-panel .pool-child{padding:6px 4px}
-  .pool-ai{width:30px;height:30px;padding:0;border-radius:9px;font-size:14px;display:grid;place-items:center}
+  .pool-backdrop{position:fixed;inset:0;z-index:79;background:rgba(3,7,14,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);animation:pool-fade .18s ease-out}
+  .pool-panel{position:fixed;z-index:80;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(920px,calc(100vw - 32px));max-height:min(88vh,820px);display:flex;flex-direction:column;overflow:hidden;
+    border-radius:18px;background:rgba(13,18,28,.98);border:1px solid rgba(145,170,255,.32);
+    box-shadow:0 32px 84px rgba(0,0,0,.56);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+    animation:pool-pop .2s cubic-bezier(.2,.8,.25,1.08)}
+  .pool-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px 14px;border-bottom:1px solid var(--line);
+    background:linear-gradient(115deg,rgba(91,140,255,.08),rgba(198,202,255,.04) 55%,transparent)}
+  .pool-modal-title-wrap{min-width:0;flex:1}
+  .pool-modal-title-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 4px}
+  .pool-modal-title{margin:0;font-size:21px;font-weight:700;letter-spacing:-.2px;line-height:1.25;color:var(--txt)}
+  .pool-modal-head .field-note{font-size:12px;line-height:1.55}
+  .pool-modal-close{flex:0 0 auto;margin-top:-2px}
+
+  .pool-controls{display:flex;flex-direction:column;gap:9px;padding:12px 22px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.015)}
+  .pool-toolbar-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pool-search-box{position:relative;flex:1 1 240px;min-width:190px;display:flex;align-items:center}
+  .pool-search-ico{position:absolute;left:11px;color:var(--dim2);pointer-events:none}
+  .pool-search-box input{width:100%;height:36px;padding:6px 30px 6px 32px;border-radius:10px;border:1px solid var(--line2);
+    background:rgba(0,0,0,.22);color:var(--txt);font:inherit;font-size:12.5px;outline:none}
+  .pool-search-box input:focus{border-color:rgba(91,140,255,.6);box-shadow:0 0 0 3px rgba(91,140,255,.12)}
+  .pool-search-clear,.pool-hint-clear{position:absolute;right:7px;width:22px;height:22px;border:0;border-radius:6px;background:transparent;
+    color:var(--dim2);cursor:pointer;display:grid;place-items:center;font-size:15px;line-height:1;padding:0}
+  .pool-search-clear:hover,.pool-hint-clear:hover{background:rgba(255,255,255,.08);color:var(--txt)}
+  .pool-filter-seg{flex:0 0 auto;padding:3px;border-radius:10px}
+  .pool-filter-seg button{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;font-size:12px;border-radius:7px;font-weight:500;transition:.15s}
+  .pool-seg-n{font-size:10.5px;color:var(--dim2);font-variant-numeric:tabular-nums}
+  .pool-filter-seg button.on .pool-seg-n{color:#b7ceff}
+  .pool-bulk-actions{display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
+
+  .pool-ai-bar{position:relative;display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:10px;
+    border:1px solid rgba(154,138,255,.24);background:linear-gradient(100deg,rgba(126,103,255,.08),rgba(91,140,255,.05));transition:border-color .16s,box-shadow .16s}
+  .pool-ai-bar:focus-within{border-color:rgba(138,118,255,.6);box-shadow:0 0 0 3px rgba(138,118,255,.12)}
+  .pool-ai-badge{display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;font-size:11.5px;font-weight:600;color:#cfc4ff;white-space:nowrap}
+  .pool-ai-bar input{flex:1;min-width:0;border:0;background:transparent;padding:3px 4px;font-size:12px;color:var(--txt);box-shadow:none}
+  .pool-ai-bar input:hover,.pool-ai-bar input:focus{border:0;box-shadow:none;outline:none;background:transparent}
+  .pool-ai-bar .pool-hint-clear{position:static;flex:0 0 auto}
+  .pool-ai-status{flex:0 0 auto;font-size:11px;color:var(--dim2);white-space:nowrap}
+  .pool-ai-link{border:0;background:transparent;color:#a8bfff;font:inherit;font-size:11px;cursor:pointer;padding:2px 6px;border-radius:6px}
+  .pool-ai-link:hover{background:rgba(91,140,255,.14);text-decoration:underline}
+
+  .pool-feedback{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 22px;font-size:12px;line-height:1.5;
+    border-bottom:1px solid var(--line);background:rgba(91,140,255,.08);color:#d7e4ff}
+  .pool-feedback.ok{background:rgba(55,214,122,.09);color:#b2f3cd;border-bottom-color:rgba(55,214,122,.22)}
+  .pool-feedback.bad{background:rgba(255,93,93,.09);color:#ffbaba;border-bottom-color:rgba(255,93,93,.22)}
+  .pool-feedback-close{border:0;background:transparent;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:2px 6px;opacity:.75}
+  .pool-feedback-close:hover{opacity:1}
+
+  .pool-list{flex:1;min-height:200px;overflow:auto;padding:16px 22px 20px;display:flex;flex-direction:column;gap:18px;overscroll-behavior:contain}
+  .pool-section{display:flex;flex-direction:column;gap:10px}
+  .pool-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:0 2px}
+  .pool-section-title{font-size:12px;font-weight:700;letter-spacing:.4px;color:var(--dim);text-transform:uppercase}
+  .pool-section-meta{font-size:11.5px;color:var(--dim2)}
+
+  .pool-groups{display:flex;flex-direction:column;gap:10px}
+  .pool-group-card{border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.022);overflow:hidden;
+    transition:border-color .18s,background .18s,box-shadow .18s}
+  .pool-group-card:hover{border-color:rgba(140,165,220,.3)}
+  .pool-group-card.is-just-added{border-color:rgba(138,118,255,.65);box-shadow:0 0 0 3px rgba(138,118,255,.16);animation:pool-pulse 1.4s ease-out}
+  @keyframes pool-pulse{0%{box-shadow:0 0 0 0 rgba(138,118,255,.4)}100%{box-shadow:0 0 0 3px rgba(138,118,255,0)}}
+  .pool-group-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;
+    background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.05)}
+  .pool-group-card.is-collapsed .pool-group-head{border-bottom-color:transparent}
+  .pool-group-left{display:flex;align-items:center;gap:8px;min-width:0;flex:1;flex-wrap:wrap}
+  .pool-expand{width:26px;height:26px;border:0;border-radius:8px;background:transparent;color:var(--dim);cursor:pointer;padding:0;
+    display:grid;place-items:center;flex:0 0 26px;transition:background .15s,color .15s}
+  .pool-expand:hover{background:rgba(255,255,255,.08);color:var(--txt)}
+  .pool-expand svg{transition:transform .18s ease}
+  .pool-group-card.is-collapsed .pool-expand svg{transform:rotate(-90deg)}
+
+  .pool-parent-toggle{display:inline-flex;align-items:center;gap:8px;padding:4px 10px 4px 7px;border-radius:9px;
+    border:1px solid transparent;cursor:pointer;transition:.15s;min-width:0;user-select:none}
+  .pool-parent-toggle:hover{background:rgba(255,255,255,.05)}
+  .pool-parent-toggle.is-checked{background:rgba(91,140,255,.12);border-color:rgba(91,140,255,.32)}
+  .pool-parent-name{font-size:13.5px;font-weight:650;color:var(--txt);white-space:nowrap}
+  .pool-kw-tag{font-size:10.5px;color:var(--dim2);padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.04);border:1px solid var(--line);white-space:nowrap}
+  .pool-group-stat{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim2);
+    background:rgba(255,255,255,.025);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .pool-group-stat.is-all{color:#b7d1ff;border-color:rgba(91,140,255,.38);background:rgba(91,140,255,.14)}
+  .pool-group-stat.is-part{color:#9fd4ff;border-color:rgba(91,140,255,.28);background:rgba(91,140,255,.08)}
+
+  .pool-group-actions{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .pool-group-bulk{font-size:11.5px;padding:4px 9px;height:28px;border-radius:8px}
+  .pool-ai-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:28px;padding:0 10px;border-radius:8px;
+    border:1px solid rgba(154,138,255,.34);background:rgba(138,118,255,.11);color:#d7ceff;font:inherit;font-size:11.5px;font-weight:500;
+    cursor:pointer;white-space:nowrap;transition:.15s}
+  .pool-ai-btn:hover{background:rgba(138,118,255,.2);border-color:rgba(154,138,255,.55);color:#fff}
+  .pool-ai-btn:disabled{opacity:.65;cursor:wait}
+
+  .pool-children{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:12px}
+  .pool-child{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;border-radius:10px;
+    border:1px solid var(--line);background:rgba(255,255,255,.02);color:var(--dim);font-size:12.5px;cursor:pointer;
+    user-select:none;transition:border-color .15s,background .15s,color .15s,transform .12s}
+  .pool-child:hover{border-color:rgba(91,140,255,.4);background:rgba(91,140,255,.06);color:var(--txt)}
+  .pool-child.is-checked{border-color:rgba(91,140,255,.48);background:rgba(91,140,255,.13);color:#e4edff}
+  .pool-item-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+
+  .pool-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+  .pool-tile{display:flex;align-items:center;gap:4px;min-width:0;padding:3px 5px 3px 3px;border-radius:11px;
+    border:1px solid var(--line);background:rgba(255,255,255,.022);transition:border-color .15s,background .15s}
+  .pool-tile:hover{border-color:rgba(91,140,255,.4);background:rgba(91,140,255,.05)}
+  .pool-tile.is-checked{border-color:rgba(91,140,255,.48);background:rgba(91,140,255,.12)}
+  .pool-tile-main{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:7px 6px 7px 9px;cursor:pointer;user-select:none;color:var(--dim)}
+  .pool-tile.is-checked .pool-tile-main{color:#e6efff}
+  .pool-tile-text{display:flex;align-items:baseline;gap:6px;min-width:0;flex:1}
+  .pool-tile-text .pool-item-name{font-size:13px}
+  .pool-kw-inline{font-size:10.5px;color:var(--dim2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pool-tile-ai{width:28px;height:28px;flex:0 0 28px;border-radius:8px;border:1px solid transparent;background:transparent;
+    color:#c9bfff;font-size:13px;display:grid;place-items:center;cursor:pointer;opacity:.62;transition:opacity .15s,background .15s,border-color .15s}
+  .pool-tile:hover .pool-tile-ai,.pool-tile-ai:focus-visible{opacity:1;background:rgba(138,118,255,.13);border-color:rgba(154,138,255,.32)}
+  .pool-tile-ai:hover{background:rgba(138,118,255,.24);border-color:rgba(154,138,255,.5)}
+  .pool-tile-ai:disabled{opacity:.75;cursor:wait}
+  .pool-spin{width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-top-color:transparent;display:inline-block;animation:pool-spin .7s linear infinite}
+  @keyframes pool-spin{to{transform:rotate(360deg)}}
+
+  .pool-parent-toggle input,.pool-child input,.pool-tile-main input{
+    position:relative;appearance:none;-webkit-appearance:none;width:16px;min-width:16px;max-width:16px;height:16px;
+    padding:0;margin:0;border:1.5px solid var(--line2);border-radius:5px;background:rgba(0,0,0,.22);
+    display:inline-block;flex:0 0 16px;cursor:pointer;transition:background .14s,border-color .14s,box-shadow .14s}
+  .pool-parent-toggle input:hover,.pool-child input:hover,.pool-tile-main input:hover{border-color:rgba(91,140,255,.65)}
+  .pool-parent-toggle input:checked,.pool-child input:checked,.pool-tile-main input:checked{
+    background:var(--acc);border-color:var(--acc);box-shadow:0 2px 7px rgba(63,111,232,.3)}
+  .pool-parent-toggle input:checked::after,.pool-child input:checked::after,.pool-tile-main input:checked::after{
+    content:"";position:absolute;left:50%;top:46%;width:8px;height:4.5px;
+    border-left:2px solid #fff;border-bottom:2px solid #fff;transform:translate(-50%,-50%) rotate(-45deg)}
+
+  .pool-empty{padding:36px 16px;text-align:center;color:var(--dim2);font-size:13px;display:flex;flex-direction:column;align-items:center;gap:10px;
+    border:1px dashed var(--line);border-radius:12px}
+  .pool-panelfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 22px 15px;border-top:1px solid var(--line);
+    background:rgba(255,255,255,.015);flex-wrap:wrap}
+  .pool-foot-info{min-width:0;flex:1}
+  .pool-hint{color:var(--dim2);font-size:12px}
+  .pool-foot-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+
   @keyframes pool-pop{from{opacity:0;transform:translate(-50%,-48%) scale(.97)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
   @keyframes pool-fade{from{opacity:0}to{opacity:1}}
   @keyframes pool-slide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+  html[data-theme="light"] .pool-trigger{background:#fff;border-color:var(--line2)}
+  html[data-theme="light"] .pool-trigger:hover{background:#fbfdff;border-color:rgba(47,107,255,.45)}
+  html[data-theme="light"] .pool-sum-chip{background:rgba(47,107,255,.07);border-color:rgba(47,107,255,.24);color:#22439a}
+  html[data-theme="light"] .pool-sum-chip b{color:#173687}
+  html[data-theme="light"] .pool-sum-chip span{color:#4669bf}
+  html[data-theme="light"] .pool-sum-chip.is-full{background:rgba(47,107,255,.11);border-color:rgba(47,107,255,.34)}
+  html[data-theme="light"] .pool-sum-chip.is-more{background:rgba(23,32,51,.035);border-color:var(--line2);color:var(--dim)}
+  html[data-theme="light"] .pool-trigger-action{background:rgba(23,32,51,.04);border-color:var(--line);color:var(--dim)}
+  html[data-theme="light"] .pool-trigger:hover .pool-trigger-action{background:rgba(47,107,255,.09);border-color:rgba(47,107,255,.28);color:#1f49b8}
+
   html[data-theme="light"] .pool-backdrop{background:rgba(40,55,85,.3)}
-  html[data-theme="light"] .pool-panel{background:rgba(255,255,255,.99);border-color:rgba(150,170,210,.46)}
+  html[data-theme="light"] .pool-panel{background:rgba(255,255,255,.99);border-color:rgba(150,170,210,.46);box-shadow:0 28px 72px rgba(31,53,89,.2)}
+  html[data-theme="light"] .pool-modal-head{border-bottom-color:var(--line);background:linear-gradient(115deg,rgba(47,107,255,.06),rgba(205,208,255,.12) 55%,transparent)}
+  html[data-theme="light"] .pool-controls{border-bottom-color:var(--line);background:#f9fbff}
+  html[data-theme="light"] .pool-search-box input{background:#fff;border-color:var(--line2)}
+  html[data-theme="light"] .pool-search-clear:hover,html[data-theme="light"] .pool-hint-clear:hover{background:rgba(23,32,51,.06)}
+  html[data-theme="light"] .pool-filter-seg button.on .pool-seg-n{color:#3565d6}
+  html[data-theme="light"] .pool-ai-bar{background:linear-gradient(100deg,rgba(126,103,255,.065),rgba(47,107,255,.045));border-color:rgba(120,100,220,.22)}
+  html[data-theme="light"] .pool-ai-bar input,
+  html[data-theme="light"] .pool-ai-bar input:hover,
+  html[data-theme="light"] .pool-ai-bar input:focus{background:transparent;border:0;box-shadow:none}
+  html[data-theme="light"] .pool-ai-badge{color:#5844b8}
+  html[data-theme="light"] .pool-ai-link{color:#2f6bff}
+  html[data-theme="light"] .pool-feedback{background:rgba(47,107,255,.07);color:#1f49b8}
+  html[data-theme="light"] .pool-feedback.ok{background:rgba(18,138,70,.08);color:#0e763c;border-bottom-color:rgba(18,138,70,.2)}
+  html[data-theme="light"] .pool-feedback.bad{background:rgba(217,45,32,.07);color:#b42318;border-bottom-color:rgba(217,45,32,.2)}
+  html[data-theme="light"] .pool-group-card{background:#fff;border-color:var(--line)}
+  html[data-theme="light"] .pool-group-card:hover{border-color:#bcc8db}
+  html[data-theme="light"] .pool-group-head{background:#f7f9fd;border-bottom-color:var(--line)}
+  html[data-theme="light"] .pool-expand:hover{background:rgba(23,32,51,.06)}
+  html[data-theme="light"] .pool-parent-toggle:hover{background:rgba(23,32,51,.04)}
+  html[data-theme="light"] .pool-parent-toggle.is-checked{background:rgba(47,107,255,.08);border-color:rgba(47,107,255,.26)}
+  html[data-theme="light"] .pool-kw-tag{background:#fff;border-color:var(--line)}
+  html[data-theme="light"] .pool-group-stat{background:#fff;border-color:var(--line)}
+  html[data-theme="light"] .pool-group-stat.is-all{color:#1f49b8;border-color:rgba(47,107,255,.32);background:rgba(47,107,255,.08)}
+  html[data-theme="light"] .pool-group-stat.is-part{color:#2a58c9;border-color:rgba(47,107,255,.24);background:rgba(47,107,255,.05)}
+  html[data-theme="light"] .pool-ai-btn{color:#5844b8;background:rgba(126,103,255,.08);border-color:rgba(120,100,220,.26)}
+  html[data-theme="light"] .pool-ai-btn:hover{background:rgba(126,103,255,.15);border-color:rgba(120,100,220,.45);color:#42309c}
+  html[data-theme="light"] .pool-child{background:#f9fbfe;border-color:var(--line)}
+  html[data-theme="light"] .pool-child:hover{background:rgba(47,107,255,.05);border-color:rgba(47,107,255,.34);color:var(--txt)}
+  html[data-theme="light"] .pool-child.is-checked{background:rgba(47,107,255,.08);border-color:rgba(47,107,255,.42);color:#1b42a8}
+  html[data-theme="light"] .pool-tile{background:#fff;border-color:var(--line)}
+  html[data-theme="light"] .pool-tile:hover{background:#f8fbff;border-color:rgba(47,107,255,.36)}
+  html[data-theme="light"] .pool-tile.is-checked{background:rgba(47,107,255,.065);border-color:rgba(47,107,255,.42)}
+  html[data-theme="light"] .pool-tile.is-checked .pool-tile-main{color:#1b42a8}
+  html[data-theme="light"] .pool-tile-ai{color:#5b47b5}
+  html[data-theme="light"] .pool-tile:hover .pool-tile-ai{background:rgba(126,103,255,.1);border-color:rgba(120,100,220,.28)}
+  html[data-theme="light"] .pool-parent-toggle input,html[data-theme="light"] .pool-child input,html[data-theme="light"] .pool-tile-main input{background:#fff;border-color:#c6d1e2}
+  html[data-theme="light"] .pool-parent-toggle input:checked,html[data-theme="light"] .pool-child input:checked,html[data-theme="light"] .pool-tile-main input:checked{background:var(--acc);border-color:var(--acc)}
+  html[data-theme="light"] .pool-panelfoot{border-top-color:var(--line);background:#f9fbff}
+
+  @media (hover:none){
+    .pool-tile-ai{opacity:.9}
+  }
+  @media (max-width:860px){
+    .pool-children,.pool-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  @media (max-width:740px){
+    .pool-modal-head{padding:16px 16px 12px}
+    .pool-controls{padding:10px 16px}
+    .pool-list{padding:12px 16px 16px}
+    .pool-panelfoot{padding:10px 16px 12px}
+    .pool-bulk-actions{margin-left:0}
+  }
   @media (max-width:620px){
-    .pool-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-width:none;max-height:82vh;border-radius:18px 18px 0 0;transform:none;animation:pool-slide .22s ease-out}
-    .pool-modal-head{padding:15px 16px 10px}
-    .pool-panel .pool-searchbar{padding:9px 16px 7px}
-    .pool-panel .pool-hint-row{padding:4px 16px 5px}
-    .pool-panel .pool-list{padding:4px 16px 8px}
-    .pool-children{grid-template-columns:1fr;padding-left:24px}
-    .pool-panel .pool-panelfoot{padding:9px 16px calc(10px + env(safe-area-inset-bottom))}
+    .pool-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-width:none;max-height:88vh;border-radius:18px 18px 0 0;transform:none;animation:pool-slide .22s ease-out}
+    .pool-modal-title{font-size:18.5px}
+    .pool-search-box{flex:1 1 100%}
+    .pool-ai-bar{flex-wrap:wrap;gap:6px 8px;padding:7px 10px}
+    .pool-ai-bar input{flex:1 1 100%;order:2;padding:2px 0}
+    .pool-ai-status{display:none}
+    .pool-group-head{padding:9px 10px;gap:6px}
+    .pool-group-left{gap:6px}
+    .pool-kw-tag{display:none}
+    .pool-ai-btn .pool-ai-label{display:none}
+    .pool-children{grid-template-columns:repeat(2,minmax(0,1fr));padding:10px;gap:7px}
+    .pool-tiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+    .pool-tile-ai{opacity:.9}
+    .pool-panelfoot{padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
   }
 
   .pools{display:flex;flex-wrap:wrap;gap:8px;font-size:12.5px}
@@ -653,9 +807,6 @@
   @media (max-width:420px){
     .field-grid{grid-template-columns:1fr}
     .config-hero-meta{gap:12px}
-    .pool-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-width:none;max-height:82vh;border-radius:18px 18px 0 0;transform:none}
-    .pool-list{max-height:none;flex:1;min-height:160px}
-    .pool-backdrop{border-radius:0}
   }
 
   html[data-theme="light"] .config-hero{background:linear-gradient(115deg,rgba(47,107,255,.10),rgba(205,208,255,.16) 48%,rgba(206,250,240,.16));
@@ -1804,34 +1955,19 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
               <div class="sub-block pool-only" id="poolBlock">
                 <div class="sub-head">
                   <div>
-                    <div class="eyebrow">视频分类</div>
-                    <div class="field-note">下拉多选；父分类可让 AI 扩展出更具体的子分类并保存，下次仍可选。</div>
+                    <div class="eyebrow">视频分类<span class="hint-tip" tabindex="0" role="button" aria-label="查看视频分类说明" data-tip="视频池会从已启用的分类中轮换挑选关键词搜索；父分类和子分类都可以单独勾选。点击「选择分类」可搜索、按分组批量勾选，或让 AI 扩展更多细分子分类。">?</span></div>
+                    <div class="field-note">按分类关键词挑选；支持分组批量勾选，也可让 AI 扩展更细分的子分类。</div>
                   </div>
-                  <div class="pool-tools"><span class="hint" id="poolCount">-</span></div>
+                  <div class="pool-tools">
+                    <span class="pill blue" id="poolCount">-</span>
+                  </div>
                 </div>
-                <div class="field-note" id="poolSourceHint" hidden style="margin-bottom:9px">当前来源是「默认推荐」，视频分类只用于视频池搜索；切换来源后生效。</div>
+                <div class="source-note pool-source-hint" id="poolSourceHint" hidden>当前来源是「默认推荐」，视频分类只用于视频池搜索；切回视频池后生效。</div>
                 <div class="pool-select" id="poolSelect">
-                  <button class="pool-trigger" id="poolTrigger" type="button" aria-expanded="false">
-                    <span class="pool-summary" id="poolSummary">选择分类…</span><span class="pool-caret">▾</span>
+                  <button class="pool-trigger" id="poolTrigger" type="button" aria-expanded="false" aria-controls="poolPanel">
+                    <div class="pool-summary" id="poolSummary"><span class="pool-summary-empty">选择分类…</span></div>
+                    <span class="pool-trigger-action"><span>选择分类</span><span class="pool-caret" aria-hidden="true">▾</span></span>
                   </button>
-                  <div class="pool-backdrop" id="poolBackdrop" hidden></div>
-                  <div class="pool-panel" id="poolPanel" role="dialog" aria-modal="true" aria-label="选择视频分类" hidden>
-                    <div class="pool-modal-head">
-                      <div>
-                        <div class="eyebrow">选择视频分类</div>
-                        <div class="field-note">父分类可展开子级；点 ✨ 让 AI 扩展并保存新分类。</div>
-                      </div>
-                      <button class="ai-icon-btn" id="poolPanelClose" type="button" aria-label="关闭分类选择">×</button>
-                    </div>
-                    <div class="pool-searchbar">
-                      <input id="poolSearch" placeholder="搜索分类…" autocomplete="off">
-                      <button class="btn ghost sm" id="poolAll" type="button">全选</button>
-                      <button class="btn ghost sm" id="poolNone" type="button">清空</button>
-                    </div>
-                    <div class="pool-hint-row"><input id="poolAiHint" placeholder="AI 泛化方向（可选）：洛丽塔、cosplay…" autocomplete="off"></div>
-                    <div class="pool-list" id="poolList"></div>
-                    <div class="pool-panelfoot"><span id="poolHint">勾选后点「保存设置」生效</span><button class="btn primary sm" id="poolClose" type="button">完成</button></div>
-                  </div>
                 </div>
               </div>
 
@@ -2190,6 +2326,60 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
   </div>
 </div>
 
+<div class="pool-backdrop" id="poolBackdrop" hidden></div>
+<div class="pool-panel" id="poolPanel" role="dialog" aria-modal="true" aria-labelledby="poolModalTitle" hidden>
+  <header class="pool-modal-head">
+    <div class="pool-modal-title-wrap">
+      <div class="eyebrow">视频池 · 内容偏好</div>
+      <div class="pool-modal-title-row">
+        <h3 class="pool-modal-title" id="poolModalTitle">选择视频分类</h3>
+        <span class="pill blue" id="poolModalCount">已选 0 / 0</span>
+      </div>
+      <div class="field-note">勾选想要投递的视频方向；每个分类都是独立搜索词，点 ✨ 让 AI 生成更多细分子分类。</div>
+    </div>
+    <button class="ai-icon-btn pool-modal-close" id="poolPanelClose" type="button" aria-label="关闭分类选择">×</button>
+  </header>
+
+  <div class="pool-controls">
+    <div class="pool-toolbar-row">
+      <div class="pool-search-box">
+        <svg class="pool-search-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="20" y1="20" x2="16.2" y2="16.2"></line></svg>
+        <input id="poolSearch" placeholder="搜索分类名或搜索词（如：日漫、cosplay）…" autocomplete="off">
+        <button class="pool-search-clear" id="poolSearchClear" type="button" aria-label="清空搜索" hidden>×</button>
+      </div>
+      <div class="seg pool-filter-seg" id="poolFilterSeg" role="tablist" aria-label="按选中状态筛选">
+        <button class="on" type="button" role="tab" data-pool-filter="all" aria-selected="true">全部 <span class="pool-seg-n" id="poolTabAll">0</span></button>
+        <button type="button" role="tab" data-pool-filter="selected" aria-selected="false">已选 <span class="pool-seg-n" id="poolTabSel">0</span></button>
+        <button type="button" role="tab" data-pool-filter="unselected" aria-selected="false">未选 <span class="pool-seg-n" id="poolTabUnsel">0</span></button>
+      </div>
+      <div class="pool-bulk-actions">
+        <button class="btn ghost sm" id="poolExpandAll" type="button" hidden>收起分组</button>
+        <button class="btn soft sm" id="poolAll" type="button">全选</button>
+        <button class="btn ghost sm" id="poolNone" type="button">清空</button>
+      </div>
+    </div>
+    <div class="pool-ai-bar" id="poolAiBar">
+      <span class="pool-ai-badge"><span aria-hidden="true">✨</span> AI 扩展方向</span>
+      <input id="poolAiHint" placeholder="可选偏好，如：洛丽塔、cosplay…（填好后点 ✨）" autocomplete="off">
+      <button class="pool-hint-clear" id="poolAiHintClear" type="button" aria-label="清空扩展方向" hidden>×</button>
+      <span class="pool-ai-status" id="poolAiStatus"></span>
+    </div>
+  </div>
+
+  <div class="pool-feedback" id="poolFeedback" hidden></div>
+
+  <div class="pool-list" id="poolList"></div>
+
+  <footer class="pool-panelfoot">
+    <div class="pool-foot-info">
+      <span class="pool-hint" id="poolHint">勾选后点「保存设置」生效</span>
+    </div>
+    <div class="pool-foot-actions">
+      <button class="btn primary sm" id="poolClose" type="button">完成</button>
+    </div>
+  </footer>
+</div>
+
 <script>
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -2269,6 +2459,7 @@ const state = {
   acctMenuOpen: false, acctSwitching: false,
   mutualCache: null, mutualLoading: false, mutualError: '', autoRead: null,
   mutualTab: 'mutual', mutualSearch: '', friendRows: null,
+  poolOpen: new Set(), poolFilter: 'all',
 };
 
 function toast(msg, type = 'ok', ms = 4200) {
@@ -4036,18 +4227,219 @@ function selectedPoolMap() {
   $$('[data-pool]').forEach((c) => { map[c.dataset.pool] = c.checked; });
   return map;
 }
+function poolKeywordLabel(name, keyword) {
+  const kw = String(keyword || '').trim();
+  if (!kw || kw === name) return '';
+  if (kw === '@acg') return '精选频道';
+  return '搜 ' + kw;
+}
+function poolHierarchy(pools) {
+  const list = Array.isArray(pools) ? pools : [];
+  const byId = new Map(list.map((p) => [String(p.id), p]));
+  const childrenByParent = new Map();
+  const roots = [];
+  for (const p of list) {
+    if (p.parent_id != null && byId.has(String(p.parent_id))) {
+      const pid = String(p.parent_id);
+      if (!childrenByParent.has(pid)) childrenByParent.set(pid, []);
+      childrenByParent.get(pid).push(p);
+    } else {
+      roots.push(p);
+    }
+  }
+  return { roots, childrenByParent };
+}
 function updatePoolCount() {
   const all = $$('[data-pool]');
   const checked = all.filter((c) => c.checked);
-  if ($('#poolCount')) $('#poolCount').textContent = checked.length + ' / ' + all.length + ' 已选';
-  if ($('#poolHint')) $('#poolHint').textContent = '已选 ' + checked.length + ' 个 · 勾选后点「保存设置」生效';
-  if ($('#poolSummary')) {
-    if (!checked.length) $('#poolSummary').textContent = '选择分类…';
-    else {
-      const names = checked.map((c) => c.dataset.pool);
-      $('#poolSummary').textContent = '已选 ' + names.length + ' 个分类：' + names.slice(0, 4).join('、') + (names.length > 4 ? '…' : '');
+  const total = all.length;
+  const sel = checked.length;
+  const unsel = Math.max(0, total - sel);
+  if ($('#poolCount')) {
+    $('#poolCount').textContent = sel ? ('已选 ' + sel + ' / ' + total) : ('未选 (0 / ' + total + ')');
+    $('#poolCount').className = 'pill ' + (sel ? 'blue' : 'warn');
+  }
+  if ($('#poolModalCount')) {
+    $('#poolModalCount').textContent = '已选 ' + sel + ' / ' + total;
+    $('#poolModalCount').className = 'pill ' + (sel ? 'blue' : 'warn');
+  }
+  if ($('#poolTabAll')) $('#poolTabAll').textContent = String(total);
+  if ($('#poolTabSel')) $('#poolTabSel').textContent = String(sel);
+  if ($('#poolTabUnsel')) $('#poolTabUnsel').textContent = String(unsel);
+  if ($('#poolHint')) $('#poolHint').textContent = '已选 ' + sel + ' / ' + total + ' 个分类 · 勾选后点「保存设置」生效';
+  const summary = $('#poolSummary');
+  if (summary) {
+    const map = selectedPoolMap();
+    const { roots, childrenByParent } = poolHierarchy(state.pools);
+    const items = [];
+    for (const p of roots) {
+      const children = childrenByParent.get(String(p.id)) || [];
+      if (children.length) {
+        const groupTotal = 1 + children.length;
+        const onCount = (map[p.name] ? 1 : 0) + children.filter((c) => map[c.name]).length;
+        if (onCount > 0) items.push({ name: p.name, count: onCount, total: groupTotal, full: onCount === groupTotal, single: false });
+      } else if (map[p.name]) {
+        items.push({ name: p.name, count: 1, total: 1, full: true, single: true });
+      }
+    }
+    if (!items.length) {
+      summary.innerHTML = '<span class="pool-summary-empty">尚未启用任何视频分类 · 点击这里挑选分类</span>';
+    } else {
+      const visibleItems = items.slice(0, 14);
+      const rest = items.length - visibleItems.length;
+      summary.innerHTML = visibleItems.map((it) => (
+        '<span class="pool-sum-chip' + (it.full ? ' is-full' : '') + '"><b>' + esc(it.name) + '</b>'
+        + (it.single ? '' : '<span>' + (it.full ? ('全 ' + it.total + ' 项') : (it.count + '/' + it.total)) + '</span>')
+        + '</span>'
+      )).join('') + (rest > 0 ? '<span class="pool-sum-chip is-more">+' + rest + ' 个分组</span>' : '');
     }
   }
+}
+function syncPoolItemVisuals() {
+  $$('#poolList .pool-tile').forEach((tile) => {
+    const inp = tile.querySelector('[data-pool]');
+    tile.classList.toggle('is-checked', !!(inp && inp.checked));
+  });
+  $$('#poolList .pool-child').forEach((chip) => {
+    const inp = chip.querySelector('[data-pool]');
+    chip.classList.toggle('is-checked', !!(inp && inp.checked));
+  });
+  $$('#poolList .pool-group-card').forEach((card) => {
+    const parentToggle = card.querySelector('.pool-parent-toggle');
+    const parentInput = parentToggle ? parentToggle.querySelector('[data-pool]') : null;
+    if (parentToggle) parentToggle.classList.toggle('is-checked', !!(parentInput && parentInput.checked));
+    const inputs = $$('[data-pool]', card);
+    const onCount = inputs.filter((c) => c.checked).length;
+    const totalCount = inputs.length;
+    const stat = card.querySelector('.pool-group-stat');
+    if (stat) {
+      stat.textContent = onCount + ' / ' + totalCount;
+      stat.classList.toggle('is-all', totalCount > 0 && onCount === totalCount);
+      stat.classList.toggle('is-part', onCount > 0 && onCount < totalCount);
+    }
+    const bulkBtn = card.querySelector('[data-pool-group-toggle]');
+    if (bulkBtn) bulkBtn.textContent = (totalCount > 0 && onCount === totalCount) ? '取消本组' : '全选本组';
+  });
+}
+function updatePoolExpandAllBtn() {
+  const btn = $('#poolExpandAll');
+  if (!btn) return;
+  const groups = $$('#poolList .pool-group-card:not([hidden])');
+  const query = ($('#poolSearch') ? $('#poolSearch').value : '').trim();
+  if (!groups.length || query) {
+    btn.hidden = true;
+    return;
+  }
+  btn.hidden = false;
+  const anyOpen = groups.some((g) => !g.classList.contains('is-collapsed'));
+  btn.textContent = anyOpen ? '收起分组' : '展开分组';
+}
+function applyPoolFilters() {
+  const searchInput = $('#poolSearch');
+  const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+  const filter = state.poolFilter || 'all';
+  const filtered = Boolean(query || filter !== 'all');
+  if ($('#poolSearchClear')) $('#poolSearchClear').hidden = !query;
+  $$('#poolFilterSeg [data-pool-filter]').forEach((b) => {
+    const on = b.dataset.poolFilter === filter;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  const matchesQuery = (el) => {
+    if (!query) return true;
+    const name = String(el.dataset.poolName || '').toLowerCase();
+    const kw = String(el.dataset.poolKw || '').toLowerCase();
+    return name.includes(query) || kw.includes(query);
+  };
+  const matchesTab = (checked) => filter === 'all' || (filter === 'selected' ? checked : !checked);
+  let visibleGroups = 0;
+  $$('#poolList .pool-group-card').forEach((card) => {
+    const groupName = card.dataset.groupName || '';
+    const parentToggle = card.querySelector('.pool-parent-toggle');
+    const parentInput = parentToggle ? parentToggle.querySelector('[data-pool]') : null;
+    const parentMatchesQ = matchesQuery(card);
+    const parentMatchesTab = matchesTab(!!(parentInput && parentInput.checked));
+    let anyChildVisible = false;
+    $$('.pool-child', card).forEach((childEl) => {
+      const inp = childEl.querySelector('[data-pool]');
+      const qOk = !query || parentMatchesQ || matchesQuery(childEl);
+      const tOk = matchesTab(!!(inp && inp.checked));
+      const showChild = qOk && tOk;
+      childEl.hidden = !showChild;
+      if (showChild) anyChildVisible = true;
+    });
+    const showGroup = (parentMatchesQ && parentMatchesTab) || anyChildVisible;
+    card.hidden = !showGroup;
+    if (showGroup) visibleGroups++;
+    const expanded = query ? anyChildVisible : state.poolOpen.has(groupName);
+    card.classList.toggle('is-collapsed', !expanded);
+    const childrenWrap = card.querySelector('.pool-children');
+    if (childrenWrap) childrenWrap.hidden = !expanded;
+    const expBtn = card.querySelector('[data-pool-expand]');
+    if (expBtn) expBtn.setAttribute('aria-expanded', String(expanded));
+  });
+  const groupSec = $('#poolGroupSection');
+  if (groupSec) groupSec.hidden = visibleGroups === 0;
+  let visibleTiles = 0;
+  $$('#poolList .pool-tile').forEach((tile) => {
+    const inp = tile.querySelector('[data-pool]');
+    const showTile = matchesQuery(tile) && matchesTab(!!(inp && inp.checked));
+    tile.hidden = !showTile;
+    if (showTile) visibleTiles++;
+  });
+  const baseSec = $('#poolBaseSection');
+  if (baseSec) baseSec.hidden = visibleTiles === 0;
+  const empty = $('#poolEmptyState');
+  if (empty) empty.hidden = (visibleGroups + visibleTiles) > 0;
+  if ($('#poolAll')) $('#poolAll').textContent = filtered ? '全选当前' : '全选';
+  if ($('#poolNone')) $('#poolNone').textContent = filtered ? '清空当前' : '清空';
+  updatePoolExpandAllBtn();
+}
+function setPoolFilter(next) {
+  state.poolFilter = ['all', 'selected', 'unselected'].includes(next) ? next : 'all';
+  if (state.poolFilter !== 'all') {
+    $$('#poolList .pool-group-card').forEach((card) => {
+      const groupName = card.dataset.groupName;
+      if (!groupName) return;
+      const anyMatch = $$('.pool-child [data-pool]', card).some((inp) => (state.poolFilter === 'selected' ? inp.checked : !inp.checked));
+      if (anyMatch) state.poolOpen.add(groupName);
+    });
+  }
+  applyPoolFilters();
+}
+function setPoolFeedback(text = '', tone = 'info', withAiConfig = false) {
+  const box = $('#poolFeedback');
+  if (!box) return;
+  if (!text) {
+    box.hidden = true;
+    box.innerHTML = '';
+    box.className = 'pool-feedback';
+    return;
+  }
+  box.hidden = false;
+  box.className = 'pool-feedback ' + (tone === 'ok' || tone === 'bad' ? tone : '');
+  box.innerHTML = '<span>' + esc(text)
+    + (withAiConfig ? ' <button class="pool-ai-link" type="button" data-pool-open-ai="1">前往「04 AI」配置 ↗</button>' : '')
+    + '</span><button class="pool-feedback-close" type="button" aria-label="关闭提示">×</button>';
+}
+function updatePoolAiStatus() {
+  const el = $('#poolAiStatus');
+  if (!el) return;
+  const ai = state.ai;
+  if (!ai || !ai.config) { el.innerHTML = ''; return; }
+  if (ai.config.enabled && ai.config.hasApiKey) {
+    el.innerHTML = '<span>就绪 · ' + esc(ai.config.model || 'AI') + '</span>';
+  } else {
+    el.innerHTML = '<button class="pool-ai-link" type="button" data-pool-open-ai="1">AI 未配置 · 去开启 ↗</button>';
+  }
+}
+function openAiSettingsFromPool() {
+  togglePoolPanel(false);
+  activateConfigTab('ai', { scroll: true });
+  setTimeout(() => {
+    const det = document.querySelector('#sec-ai details');
+    if (det) det.open = true;
+  }, 60);
 }
 function poolEnabledMap(pools, selection = null) {
   const prev = selection || ($$('[data-pool]').length ? selectedPoolMap() : null);
@@ -4061,46 +4453,84 @@ function renderPoolDropdown(selection = null) {
   const pools = Array.isArray(state.pools) ? state.pools : [];
   if (!(state.poolOpen instanceof Set)) state.poolOpen = new Set();
   const enabled = poolEnabledMap(pools, selection);
-  const query = ($('#poolSearch') ? $('#poolSearch').value : '').trim().toLowerCase();
-  const matches = (p) => !query || p.name.toLowerCase().includes(query) || String(p.keyword || '').toLowerCase().includes(query);
-  const childrenByParent = new Map();
-  for (const p of pools) {
-    if (p.parent_id != null) {
-      if (!childrenByParent.has(String(p.parent_id))) childrenByParent.set(String(p.parent_id), []);
-      childrenByParent.get(String(p.parent_id)).push(p);
-    }
-  }
-  const roots = pools.filter((p) => p.parent_id == null);
-  let html = '';
-  let visible = 0;
+  const { roots, childrenByParent } = poolHierarchy(pools);
+  const groupedRoots = [];
+  const baseRoots = [];
   for (const p of roots) {
     const children = childrenByParent.get(String(p.id)) || [];
-    const visibleChildren = children.filter(matches);
-    const groupVisible = matches(p) || visibleChildren.length > 0;
-    if (groupVisible) visible++;
-    const open = state.poolOpen.has(p.name) || (!query && children.some((c) => enabled[c.name]));
-    html += '<div class="pool-group"' + (groupVisible ? '' : ' hidden') + '>'
-      + '<div class="pool-parent-row">'
-      + (children.length ? '<button class="pool-expand" type="button" data-pool-expand="' + esc(p.name) + '" title="展开/收起">' + (open ? '▾' : '▸') + '</button>' : '<span class="pool-expand empty"></span>')
-      + '<label><input type="checkbox" data-pool="' + esc(p.name) + '"' + (enabled[p.name] ? ' checked' : '') + '><span class="pool-parent-name">' + esc(p.name) + '</span></label>'
-      + (children.length ? '<span class="pool-child-count">' + children.length + ' 子类</span>' : '')
-      + '<button class="pool-ai" type="button" data-pool-ai="' + esc(p.name) + '" title="让 AI 泛化这个父分类" aria-label="AI 泛化 ' + esc(p.name) + '">✨</button>'
-      + '</div>';
-    if (children.length) {
-      html += '<div class="pool-children"' + (open ? '' : ' hidden') + '>' + children.map((c) => '<label class="pool-child"' + (query && !matches(c) ? ' hidden' : '') + '><input type="checkbox" data-pool="' + esc(c.name) + '"' + (enabled[c.name] ? ' checked' : '') + '><span>' + esc(c.name) + '</span></label>').join('') + '</div>';
-    }
-    html += '</div>';
+    if (children.length) groupedRoots.push({ parent: p, children });
+    else baseRoots.push(p);
   }
-  if (!visible) html = '<div class="pool-empty">没有匹配的分类</div>';
+  const chevronSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+  let html = '';
+  if (groupedRoots.length) {
+    const totalGroupItems = groupedRoots.reduce((sum, g) => sum + 1 + g.children.length, 0);
+    html += '<section class="pool-section" id="poolGroupSection">'
+      + '<div class="pool-section-head"><span class="pool-section-title">专题分组</span>'
+      + '<span class="pool-section-meta">' + groupedRoots.length + ' 个分组 · 共 ' + totalGroupItems + ' 项 · 支持整组勾选</span></div>'
+      + '<div class="pool-groups">';
+    for (const { parent: p, children } of groupedRoots) {
+      const open = state.poolOpen.has(p.name);
+      const kwTag = poolKeywordLabel(p.name, p.keyword);
+      html += '<div class="pool-group-card' + (open ? '' : ' is-collapsed') + '" data-group-name="' + esc(p.name) + '" data-pool-name="' + esc(p.name) + '" data-pool-kw="' + esc(p.keyword || '') + '">'
+        + '<div class="pool-group-head">'
+        + '<div class="pool-group-left">'
+        + '<button class="pool-expand" type="button" data-pool-expand="' + esc(p.name) + '" aria-expanded="' + String(open) + '" title="展开或收起子类">' + chevronSvg + '</button>'
+        + '<label class="pool-parent-toggle" title="' + esc(p.keyword ? '主分类搜索词：' + p.keyword : p.name) + '">'
+        + '<input type="checkbox" data-pool="' + esc(p.name) + '"' + (enabled[p.name] ? ' checked' : '') + '>'
+        + '<span class="pool-parent-name">' + esc(p.name) + '</span>'
+        + (kwTag ? '<span class="pool-kw-tag">' + esc(kwTag) + '</span>' : '')
+        + '</label>'
+        + '<span class="pool-group-stat">0 / 0</span>'
+        + '</div>'
+        + '<div class="pool-group-actions">'
+        + '<button class="btn ghost sm pool-group-bulk" type="button" data-pool-group-toggle="' + esc(p.name) + '">全选本组</button>'
+        + '<button class="pool-ai-btn" type="button" data-pool-ai="' + esc(p.name) + '" title="让 AI 扩展「' + esc(p.name) + '」的子分类" aria-label="AI 扩展 ' + esc(p.name) + '"><span aria-hidden="true">✨</span><span class="pool-ai-label">AI 扩展</span></button>'
+        + '</div></div>'
+        + '<div class="pool-children"' + (open ? '' : ' hidden') + '>'
+        + children.map((c) => (
+          '<label class="pool-child" data-pool-name="' + esc(c.name) + '" data-pool-kw="' + esc(c.keyword || '') + '" title="' + esc(c.keyword && c.keyword !== c.name ? ('搜索词：' + c.keyword) : c.name) + '">'
+          + '<input type="checkbox" data-pool="' + esc(c.name) + '"' + (enabled[c.name] ? ' checked' : '') + '>'
+          + '<span class="pool-item-name">' + esc(c.name) + '</span>'
+          + '</label>'
+        )).join('')
+        + '</div></div>';
+    }
+    html += '</div></section>';
+  }
+  if (baseRoots.length) {
+    html += '<section class="pool-section" id="poolBaseSection">'
+      + '<div class="pool-section-head"><span class="pool-section-title">基础分类</span>'
+      + '<span class="pool-section-meta">' + baseRoots.length + ' 项 · 点右侧 ✨ 可让 AI 细分子分类</span></div>'
+      + '<div class="pool-tiles">';
+    for (const p of baseRoots) {
+      const kwTag = poolKeywordLabel(p.name, p.keyword);
+      html += '<div class="pool-tile" data-pool-name="' + esc(p.name) + '" data-pool-kw="' + esc(p.keyword || '') + '">'
+        + '<label class="pool-tile-main" title="' + esc(p.keyword && p.keyword !== p.name ? ('搜索词：' + p.keyword) : p.name) + '">'
+        + '<input type="checkbox" data-pool="' + esc(p.name) + '"' + (enabled[p.name] ? ' checked' : '') + '>'
+        + '<span class="pool-tile-text"><span class="pool-item-name">' + esc(p.name) + '</span>'
+        + (kwTag ? '<span class="pool-kw-inline">' + esc(kwTag) + '</span>' : '')
+        + '</span></label>'
+        + '<button class="pool-tile-ai" type="button" data-pool-ai="' + esc(p.name) + '" title="让 AI 扩展「' + esc(p.name) + '」的子分类" aria-label="AI 扩展 ' + esc(p.name) + '">✨</button>'
+        + '</div>';
+    }
+    html += '</div></section>';
+  }
+  html += '<div class="pool-empty" id="poolEmptyState" hidden>'
+    + '<span>没有找到符合当前条件的分类</span>'
+    + '<button class="btn soft sm" id="poolResetFilter" type="button">查看全部分类</button>'
+    + '</div>';
   list.innerHTML = html;
+  syncPoolItemVisuals();
+  applyPoolFilters();
   updatePoolCount();
 }
-async function loadPools() {
+async function loadPools({ preserveSelection = false } = {}) {
   try {
     const d = await getJSON('/api/pools');
     state.pools = Array.isArray(d.pools) ? d.pools : [];
   } catch (e) {
-    state.pools = Object.keys((state.config && state.config.pools) || {}).map((name) => ({ name, keyword: name, enabled: !!(state.config.pools[name]) }));
+    state.pools = Object.keys((state.config && state.config.pools) || {}).map((name, idx) => ({ id: idx + 1, name, keyword: name, enabled: !!(state.config.pools[name]) }));
   }
   if (!(state.poolOpen instanceof Set)) state.poolOpen = new Set();
   for (const p of state.pools) {
@@ -4109,7 +4539,8 @@ async function loadPools() {
       if (parent) state.poolOpen.add(parent.name);
     }
   }
-  renderPoolDropdown();
+  const initialMap = preserveSelection ? null : Object.fromEntries(state.pools.map((p) => [p.name, !!p.enabled]));
+  renderPoolDropdown(initialMap);
 }
 function togglePoolPanel(open) {
   const panel = $('#poolPanel');
@@ -4123,33 +4554,57 @@ function togglePoolPanel(open) {
   document.body.style.overflow = next ? 'hidden' : '';
   trigger.setAttribute('aria-expanded', String(next));
   if (next) {
+    setPoolFeedback('');
+    updatePoolAiStatus();
+    if ($('#poolSearch') && $('#poolSearch').value) $('#poolSearch').value = '';
+    state.poolFilter = 'all';
+    applyPoolFilters();
     updatePoolCount();
     setTimeout(() => { const input = $('#poolSearch'); if (input) input.focus(); }, 30);
+  } else if (panel.contains(document.activeElement)) {
+    trigger.focus();
   }
 }
 async function generalizePool(parent) {
   const btn = $$('[data-pool-ai]').find((b) => b.dataset.poolAi === parent);
-  if (btn) { btn.disabled = true; btn.textContent = '生成中…'; }
+  const originalHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = btn.classList.contains('pool-ai-btn')
+      ? '<span class="pool-spin" aria-hidden="true"></span><span>生成中…</span>'
+      : '<span class="pool-spin" aria-hidden="true"></span>';
+  }
   const before = selectedPoolMap();
   try {
     const hint = $('#poolAiHint') ? $('#poolAiHint').value.trim() : '';
-    const d = await postJSON('/api/pools/generalize', { parent, hint });
+    const account = (state.config && state.config.account) || (state.accounts && state.accounts.active) || undefined;
+    const d = await postJSON('/api/pools/generalize', { parent, hint, account });
     state.pools = Array.isArray(d.pools) ? d.pools : state.pools;
-    const added = new Set((d.categories || []).map((c) => c.name));
+    const addedNames = (d.categories || []).map((c) => c.name);
     const merged = { ...before };
-    for (const name of added) merged[name] = true;
+    for (const name of addedNames) merged[name] = true;
     merged[parent] = true;
     state.poolOpen.add(parent);
+    if ($('#poolSearch')) $('#poolSearch').value = '';
+    state.poolFilter = 'all';
     renderPoolDropdown(merged);
+    const okMsg = 'AI 为「' + parent + '」新增 ' + addedNames.length + ' 个子分类并已保存：' + addedNames.join('、');
+    setPoolFeedback(okMsg, 'ok');
+    toast('AI 新增 ' + addedNames.length + ' 个子分类，已保存', 'ok');
     setTimeout(() => {
       const list = $('#poolList');
-      const group = $$('.pool-group').find((g) => { const b = g.querySelector('[data-pool-ai]'); return b && b.dataset.poolAi === parent; });
-      if (list && group) list.scrollTop = Math.max(0, group.offsetTop - 4);
-    }, 0);
-    toast('AI 新增 ' + (d.categories || []).length + ' 个子分类，已保存', 'ok');
+      const group = $$('.pool-group-card').find((g) => g.dataset.groupName === parent);
+      if (group) {
+        group.classList.add('is-just-added');
+        setTimeout(() => group.classList.remove('is-just-added'), 1600);
+      }
+      if (list && group) group.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 20);
   } catch (e) {
-    toast('AI 泛化失败：' + e.message, 'bad');
-    if (btn) { btn.disabled = false; btn.textContent = '✨'; }
+    const msg = e.message || '未知错误';
+    setPoolFeedback('AI 扩展失败：' + msg, 'bad', /AI 未启用|API Key|缺少/i.test(msg));
+    toast('AI 泛化失败：' + msg, 'bad');
+    if (btn) { btn.disabled = false; btn.innerHTML = originalHtml; }
   }
 }
 const FILTER_DEFAULTS = { likes: 1000, comments: 10, favorites: 5, shares: 1 };
@@ -4545,6 +5000,7 @@ async function loadAIStatus() {
             ? (mode === 'moderate' ? '安全过滤：AI 去掉广告/不安全内容，保留候选随机选。' : '过滤 + 排序：AI 去广告/不安全，并按账户兴趣排序。')
             : 'AI 模式已选择，但缺少 API Key；当前会自动回退规则筛选。'));
     }
+    updatePoolAiStatus();
   } catch (e) {
     $('#aiMsg').textContent = 'AI 状态读取失败：' + e.message;
     if ($('#aiFilterPill')) $('#aiFilterPill').textContent = '读取失败';
@@ -5381,27 +5837,129 @@ function bindConfigActions() {
   ['#c_min_likes', '#c_min_comments', '#c_min_favorites', '#c_min_shares', '#c_vmax', '#c_rmax'].forEach((sel) => {
     if ($(sel)) $(sel).addEventListener('input', updateMetricFiltersUI);
   });
-  $('#poolTrigger').onclick = () => togglePoolPanel();
+  const markDirty = () => { if (state.cfgLoaded) setConfigDirty(true); };
+  $('#poolTrigger').onclick = () => togglePoolPanel(true);
   $('#poolClose').onclick = () => togglePoolPanel(false);
   $('#poolPanelClose').onclick = () => togglePoolPanel(false);
   $('#poolBackdrop').addEventListener('pointerdown', () => togglePoolPanel(false));
-  $('#poolSearch').addEventListener('input', () => renderPoolDropdown());
-  $('#poolAll').onclick = () => { $$('[data-pool]').forEach((c) => { c.checked = true; }); updatePoolCount(); };
-  $('#poolNone').onclick = () => { $$('[data-pool]').forEach((c) => { c.checked = false; }); updatePoolCount(); };
-  $('#poolList').addEventListener('change', (e) => { if (e.target.matches('[data-pool]')) updatePoolCount(); });
+  $('#poolSearch').addEventListener('input', () => applyPoolFilters());
+  if ($('#poolSearchClear')) {
+    $('#poolSearchClear').onclick = () => {
+      $('#poolSearch').value = '';
+      applyPoolFilters();
+      $('#poolSearch').focus();
+    };
+  }
+  if ($('#poolAiHint')) {
+    $('#poolAiHint').addEventListener('input', () => {
+      if ($('#poolAiHintClear')) $('#poolAiHintClear').hidden = !$('#poolAiHint').value.trim();
+    });
+  }
+  if ($('#poolAiHintClear')) {
+    $('#poolAiHintClear').onclick = () => {
+      $('#poolAiHint').value = '';
+      $('#poolAiHintClear').hidden = true;
+      $('#poolAiHint').focus();
+    };
+  }
+  if ($('#poolFilterSeg')) {
+    $('#poolFilterSeg').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pool-filter]');
+      if (btn) setPoolFilter(btn.dataset.poolFilter);
+    });
+  }
+  if ($('#poolExpandAll')) {
+    $('#poolExpandAll').onclick = () => {
+      const groups = $$('#poolList .pool-group-card:not([hidden])');
+      const anyOpen = groups.some((g) => !g.classList.contains('is-collapsed'));
+      groups.forEach((g) => {
+        const name = g.dataset.groupName;
+        if (!name) return;
+        if (anyOpen) state.poolOpen.delete(name);
+        else state.poolOpen.add(name);
+      });
+      applyPoolFilters();
+    };
+  }
+  const bulkTargetInputs = () => {
+    const query = ($('#poolSearch') ? $('#poolSearch').value : '').trim();
+    const filter = state.poolFilter || 'all';
+    if (!query && filter === 'all') return $$('#poolList [data-pool]');
+    const targets = [];
+    $$('#poolList .pool-tile:not([hidden]) [data-pool]').forEach((c) => targets.push(c));
+    $$('#poolList .pool-group-card:not([hidden])').forEach((card) => {
+      const parentInp = card.querySelector('.pool-parent-toggle [data-pool]');
+      const qLower = query.toLowerCase();
+      const parentName = String(card.dataset.poolName || '').toLowerCase();
+      const parentKw = String(card.dataset.poolKw || '').toLowerCase();
+      const parentMatchesQ = !qLower || parentName.includes(qLower) || parentKw.includes(qLower);
+      if (parentInp && parentMatchesQ && (filter === 'all' || (filter === 'selected' ? parentInp.checked : !parentInp.checked))) {
+        targets.push(parentInp);
+      }
+      $$('.pool-child:not([hidden]) [data-pool]', card).forEach((c) => targets.push(c));
+    });
+    return targets;
+  };
+  $('#poolAll').onclick = () => {
+    const targets = bulkTargetInputs();
+    if (!targets.length) return;
+    targets.forEach((c) => { c.checked = true; });
+    syncPoolItemVisuals();
+    updatePoolCount();
+    markDirty();
+  };
+  $('#poolNone').onclick = () => {
+    const targets = bulkTargetInputs();
+    if (!targets.length) return;
+    targets.forEach((c) => { c.checked = false; });
+    syncPoolItemVisuals();
+    updatePoolCount();
+    markDirty();
+  };
+  if ($('#poolAiBar')) {
+    $('#poolAiBar').addEventListener('click', (e) => {
+      if (e.target.closest('[data-pool-open-ai]')) openAiSettingsFromPool();
+    });
+  }
+  if ($('#poolFeedback')) {
+    $('#poolFeedback').addEventListener('click', (e) => {
+      if (e.target.closest('[data-pool-open-ai]')) { openAiSettingsFromPool(); return; }
+      if (e.target.closest('.pool-feedback-close')) setPoolFeedback('');
+    });
+  }
+  $('#poolList').addEventListener('change', (e) => {
+    if (!e.target.matches('[data-pool]')) return;
+    syncPoolItemVisuals();
+    updatePoolCount();
+    markDirty();
+  });
   $('#poolList').addEventListener('click', (e) => {
+    if (e.target.closest('#poolResetFilter')) {
+      if ($('#poolSearch')) $('#poolSearch').value = '';
+      setPoolFilter('all');
+      return;
+    }
     const exp = e.target.closest('[data-pool-expand]');
     if (exp) {
       const name = exp.dataset.poolExpand;
       if (state.poolOpen.has(name)) state.poolOpen.delete(name); else state.poolOpen.add(name);
-      renderPoolDropdown();
+      applyPoolFilters();
+      return;
+    }
+    const grpBulk = e.target.closest('[data-pool-group-toggle]');
+    if (grpBulk) {
+      const card = grpBulk.closest('.pool-group-card');
+      if (!card) return;
+      const inputs = $$('[data-pool]', card);
+      const allOn = inputs.length > 0 && inputs.every((c) => c.checked);
+      inputs.forEach((c) => { c.checked = !allOn; });
+      syncPoolItemVisuals();
+      updatePoolCount();
+      markDirty();
       return;
     }
     const ai = e.target.closest('[data-pool-ai]');
     if (ai) generalizePool(ai.dataset.poolAi);
-  });
-  document.addEventListener('pointerdown', (e) => {
-    if (!e.target.closest('#poolSelect')) togglePoolPanel(false);
   });
   $$('#configNav [data-config-tab]').forEach((b) => b.addEventListener('click', () => activateConfigTab(b.dataset.configTab, { scroll: true })));
   $('#configNav').addEventListener('keydown', (e) => {
@@ -5411,16 +5969,13 @@ function bindConfigActions() {
     const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
     if (next) { e.preventDefault(); next.focus(); activateConfigTab(next.dataset.configTab, { scroll: true }); }
   });
-  const markDirty = () => { if (state.cfgLoaded) setConfigDirty(true); };
   ['#sec-plan', '#sec-video', '#sec-advanced'].forEach((sel) => {
     const sec = $(sel);
     if (!sec) return;
     sec.addEventListener('input', markDirty);
     sec.addEventListener('change', markDirty);
   });
-  ['#scheduleAdd', '#poolAll', '#poolNone'].forEach((sel) => {
-    if ($(sel)) $(sel).addEventListener('click', markDirty);
-  });
+  if ($('#scheduleAdd')) $('#scheduleAdd').addEventListener('click', markDirty);
   $('#schedulePoints').addEventListener('click', (e) => {
     if (e.target.closest('[data-delpoint]')) markDirty();
   });
