@@ -479,3 +479,29 @@ test('accounts support in-app QR bridge and deletion with last-account guard', a
     await new Promise((r) => bridge.close(r));
   }
 });
+
+test('GET /api/read-records returns filtered read receipt history for the active account', async () => {
+  const html = await (await fetch(url + '/')).text();
+  assert.ok(html.includes('id="recViewTabs"'));
+  assert.ok(html.includes('id="readTable"'));
+
+  repos.logEvent('auto-read', { account: 'A', friends: ['Hime'], count: 1 });
+  repos.logEvent('daily-read', { account: 'A', friend: 'Hime', conversationId: '0:1:100:200' });
+  repos.logEvent('auto-read-fail', { account: 'A', friends: ['Other'], error: 'cookie expired' });
+  repos.logEvent('daily-read', { account: 'OTHER', friend: 'Stranger', conversationId: '0:1:300:400' });
+
+  const allRes = await get('/api/read-records');
+  assert.equal(allRes.ok, true);
+  assert.equal(allRes.allTotal, 3);
+  assert.equal(allRes.okCount, 2);
+  assert.equal(allRes.failCount, 1);
+
+  const failRes = await get('/api/read-records?result=failed');
+  assert.equal(failRes.total, 1);
+  assert.equal(failRes.items[0].error, 'cookie expired');
+
+  const dailyRes = await get('/api/read-records?kind=daily&q=Hime');
+  assert.equal(dailyRes.total, 1);
+  assert.equal(dailyRes.items[0].kindLabel, '发送后已读');
+  assert.equal(dailyRes.items[0].conversationId, '0:1:100:200');
+});

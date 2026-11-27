@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.32.20 — 2026-11-27
+- **「记录」页新增「已读记录」选项卡**：提供独立顶部标签切换（发送记录 / 已读记录），展示定时自动已读（`auto-read`）、发送后已读（`daily-read`）与慢递已读（`slow-read`）明细，支持总计/成功/失败/今日汇总、按来源/结果筛选、好友/会话搜索与分页。
+- 后端新增 `repos.listReadEvents()` 与 `GET /api/read-records` 接口，避免高频率事件把已读记录挤出常规事件列表。
+- Playwright UI 验证与全部单元测试通过。
+
 ## 0.32.19 — 2026-11-27
 - **调度器选片与重试稳定性两层优化**（[scheduler.js](file:///Users/xcodev/Code/Project/xcodev/douyin-forwarder/src/scheduler.js)）：
   - **多分类自动轮换兜底**：视频池模式下每次发送在遇到无候选、去重耗尽、互动指标不达标或 AI 过滤为空时，自动按随机顺序切换其他已选分类（最多 6 个），不再因单个冷门分类搜空而报错失败。

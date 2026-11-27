@@ -683,6 +683,17 @@ function listEvents(limit = 50) {
   return db.open().prepare('SELECT * FROM events ORDER BY id DESC LIMIT ?').all(limit);
 }
 
+const READ_EVENT_TYPES = ['auto-read', 'auto-read-fail', 'daily-read', 'daily-read-fail', 'slow-read', 'slow-read-fail'];
+
+function listReadEvents(limit = 500) {
+  const safeLimit = Math.min(2000, Math.max(1, Math.round(Number(limit) || 500)));
+  const placeholders = READ_EVENT_TYPES.map(() => '?').join(', ');
+  return db
+    .open()
+    .prepare(`SELECT * FROM events WHERE event IN (${placeholders}) ORDER BY id DESC LIMIT ?`)
+    .all(...READ_EVENT_TYPES, safeLimit);
+}
+
 module.exports = {
   nowIso,
   getSetting, setSetting,
@@ -699,5 +710,5 @@ module.exports = {
   getPlan, savePlan,
   insertSend, listSends, countSends, countSendsByAccount, querySends, listSendBuckets,
   countSendsByDay, friendSendCounts, listRecentSentVideos, bucketStats,
-  logEvent, listEvents,
+  logEvent, listEvents, listReadEvents, READ_EVENT_TYPES,
 };

@@ -1127,6 +1127,79 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         res.setHeader('Content-Disposition', `attachment; filename="heartbeat-sends-${today()}.csv"`);
         return res.end('\ufeff' + lines.join('\n'));
       }
+      if (u.pathname === '/api/read-records' && req.method === 'GET') {
+        const acc = currentAccount();
+        const day = today();
+        const page = Math.max(1, Math.round(Number(u.searchParams.get('page')) || 1));
+        const pageSize = Math.min(200, Math.max(1, Math.round(Number(u.searchParams.get('pageSize')) || 20)));
+        const search = String(u.searchParams.get('q') || '').trim().toLowerCase();
+        const kind = String(u.searchParams.get('kind') || '').trim();
+        const result = String(u.searchParams.get('result') || '').trim();
+        const kindLabels = { auto: '定时自动已读', daily: '发送后已读', slow: '慢递已读' };
+        const all = repos
+          .listReadEvents(1000)
+          .map((row) => {
+            let payload = {};
+            try { payload = JSON.parse(row.payload || '{}') || {}; } catch (e) {}
+            const accountLabel = payload.account ? String(payload.account) : '';
+            if (accountLabel && accountLabel !== acc.label) return null;
+            const k = row.event.startsWith('auto-') ? 'auto' : (row.event.startsWith('daily-') ? 'daily' : 'slow');
+            const ok = !row.event.endsWith('-fail');
+            const friends = Array.isArray(payload.friends)
+              ? payload.friends.filter(Boolean)
+              : (payload.friend ? [String(payload.friend)] : []);
+            const localDay = new Date(row.ts).toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
+            const local = new Date(row.ts).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+            return {
+              id: row.id,
+              ts: row.ts,
+              local,
+              day: localDay,
+              kind: k,
+              kindLabel: kindLabels[k] || row.event,
+              event: row.event,
+              ok,
+              friends,
+              friendText: friends.join('、') || '-',
+              count: Number(payload.count) || friends.length || 1,
+              conversationId: String(payload.conversationId || ''),
+              nextAt: payload.nextAt ? new Date(payload.nextAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '',
+              error: String(payload.error || ''),
+            };
+          })
+          .filter(Boolean);
+        const allTotal = all.length;
+        const okCount = all.filter((x) => x.ok).length;
+        const failCount = allTotal - okCount;
+        const todayCount = all.filter((x) => x.ok && x.day === day).length;
+        const filtered = all.filter((item) => {
+          if (kind && item.kind !== kind) return false;
+          if (result === 'ok' && !item.ok) return false;
+          if (result === 'failed' && item.ok) return false;
+          if (search) {
+            const hay = `${item.friendText} ${item.kindLabel} ${item.conversationId} ${item.error}`.toLowerCase();
+            if (!hay.includes(search)) return false;
+          }
+          return true;
+        });
+        const total = filtered.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const safePage = Math.min(page, totalPages);
+        const offset = (safePage - 1) * pageSize;
+        return send(res, 200, {
+          ok: true,
+          account: acc.label,
+          items: filtered.slice(offset, offset + pageSize),
+          total,
+          allTotal,
+          okCount,
+          failCount,
+          todayCount,
+          page: safePage,
+          pageSize,
+          totalPages,
+        });
+      }
       if (u.pathname === '/viewer' || u.pathname === '/viewer.html') {
         const file = path.join(env.ROOT, 'app', 'viewer.html');
         if (!fs.existsSync(file)) return send(res, 404, { error: 'viewer not found' });

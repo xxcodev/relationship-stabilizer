@@ -2373,34 +2373,71 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
 
     <!-- ================= 记录 ================= -->
     <section class="view" id="view-records" data-view-panel="records" hidden>
-      <div class="summary">
-        <span class="pill" id="recTotal">-</span>
-        <span class="pill ok" id="recOk">-</span>
-        <span class="pill bad" id="recFail">-</span>
-        <span class="pill blue" id="recToday">-</span>
+      <div class="seg" id="recViewTabs" role="tablist" aria-label="记录类型" style="margin-bottom:14px">
+        <button class="on" type="button" role="tab" data-rec-tab="sends" aria-selected="true">发送记录</button>
+        <button type="button" role="tab" data-rec-tab="reads" aria-selected="false">已读记录</button>
       </div>
-      <div class="card" style="margin-bottom:16px">
-        <div class="toolbar">
-          <input class="grow" id="recSearch" placeholder="搜索标题 / 作者 / 好友…">
-          <select id="recBucket"><option value="">全部分类</option></select>
-          <select id="recResult"><option value="">全部结果</option><option value="ok">成功</option><option value="failed">失败</option></select>
-          <button class="btn ghost sm" id="recRefresh">刷新</button>
-          <button class="btn ghost sm" id="recCsv">导出 CSV</button>
+      <div id="recSendsPane">
+        <div class="summary">
+          <span class="pill" id="recTotal">-</span>
+          <span class="pill ok" id="recOk">-</span>
+          <span class="pill bad" id="recFail">-</span>
+          <span class="pill blue" id="recToday">-</span>
         </div>
-        <div class="table-wrap">
-          <table id="recTable"><thead><tr>
-            <th>时间</th><th>分类</th><th>标题</th><th>作者</th><th>好友</th><th>赞</th><th>结果</th><th>截图</th>
-          </tr></thead><tbody id="recRows"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody></table>
+        <div class="card" style="margin-bottom:16px">
+          <div class="toolbar">
+            <input class="grow" id="recSearch" placeholder="搜索标题 / 作者 / 好友…">
+            <select id="recBucket"><option value="">全部分类</option></select>
+            <select id="recResult"><option value="">全部结果</option><option value="ok">成功</option><option value="failed">失败</option></select>
+            <button class="btn ghost sm" id="recRefresh">刷新</button>
+            <button class="btn ghost sm" id="recCsv">导出 CSV</button>
+          </div>
+          <div class="table-wrap">
+            <table id="recTable"><thead><tr>
+              <th>时间</th><th>分类</th><th>标题</th><th>作者</th><th>好友</th><th>赞</th><th>结果</th><th>截图</th>
+            </tr></thead><tbody id="recRows"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody></table>
+          </div>
+          <div class="pager">
+            <span id="recPagerInfo"></span>
+            <button class="btn ghost sm" id="recPrev">上一页</button>
+            <button class="btn ghost sm" id="recNext">下一页</button>
+          </div>
         </div>
-        <div class="pager">
-          <span id="recPagerInfo"></span>
-          <button class="btn ghost sm" id="recPrev">上一页</button>
-          <button class="btn ghost sm" id="recNext">下一页</button>
+        <div class="card">
+          <div class="card-head"><div class="eyebrow">最近事件</div><div class="card-actions" style="margin:0"><button class="btn ghost sm" data-goto="diagnostics">排查中心</button><button class="btn ghost sm" id="recEventsRefresh">刷新</button></div></div>
+          <div class="events-mini diag-mini-list" id="recEvents"><span class="muted">加载中…</span></div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-head"><div class="eyebrow">最近事件</div><div class="card-actions" style="margin:0"><button class="btn ghost sm" data-goto="diagnostics">排查中心</button><button class="btn ghost sm" id="recEventsRefresh">刷新</button></div></div>
-        <div class="events-mini diag-mini-list" id="recEvents"><span class="muted">加载中…</span></div>
+      <div id="recReadsPane" hidden>
+        <div class="summary">
+          <span class="pill" id="readTotal">-</span>
+          <span class="pill ok" id="readOk">-</span>
+          <span class="pill bad" id="readFail">-</span>
+          <span class="pill blue" id="readToday">-</span>
+        </div>
+        <div class="card">
+          <div class="toolbar">
+            <input class="grow" id="readSearch" placeholder="搜索好友、来源或会话 ID…">
+            <select id="readKind">
+              <option value="">全部来源</option>
+              <option value="auto">定时自动已读</option>
+              <option value="daily">发送后已读</option>
+              <option value="slow">慢递已读</option>
+            </select>
+            <select id="readResult"><option value="">全部结果</option><option value="ok">成功</option><option value="failed">失败</option></select>
+            <button class="btn ghost sm" id="readRefresh" type="button">刷新</button>
+          </div>
+          <div class="table-wrap">
+            <table id="readTable"><thead><tr>
+              <th>时间</th><th>来源</th><th>好友</th><th>详情</th><th>结果</th>
+            </tr></thead><tbody id="readRows"><tr><td colspan="5" class="empty">加载中…</td></tr></tbody></table>
+          </div>
+          <div class="pager">
+            <span id="readPagerInfo"></span>
+            <button class="btn ghost sm" id="readPrev" type="button">上一页</button>
+            <button class="btn ghost sm" id="readNext" type="button">下一页</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -2685,6 +2722,7 @@ function toggleTheme() {
 const state = {
   view: 'home', data: null, status: null, api: null, accounts: null, config: null,
   events: [], records: { search: '', bucket: '', result: '', page: 1, pageSize: 20 },
+  recordsTab: 'sends', readRecords: { search: '', kind: '', result: '', page: 1, pageSize: 20 }, readRecordsPage: null,
   sendJobPolling: false, screenTimer: null, apiTimer: null, homeTimer: null,
   slowPanelOpen: false, slowDraft: null,
   cfgLoaded: false, configDirty: false,
@@ -6317,14 +6355,74 @@ function renderRecords() {
 }
 async function loadRecords() {
   try {
-    const [rec] = await Promise.all([
+    const tasks = [
       getJSON('/api/records?' + recordsQueryParams()),
       loadRecEvents(),
-    ]);
+    ];
+    if (state.recordsTab === 'reads') tasks.push(loadReadRecords());
+    const [rec] = await Promise.all(tasks);
     state.recordsPage = rec;
     renderRecords();
     renderSidebar();
   } catch (e) { toast('记录加载失败：' + e.message, 'bad'); }
+}
+function readRecordsQueryParams() {
+  const f = state.readRecords;
+  const params = new URLSearchParams();
+  params.set('page', String(f.page || 1));
+  params.set('pageSize', String(f.pageSize || 20));
+  if (f.search.trim()) params.set('q', f.search.trim());
+  if (f.kind) params.set('kind', f.kind);
+  if (f.result) params.set('result', f.result);
+  return params.toString();
+}
+function renderReadRecords() {
+  const r = state.readRecordsPage || {};
+  const rows = Array.isArray(r.items) ? r.items : [];
+  const f = state.readRecords;
+  const totalPages = Math.max(1, Number(r.totalPages) || 1);
+  f.page = Math.min(Math.max(1, Number(r.page) || f.page), totalPages);
+  const allTotal = Number(r.allTotal) || 0;
+  const filteredTotal = Number(r.total) || 0;
+  $('#readTotal').textContent = '全部 ' + allTotal + ' 条';
+  $('#readOk').textContent = '成功 ' + (Number(r.okCount) || 0);
+  $('#readFail').textContent = '失败 ' + (Number(r.failCount) || 0);
+  $('#readToday').textContent = '今日 ' + (Number(r.todayCount) || 0) + ' 条';
+  $('#readRows').innerHTML = rows.map((item) => {
+    const detail = item.ok
+      ? (item.conversationId
+        ? ('会话 ' + item.conversationId)
+        : (item.nextAt ? ('下次执行 ' + item.nextAt) : '已完成已读标记'))
+      : (item.error || '标记失败');
+    return '<tr>'
+      + '<td class="muted">' + esc(item.local || '-') + '</td>'
+      + '<td><span class="tag">' + esc(item.kindLabel || item.event) + '</span></td>'
+      + '<td class="muted">' + esc(item.friendText || '-') + '</td>'
+      + '<td class="title-cell" title="' + esc(detail) + '">' + esc(detail) + '</td>'
+      + '<td class="' + (item.ok ? 'ok' : 'bad') + '">' + (item.ok ? '成功' : '失败') + '</td>'
+      + '</tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">' + (allTotal ? '没有符合筛选的已读记录' : '还没有已读记录') + '</td></tr>';
+  $('#readPagerInfo').textContent = '第 ' + f.page + ' / ' + totalPages + ' 页 · ' + filteredTotal + ' 条';
+  $('#readPrev').disabled = f.page <= 1;
+  $('#readNext').disabled = f.page >= totalPages;
+}
+async function loadReadRecords() {
+  try {
+    state.readRecordsPage = await getJSON('/api/read-records?' + readRecordsQueryParams());
+    renderReadRecords();
+  } catch (e) { toast('已读记录加载失败：' + e.message, 'bad'); }
+}
+function switchRecordsTab(tab) {
+  state.recordsTab = tab === 'reads' ? 'reads' : 'sends';
+  const isReads = state.recordsTab === 'reads';
+  $$('#recViewTabs [data-rec-tab]').forEach((b) => {
+    const on = b.dataset.recTab === state.recordsTab;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  if ($('#recSendsPane')) $('#recSendsPane').hidden = isReads;
+  if ($('#recReadsPane')) $('#recReadsPane').hidden = !isReads;
+  if (isReads) loadReadRecords();
 }
 async function loadRecEvents() {
   try {
@@ -6988,6 +7086,23 @@ function bindRecordsActions() {
   $('#recRefresh').onclick = loadRecords;
   $('#recEventsRefresh').onclick = loadRecEvents;
   $('#recCsv').onclick = exportCsv;
+  $$('#recViewTabs [data-rec-tab]').forEach((b) => {
+    b.addEventListener('click', () => switchRecordsTab(b.dataset.recTab));
+  });
+  let readTimer = null;
+  if ($('#readSearch')) {
+    $('#readSearch').addEventListener('input', (e) => {
+      state.readRecords.search = e.target.value;
+      state.readRecords.page = 1;
+      clearTimeout(readTimer);
+      readTimer = setTimeout(loadReadRecords, 220);
+    });
+  }
+  if ($('#readKind')) $('#readKind').addEventListener('change', (e) => { state.readRecords.kind = e.target.value; state.readRecords.page = 1; loadReadRecords(); });
+  if ($('#readResult')) $('#readResult').addEventListener('change', (e) => { state.readRecords.result = e.target.value; state.readRecords.page = 1; loadReadRecords(); });
+  if ($('#readPrev')) $('#readPrev').onclick = () => { state.readRecords.page = Math.max(1, state.readRecords.page - 1); loadReadRecords(); };
+  if ($('#readNext')) $('#readNext').onclick = () => { state.readRecords.page += 1; loadReadRecords(); };
+  if ($('#readRefresh')) $('#readRefresh').onclick = loadReadRecords;
 }
 
 function bindHeaderExpand() {
