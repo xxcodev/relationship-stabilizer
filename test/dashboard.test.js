@@ -337,8 +337,10 @@ test('dashboard root supports ETag 304 and gzip and ships UI optimizations', asy
   assert.ok(!html.includes('id="homeBrowserPill"'));
   assert.ok(!html.includes('id="homeScreenCard"'));
   assert.ok(!html.includes('id="apiModeSeg"'));
+  assert.ok(!html.includes('id="sec-connection"'));
   assert.ok(!html.includes('active.bands'));
   assert.ok(!html.includes('05 AI'));
+  assert.ok(html.includes('来源方式'));
 
   const res304 = await fetch(url + '/', { headers: { 'if-none-match': etag } });
   assert.equal(res304.status, 304);

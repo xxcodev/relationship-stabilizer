@@ -457,13 +457,13 @@
   .config-tab.is-active::after{width:22px}
   .config-tab .n{font-size:10.5px;color:var(--dim2);font-variant-numeric:tabular-nums;transition:color .18s}
   .config-tab.is-active .n{color:#a9c5ff}
-  #sec-plan,#sec-video,#sec-friends,#sec-connection,#sec-ai,#sec-database,#sec-advanced{scroll-margin-top:168px}
+  #sec-plan,#sec-video,#sec-ai,#sec-database,#sec-advanced{scroll-margin-top:168px}
   .config-grid{display:block;width:100%;max-width:1100px;margin:0 auto}
   .config-col{display:contents}
   .config-col.config-side{display:contents}
   #view-config .settings-card{margin:0 0 16px;width:100%}
-  #view-config .settings-card.config-section-enter{animation:configSectionIn .24s cubic-bezier(.2,.8,.25,1)}
-  @keyframes configSectionIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  #view-config .settings-card.config-section-enter{animation:configSectionIn .16s ease-out}
+  @keyframes configSectionIn{from{opacity:.72;transform:translateY(4px)}to{opacity:1;transform:none}}
   #eventsCfg{max-width:1100px;margin:0 auto 16px}
   .switch-row{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:14px;padding:12px 14px;
     border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.018)}
@@ -504,19 +504,121 @@
   .sub-block{padding:13px 14px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:rgba(255,255,255,.018);margin-top:12px}
   .sub-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px}
   .sub-head .eyebrow{margin:0}
-  .source-note{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:10px 12px;border-radius:10px;
+  .source-note{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px;padding:10px 12px;border-radius:10px;
     border:1px solid rgba(91,140,255,.2);background:rgba(91,140,255,.06);color:var(--dim);font-size:12.5px;line-height:1.6}
   .source-note b{color:var(--txt);font-weight:600}
-  #sec-plan .sched-head,#sec-plan .schedrow{display:grid;grid-template-columns:108px minmax(0,1fr) 70px 34px;gap:8px;align-items:center}
-  #sec-plan .sched-head{padding:0 2px 3px;color:var(--dim2);font-size:10.5px;letter-spacing:.04em}
-  #sec-plan .schedrow{margin-bottom:8px}
-  #sec-plan .schedrow .sched-time{display:flex;align-items:center;gap:6px;min-width:0}
-  #sec-plan .schedrow .sched-time input{min-width:0;flex:1}
-  #sec-plan .schedrow .sched-time .range{display:flex;align-items:center;gap:6px;min-width:0;flex:1}
-  #sec-plan .schedrow select,#sec-plan .schedrow input{width:100%;min-width:0}
-  #sec-plan .schedrow .btn{padding:7px 0;width:34px}
+
+  /* redesigned 01 schedule & rhythm */
+  .sched-timeline{margin:10px 0 12px;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:rgba(0,0,0,.16)}
+  .sched-tl-track{position:relative;height:26px;border-radius:8px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.06);overflow:hidden}
+  .sched-tl-range{position:absolute;top:4px;bottom:4px;border-radius:5px;background:rgba(91,140,255,.24);border:1px solid rgba(91,140,255,.55);
+    min-width:6px;transition:all .18s}
+  .sched-tl-pin{position:absolute;top:3px;bottom:3px;width:4px;margin-left:-2px;border-radius:4px;background:linear-gradient(180deg,#7da2ff,#5be2c8);
+    box-shadow:0 0 8px rgba(91,140,255,.6);transition:all .18s}
+  .sched-tl-range.is-bad,.sched-tl-pin.is-bad{background:rgba(255,93,93,.45);border-color:var(--bad);box-shadow:0 0 8px rgba(255,93,93,.5)}
+  .sched-tl-ticks{display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--dim2);font-variant-numeric:tabular-nums}
+  .sched-tl-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .sched-tl-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;font-size:11px;
+    border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--dim);font-variant-numeric:tabular-nums}
+  .sched-tl-chip b{color:var(--txt);font-weight:600}
+  .sched-tl-chip.is-bad{border-color:rgba(255,93,93,.45);background:rgba(255,93,93,.08);color:#ffb3b3}
+  .sched-conflict-note{margin-top:8px;padding:8px 11px;border-radius:9px;border:1px solid rgba(255,93,93,.38);background:rgba(255,93,93,.08);
+    color:#ffb3b3;font-size:12px;line-height:1.5}
+
+  .sched-list{display:flex;flex-direction:column;gap:8px}
+  #sec-plan .schedrow{display:grid;grid-template-columns:28px auto minmax(0,1fr) auto 30px;gap:10px;align-items:center;
+    padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.02);transition:border-color .15s,background .15s}
+  #sec-plan .schedrow:hover{border-color:rgba(91,140,255,.32);background:rgba(255,255,255,.03)}
+  #sec-plan .schedrow.is-invalid{border-color:rgba(255,93,93,.5);background:rgba(255,93,93,.04)}
+  .sched-idx{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;font-size:11px;font-weight:700;
+    color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--line);font-variant-numeric:tabular-nums}
+  .sched-mode-seg{padding:2px;border-radius:9px}
+  .sched-mode-seg button{padding:5px 10px;font-size:12px;border-radius:7px;white-space:nowrap}
+  #sec-plan .schedrow .sched-time{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
+  #sec-plan .schedrow .sched-time input[type="time"]{width:auto;min-width:112px;padding:6px 9px;font-size:13px;font-variant-numeric:tabular-nums}
+  #sec-plan .schedrow .sched-time .range{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}
+  .sched-span-badge{font-size:11px;color:var(--dim2);padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.03);border:1px solid var(--line);white-space:nowrap}
   #sec-plan .schedrow[data-mode="fixed"] .sched-time .range{display:none}
   #sec-plan .schedrow[data-mode="random"] .sched-time .single{display:none}
+  .sched-stepper{display:inline-flex;align-items:center;gap:0;border:1px solid var(--line2);border-radius:9px;background:rgba(0,0,0,.18);overflow:hidden}
+  .sched-step-btn{width:28px;height:32px;border:0;background:transparent;color:var(--dim);cursor:pointer;font-size:14px;display:grid;place-items:center;padding:0;transition:.14s}
+  .sched-step-btn:hover{background:rgba(255,255,255,.07);color:var(--txt)}
+  .sched-stepper input{width:46px;height:32px;padding:2px 4px;border:0;border-radius:0;background:transparent;text-align:center;font-size:13px;font-weight:600;
+    font-variant-numeric:tabular-nums;box-shadow:none}
+  .sched-stepper input:hover,.sched-stepper input:focus{border:0;box-shadow:none}
+  .sched-step-unit{font-size:11.5px;color:var(--dim2);padding-right:8px;user-select:none}
+  .sched-del{width:30px;height:30px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--dim2);cursor:pointer;
+    font-size:16px;display:grid;place-items:center;padding:0;transition:.15s}
+  .sched-del:hover{color:var(--bad);background:rgba(255,93,93,.1);border-color:rgba(255,93,93,.28)}
+
+  .rhythm-presets{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .rhythm-chip{border:1px solid var(--line2);background:rgba(255,255,255,.025);color:var(--dim);border-radius:999px;padding:4px 10px;
+    font-size:11.5px;cursor:pointer;font-family:inherit;transition:.15s}
+  .rhythm-chip:hover{border-color:rgba(91,140,255,.45);color:var(--txt)}
+  .rhythm-chip.active{color:#dce7ff;border-color:rgba(91,140,255,.55);background:rgba(91,140,255,.14)}
+  .rhythm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .rhythm-card{padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.018);display:flex;flex-direction:column;gap:9px}
+  .rhythm-card-title{font-size:12.5px;font-weight:600;color:var(--txt)}
+  .rhythm-range-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .rhythm-range-row input{width:84px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+  .rhythm-fallback-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:8px;border-top:1px dashed rgba(255,255,255,.07);font-size:12px;color:var(--dim);transition:opacity .15s}
+  .rhythm-fallback-row input{width:76px;text-align:center;padding:6px 8px;font-variant-numeric:tabular-nums}
+  .rhythm-fallback-row.is-off{opacity:.45}
+
+  /* redesigned 02 source cards & ban word chips */
+  .source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .source-card{display:flex;align-items:flex-start;gap:11px;padding:12px 14px;border:1px solid var(--line2);border-radius:12px;
+    background:rgba(255,255,255,.02);color:var(--txt);text-align:left;cursor:pointer;font:inherit;transition:.16s}
+  .source-card:hover{border-color:rgba(91,140,255,.45);background:rgba(91,140,255,.05)}
+  .source-card.active{border-color:rgba(91,140,255,.65);background:linear-gradient(135deg,rgba(91,140,255,.14),rgba(184,255,238,.04));
+    box-shadow:0 0 0 1px rgba(91,140,255,.22)}
+  .source-radio{width:16px;height:16px;flex:0 0 16px;margin-top:2px;border-radius:50%;border:1.5px solid var(--line2);display:grid;place-items:center;transition:.15s}
+  .source-card.active .source-radio{border-color:var(--acc);background:var(--acc)}
+  .source-card.active .source-radio::after{content:"";width:6px;height:6px;border-radius:50%;background:#fff}
+  .source-card-body{min-width:0;flex:1}
+  .source-card-title{display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:650;flex-wrap:wrap}
+  .source-card-desc{font-size:12px;color:var(--dim2);margin-top:3px;line-height:1.5}
+
+  .ban-input-row{display:flex;align-items:center;gap:8px;margin-top:2px}
+  .ban-input-row input{flex:1;min-width:0}
+  .ban-presets{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;color:var(--dim2)}
+  .ban-preset-btn{border:1px dashed var(--line2);background:rgba(255,255,255,.02);color:var(--dim);border-radius:999px;padding:3px 9px;
+    font:inherit;font-size:11.5px;cursor:pointer;transition:.15s}
+  .ban-preset-btn:hover{border-color:rgba(91,140,255,.45);color:var(--txt);background:rgba(91,140,255,.07)}
+  .ban-preset-btn.is-added{border-style:solid;border-color:rgba(91,140,255,.42);background:rgba(91,140,255,.12);color:#cfe0ff}
+  .ban-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;min-height:28px}
+  .ban-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border-radius:999px;font-size:12px;
+    border:1px solid var(--line2);background:rgba(255,255,255,.04);color:var(--txt);transition:.14s}
+  .ban-chip:hover{border-color:rgba(255,93,93,.4)}
+  .ban-chip-del{width:18px;height:18px;border:0;border-radius:50%;background:transparent;color:var(--dim2);cursor:pointer;font-size:13px;
+    display:grid;place-items:center;padding:0;line-height:1;transition:.14s}
+  .ban-chip-del:hover{background:rgba(255,93,93,.18);color:var(--bad)}
+  .ban-empty{font-size:12px;color:var(--dim2);padding:4px 0}
+  #sec-ai .inline-input input{flex:1 1 240px}
+
+  html[data-theme="light"] .sched-timeline{background:#f7f9fd;border-color:var(--line)}
+  html[data-theme="light"] .sched-tl-track{background:#eaeff8;border-color:#dce4f2}
+  html[data-theme="light"] .sched-tl-range{background:rgba(47,107,255,.18);border-color:rgba(47,107,255,.48)}
+  html[data-theme="light"] .sched-tl-chip{background:#fff;border-color:var(--line)}
+  html[data-theme="light"] .sched-conflict-note{color:#b42318;background:rgba(217,45,32,.06);border-color:rgba(217,45,32,.28)}
+  html[data-theme="light"] #sec-plan .schedrow{background:#fff;border-color:var(--line)}
+  html[data-theme="light"] #sec-plan .schedrow:hover{border-color:#bcc8db;background:#fbfdff}
+  html[data-theme="light"] #sec-plan .schedrow.is-invalid{border-color:rgba(217,45,32,.45);background:rgba(217,45,32,.03)}
+  html[data-theme="light"] .sched-idx{background:#f4f7fc;border-color:var(--line)}
+  html[data-theme="light"] .sched-stepper{background:#fff;border-color:var(--line2)}
+  html[data-theme="light"] .sched-step-btn:hover{background:rgba(23,32,51,.05)}
+  html[data-theme="light"] .sched-stepper input,html[data-theme="light"] .sched-stepper input:hover,html[data-theme="light"] .sched-stepper input:focus{background:transparent;border:0;box-shadow:none}
+  html[data-theme="light"] .sched-span-badge{background:#f5f7fb}
+  html[data-theme="light"] .rhythm-chip{background:#fff}
+  html[data-theme="light"] .rhythm-chip.active{color:#1f49b8;border-color:rgba(47,107,255,.45);background:rgba(47,107,255,.1)}
+  html[data-theme="light"] .rhythm-card{background:#fff;border-color:var(--line)}
+  html[data-theme="light"] .rhythm-fallback-row{border-top-color:var(--line)}
+  html[data-theme="light"] .source-card{background:#fff;border-color:var(--line2)}
+  html[data-theme="light"] .source-card:hover{background:#f8fbff;border-color:rgba(47,107,255,.4)}
+  html[data-theme="light"] .source-card.active{background:rgba(47,107,255,.06);border-color:rgba(47,107,255,.5)}
+  html[data-theme="light"] .ban-preset-btn{background:#fff}
+  html[data-theme="light"] .ban-preset-btn.is-added{color:#1f49b8;background:rgba(47,107,255,.08);border-color:rgba(47,107,255,.35)}
+  html[data-theme="light"] .ban-chip{background:#fff;border-color:var(--line2)}
   /* pool category summary & modal redesign */
   .pool-source-hint{margin-top:0;margin-bottom:10px}
   .pool-select{position:relative;margin-top:10px}
@@ -821,6 +923,7 @@
   html[data-theme="light"] .config-tab{color:var(--dim)}
   html[data-theme="light"] .config-tab:hover{background:rgba(23,32,51,.05);color:var(--txt)}
   html[data-theme="light"] .config-tab.is-active{background:rgba(47,107,255,.09);border-color:rgba(47,107,255,.24);color:#1f49b8;box-shadow:0 6px 16px rgba(47,107,255,.08)}
+  html[data-theme="light"] .config-tab.is-active .n{color:#1f49b8;opacity:.85}
   html[data-theme="light"] .switch-row{background:rgba(255,255,255,.44);border-color:rgba(160,175,200,.3)}
   html[data-theme="light"] .section-num{color:#1f49b8;background:linear-gradient(145deg,rgba(47,107,255,.13),rgba(206,250,240,.4));
     border-color:rgba(47,107,255,.28)}
@@ -906,7 +1009,7 @@
   .ai-fab{position:fixed;right:22px;bottom:22px;z-index:40;display:inline-flex;align-items:center;gap:9px;height:54px;padding:0 17px 0 9px;
     border-radius:999px;border:1px solid rgba(170,180,255,.42);cursor:pointer;color:#eef3ff;
     background:linear-gradient(135deg,rgba(91,140,255,.92),rgba(136,112,232,.88) 58%,rgba(77,196,185,.78));
-    box-shadow:0 12px 32px rgba(50,60,130,.38);transition:transform .18s,box-shadow .18s,filter .18s}
+    box-shadow:0 12px 32px rgba(50,60,130,.38);transition:transform .18s,box-shadow .18s,filter .18s,bottom .18s ease}
   .ai-fab:hover{transform:translateY(-2px);box-shadow:0 16px 38px rgba(50,60,130,.48);filter:brightness(1.05)}
   .ai-fab.open{outline:2px solid rgba(255,255,255,.35);outline-offset:2px}
   .ai-fab-orb{position:relative;width:40px;height:40px;flex:0 0 40px;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1;
@@ -1113,6 +1216,9 @@
     border-radius:14px;border:1px solid rgba(91,140,255,.48);background:rgba(14,20,32,.96);
     box-shadow:0 16px 40px rgba(0,0,0,.45);animation:in .18s ease-out}
   .cfg-dirty-bar[hidden]{display:none!important}
+  body.has-dirty-bar .ai-fab{bottom:92px}
+  body.has-dirty-bar .ai-chat{bottom:156px}
+  @media (max-width:820px){body.has-dirty-bar .ai-fab{bottom:122px}}
   .cfg-dirty-bar-text{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt);font-weight:500}
   .cfg-dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px rgba(245,165,36,.7)}
   .cfg-dirty-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -1265,8 +1371,12 @@
     .topbar{width:calc(100% + 32px);margin:0 -16px 18px;padding:12px 16px}
     .hero-grid{grid-template-columns:1fr}
     .top-actions{width:100%}
-    #sec-plan .sched-head{display:none}
-    #sec-plan .schedrow{grid-template-columns:92px minmax(0,1fr) 54px 30px;gap:6px}
+    .rhythm-grid,.source-grid{grid-template-columns:1fr}
+    #sec-plan .schedrow{grid-template-columns:auto 1fr 30px;gap:8px}
+    .sched-idx{display:none}
+    #sec-plan .schedrow .sched-time{grid-column:1 / -1}
+    #sec-plan .schedrow .sched-stepper{justify-self:start}
+    #sec-plan .schedrow .sched-del{grid-row:1;grid-column:3}
     .filter-table th:nth-child(1),.filter-table td:nth-child(1){width:38%}
     .filter-table th:nth-child(2),.filter-table td:nth-child(2){width:14%}
     .filter-table th:nth-child(3),.filter-table td:nth-child(3){width:14%}
@@ -1548,10 +1658,9 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
       <nav class="config-tabs" id="configNav" hidden role="tablist" aria-label="配置分区">
         <button class="config-tab is-active" type="button" role="tab" data-config-tab="plan" aria-selected="true" aria-controls="sec-plan"><span class="n">01</span><span>发送计划</span></button>
         <button class="config-tab" type="button" role="tab" data-config-tab="video" aria-selected="false" aria-controls="sec-video"><span class="n">02</span><span>视频来源</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="connection" aria-selected="false" aria-controls="sec-connection"><span class="n">03</span><span>纯 API 连接</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="ai" aria-selected="false" aria-controls="sec-ai"><span class="n">04</span><span>AI</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="database" aria-selected="false" aria-controls="sec-database"><span class="n">05</span><span>数据库</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="advanced" aria-selected="false" aria-controls="sec-advanced"><span class="n">06</span><span>高级与维护</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="ai" aria-selected="false" aria-controls="sec-ai"><span class="n">03</span><span>AI</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="database" aria-selected="false" aria-controls="sec-database"><span class="n">04</span><span>数据库</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="advanced" aria-selected="false" aria-controls="sec-advanced"><span class="n">05</span><span>高级与维护</span></button>
       </nav>
 
     </header>
@@ -1601,7 +1710,7 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
           <div class="kv"><span>运行模式</span><b id="homeApiMode">纯 API（零浏览器）</b></div>
           <div class="kv"><span>会话状态</span><b id="homeApiSession">-</b></div>
           <div class="kv"><span>可选好友</span><b id="homeApiFriend">-</b></div>
-          <div class="card-actions"><button class="btn ghost sm" data-goto="config">管理会话</button></div>
+          <div class="card-actions"><button class="btn ghost sm" data-goto="config" data-config-tab="advanced">管理会话</button></div>
         </div>
       </div>
 
@@ -1735,7 +1844,7 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
           </div>
           <div class="account-actions">
             <button class="btn soft sm" id="acctDetectName">纯 API 识别昵称</button>
-            <button class="btn ghost sm" data-goto="config">管理纯 API 会话</button>
+            <button class="btn ghost sm" data-goto="config" data-config-tab="advanced">管理纯 API 会话</button>
           </div>
           <details class="account-rename">
             <summary>重命名账户</summary>
@@ -1821,23 +1930,83 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
                 <span class="section-num">01</span>
                 <div>
                   <div class="eyebrow">发送计划</div>
-                  <div class="section-sub">每个触发点可以是固定时间，也可以在一个时间范围内随机触发。</div>
+                  <div class="section-sub">设置每日触发时刻或随机时段、每次条数及连发间隔节奏。</div>
                 </div>
               </div>
               <span class="pill blue" id="planModePill">触发计划</span>
             </header>
             <div class="section-body">
               <input type="hidden" id="c_enabled" value="true">
-              <div class="field-grid">
-                <label class="f" style="max-width:420px">视频来源<select id="c_source"><option value="pool">视频池搜索</option><option value="recommend">抖音默认推荐（纯 API）</option></select></label>
-              </div>
-              <div class="field-note" style="margin-top:6px">账户启停用页面顶部的「暂停 / 继续」控制，立即生效。</div>
-              <div class="source-note" id="sourceNote">视频池搜索：按分类关键词挑选，内容更可控；<b>推荐源</b>：使用抖音推荐 tab，需要纯 API 会话中的 feed。</div>
 
-              <div class="switch-row" style="margin-top:14px">
+              <div class="sub-block" style="margin-top:0">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">触发计划</div>
+                    <div class="field-note">每个触发点可设固定时刻或时间范围内随机；单点多条会按下方发送节奏连续发送。</div>
+                  </div>
+                  <span class="hint" id="scheduleHint"></span>
+                </div>
+                <div class="sched-timeline" id="schedTimeline">
+                  <div class="sched-tl-track" id="schedTlTrack"></div>
+                  <div class="sched-tl-ticks"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div>
+                  <div class="sched-tl-legend" id="schedTlLegend"></div>
+                </div>
+                <div class="sched-list" id="schedulePoints"></div>
+                <div class="sched-conflict-note" id="schedConflictNote" hidden></div>
+                <div class="rowbtns">
+                  <button class="btn soft sm" id="scheduleAdd" type="button">+ 添加固定时刻</button>
+                  <button class="btn ghost sm" id="scheduleAddRandom" type="button">+ 添加随机时段</button>
+                </div>
+              </div>
+
+              <div class="sub-block">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">发送节奏</div>
+                    <div class="field-note">同触发点连发多条时，每条视频之间随机等待；建议保留合理间隔降低风控。</div>
+                  </div>
+                  <div class="rhythm-presets" id="rhythmPresets">
+                    <button class="rhythm-chip" type="button" data-rhythm="8,25">偏快 8–25s</button>
+                    <button class="rhythm-chip" type="button" data-rhythm="15,50">均衡 15–50s</button>
+                    <button class="rhythm-chip" type="button" data-rhythm="30,90">保守 30–90s</button>
+                  </div>
+                </div>
+                <div class="rhythm-grid">
+                  <div class="rhythm-card">
+                    <div class="rhythm-card-title">连续发送间隔</div>
+                    <div class="rhythm-range-row">
+                      <input id="c_min_sec" type="number" min="1" max="600" placeholder="10" aria-label="间隔下限（秒）">
+                      <span class="muted">–</span>
+                      <input id="c_max_sec" type="number" min="1" max="600" placeholder="50" aria-label="间隔上限（秒）">
+                      <span class="muted">秒 / 条</span>
+                    </div>
+                    <div class="field-note" id="rhythmSummary">每条随机等待 10–50 秒</div>
+                  </div>
+                  <div class="rhythm-card">
+                    <div class="switch-row" style="margin-top:0;padding:0;border:0;background:transparent">
+                      <div>
+                        <b>不短于上条视频时长</b>
+                        <div class="field-note">等完上一条视频实际播放时长后再发下一条</div>
+                      </div>
+                      <div class="switch-control">
+                        <span class="switch-state" id="c_floor_state">开启</span>
+                        <button class="switch on" id="c_floor_switch" type="button" role="switch" aria-checked="true" aria-label="不短于上条视频时长"></button>
+                      </div>
+                    </div>
+                    <select id="c_floor" hidden><option value="true">开启</option><option value="false">关闭</option></select>
+                    <div class="rhythm-fallback-row" id="c_fallback_wrap">
+                      <span>拿不到时长时兜底按</span>
+                      <input id="c_fallback" type="number" min="0" max="600" placeholder="15" aria-label="兜底秒数">
+                      <span>秒（0 = 不兜底）</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="switch-row" style="margin-top:12px">
                 <div>
                   <b>排班发送后自动已读</b>
-                  <div class="field-note">纯 API 每次发送成功后，标记该收件人的 1:1 会话已读；浏览器发送不生效。</div>
+                  <div class="field-note">每次排班发送成功后，自动标记该收件人的 1:1 会话已读（纯 API，不读消息内容）。</div>
                 </div>
                 <div class="switch-control">
                   <span class="switch-state" id="c_daily_read_state">开启</span>
@@ -1845,37 +2014,12 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
                 </div>
               </div>
 
-              <div class="sub-head" style="margin-top:18px">
-                <div>
-                  <div class="eyebrow">触发计划</div>
-                  <div class="section-sub">每个触发点填条数；条数大于 1 时，到点后按下方「发送节奏」连续发送。</div>
-                </div>
-                <span class="hint" id="scheduleHint"></span>
-              </div>
-              <div class="sched-head"><span>触发方式</span><span>时间</span><span>条数</span><span></span></div>
-              <div id="schedulePoints"></div>
-              <div class="rowbtns">
-                <button class="btn ghost sm" id="scheduleAdd" type="button">+ 添加触发点</button>
-              </div>
-
-              <div class="sub-head" style="margin-top:18px">
-                <div>
-                  <div class="eyebrow">发送节奏</div>
-                  <div class="section-sub">同一个触发点内，每条视频之间随机等待；开启时长下限后，不会短于上一条视频的实际时长。</div>
-                </div>
-              </div>
-              <div class="field-grid">
-                <label class="f">间隔下限（秒）<input id="c_min_sec" type="number" min="1" max="600" placeholder="10"></label>
-                <label class="f">间隔上限（秒）<input id="c_max_sec" type="number" min="1" max="600" placeholder="50"></label>
-                <label class="f">不短于上条视频时长<select id="c_floor"><option value="true">开启</option><option value="false">关闭</option></select></label>
-                <label class="f">拿不到时长时按（秒）<input id="c_fallback" type="number" min="0" max="600" placeholder="15"></label>
-              </div>
-              <div class="inline-note">每个触发点发够自己的条数即停。某个点错过超过 30 分钟、或发送过程中断超过 10 分钟，只跳过该点，后面的触发点照常。</div>
+              <div class="inline-note" style="margin-top:12px">每个触发点发够自己的条数即停。某个点错过超过 30 分钟、或发送过程中断超过 10 分钟，只跳过该点，后面的触发点照常。</div>
               <div class="config-actions">
                 <button class="btn primary" id="save" type="button">保存设置</button>
-                <button class="btn ghost" id="preview" type="button">预览一次</button>
+                <button class="btn ghost" id="preview" type="button">预览今日安排</button>
                 <button class="btn ghost" id="scheduleReset" type="button">重新开始今天的计划</button>
-                <span class="field-note" id="msg"></span>
+                <span class="field-note js-save-msg" id="msg"></span>
               </div>
               <div id="previewBox" style="margin-top:12px"></div>
             </div>
@@ -1887,12 +2031,60 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
                 <span class="section-num">02</span>
                 <div>
                   <div class="eyebrow">视频来源与筛选</div>
-                  <div class="section-sub">先按视频时效和互动指标筛选，再交给 AI 和视频池挑选。</div>
+                  <div class="section-sub">先选择来源方式与分类，再按时效、互动指标、AI 筛选与屏蔽词过滤。</div>
                 </div>
               </div>
             </header>
             <div class="section-body">
-              <div class="sub-block" id="filterBlock" style="margin-top:0">
+              <div class="sub-block" id="sourceBlock" style="margin-top:0">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">来源方式</div>
+                    <div class="field-note">决定每次投递从视频池搜索还是拉取抖音默认推荐流。</div>
+                  </div>
+                </div>
+                <select id="c_source" hidden><option value="pool">视频池搜索</option><option value="recommend">抖音默认推荐（纯 API）</option></select>
+                <div class="source-grid" id="sourceGrid" role="radiogroup" aria-label="来源方式">
+                  <button class="source-card active" type="button" data-source="pool" role="radio" aria-checked="true">
+                    <span class="source-radio" aria-hidden="true"></span>
+                    <span class="source-card-body">
+                      <span class="source-card-title">视频池搜索</span>
+                      <span class="source-card-desc">按已选分类关键词轮换挑选，内容可控；时效支持 1–30 天。</span>
+                    </span>
+                  </button>
+                  <button class="source-card" type="button" data-source="recommend" role="radio" aria-checked="false">
+                    <span class="source-radio" aria-hidden="true"></span>
+                    <span class="source-card-body">
+                      <span class="source-card-title">抖音默认推荐 <span class="pill" id="sourceFeedBadge">检查中…</span></span>
+                      <span class="source-card-desc">读取会话中的推荐 tab 个性化流；时效支持 0–365 天（0=不限）。</span>
+                    </span>
+                  </button>
+                </div>
+                <div class="source-note" id="sourceNote">
+                  <span>视频池搜索：按分类关键词挑选，内容更可控；每个池会轮换基础关键词和同类变体。</span>
+                </div>
+              </div>
+
+              <div class="sub-block pool-only" id="poolBlock">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">视频分类<span class="hint-tip" tabindex="0" role="button" aria-label="查看视频分类说明" data-tip="视频池会从已启用的分类中轮换挑选关键词搜索；父分类支持联动全选与半选。点击「选择分类」可搜索、按分组批量勾选，或让 AI 扩展更多细分子分类。">?</span></div>
+                    <div class="field-note">按分类关键词挑选；支持分组联动勾选，也可让 AI 扩展更细分的子分类。</div>
+                  </div>
+                  <div class="pool-tools">
+                    <span class="pill blue" id="poolCount">-</span>
+                  </div>
+                </div>
+                <div class="source-note pool-source-hint" id="poolSourceHint" hidden>当前来源方式为「抖音默认推荐」，视频分类只用于视频池搜索；切回后立即生效。</div>
+                <div class="pool-select" id="poolSelect">
+                  <button class="pool-trigger" id="poolTrigger" type="button" aria-expanded="false" aria-controls="poolPanel">
+                    <div class="pool-summary" id="poolSummary"><span class="pool-summary-empty">选择分类…</span></div>
+                    <span class="pool-trigger-action"><span>选择分类</span><span class="pool-caret" aria-hidden="true">▾</span></span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="sub-block" id="filterBlock">
                 <div class="sub-head">
                   <div>
                     <div class="eyebrow">筛选条件</div>
@@ -1940,52 +2132,59 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
                     </tr>
                   </tbody>
                 </table>
-                <div class="inline-note" style="margin-top:12px">0 表示不限。关闭的指标不参与筛选；开启的指标按填写值过滤。互动指标只对纯 API 选片生效；浏览器回退只能校验点赞数。</div>
+                <div class="inline-note" style="margin-top:12px">0 表示不限；关闭的指标不参与筛选，开启后按填写阈值过滤。</div>
               </div>
 
               <div class="sub-block" id="aiFilterBlock">
                 <div class="sub-head">
                   <div>
-                    <div class="eyebrow">AI 参与视频筛选<span class="hint-tip" tabindex="0" role="button" aria-label="查看 AI 筛选说明" data-tip="关闭：只走规则筛选。安全过滤：AI 去掉广告、软色情、暴力、诈骗等风险内容，剩余随机选。过滤 + 排序：在安全过滤基础上，按当前账户启用的视频池兴趣排序。只对纯 API 选片生效，浏览器回退不经过 AI。">?</span></div>
-                    <div class="field-note" id="aiFilterHint">先在「04 AI」配置 Key，再选择筛选模式。</div>
+                    <div class="eyebrow">AI 参与视频筛选<span class="hint-tip" tabindex="0" role="button" aria-label="查看 AI 筛选说明" data-tip="关闭：只走规则筛选。安全过滤：AI 去掉广告、软色情、暴力、诈骗等风险内容，剩余随机选。过滤 + 排序：在安全过滤基础上，按当前账户启用的视频池兴趣排序。">?</span></div>
+                    <div class="field-note" id="aiFilterHint">先在「03 AI」配置 Key，再选择筛选模式。</div>
                   </div>
-                  <span class="pill" id="aiFilterPill">检查中…</span>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button class="pool-ai-link" id="aiFilterSetupBtn" type="button" hidden>去配置 AI ↗</button>
+                    <span class="pill" id="aiFilterPill">检查中…</span>
+                  </div>
                 </div>
                 <div class="seg" id="aiModeSeg">
                   <button data-ai-mode="off" type="button">关闭</button>
                   <button data-ai-mode="moderate" type="button">安全过滤</button>
                   <button data-ai-mode="rank" type="button">过滤 + 排序</button>
                 </div>
-                <div class="field-note" style="margin-top:7px">切换后立即生效；只作用于纯 API 选片。<span class="hint-tip" tabindex="0" role="button" aria-label="查看 AI 筛选范围" data-tip="推荐源和池搜索的纯 API 选片都会经过 AI 筛选；浏览器回退路径不经过 AI。AI 只读取视频标题、作者、点赞等公开信息，不接触 cookies、模板或好友 userid。">?</span></div>
+                <div class="field-note" style="margin-top:7px">切换后立即生效。<span class="hint-tip" tabindex="0" role="button" aria-label="查看 AI 筛选范围" data-tip="推荐源和视频池选片都会经过 AI 筛选；AI 只读取视频标题、作者、点赞等公开信息，不接触 cookies、模板或好友 userid。">?</span></div>
               </div>
 
-              <div class="sub-block pool-only" id="poolBlock">
-                <div class="sub-head">
-                  <div>
-                    <div class="eyebrow">视频分类<span class="hint-tip" tabindex="0" role="button" aria-label="查看视频分类说明" data-tip="视频池会从已启用的分类中轮换挑选关键词搜索；父分类和子分类都可以单独勾选。点击「选择分类」可搜索、按分组批量勾选，或让 AI 扩展更多细分子分类。">?</span></div>
-                    <div class="field-note">按分类关键词挑选；支持分组批量勾选，也可让 AI 扩展更细分的子分类。</div>
-                  </div>
-                  <div class="pool-tools">
-                    <span class="pill blue" id="poolCount">-</span>
-                  </div>
-                </div>
-                <div class="source-note pool-source-hint" id="poolSourceHint" hidden>当前来源是「默认推荐」，视频分类只用于视频池搜索；切回视频池后生效。</div>
-                <div class="pool-select" id="poolSelect">
-                  <button class="pool-trigger" id="poolTrigger" type="button" aria-expanded="false" aria-controls="poolPanel">
-                    <div class="pool-summary" id="poolSummary"><span class="pool-summary-empty">选择分类…</span></div>
-                    <span class="pool-trigger-action"><span>选择分类</span><span class="pool-caret" aria-hidden="true">▾</span></span>
-                  </button>
-                </div>
-              </div>
-
-              <div class="sub-block">
+              <div class="sub-block" id="banBlock">
                 <div class="sub-head">
                   <div>
                     <div class="eyebrow">屏蔽词</div>
-                    <div class="field-note">每行一个，命中标题或作者就跳过。推荐流里的汽车等内容也可以在这里过滤。</div>
+                    <div class="field-note">命中视频标题或作者昵称时跳过；支持输入回车添加或逗号/换行批量粘贴。</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="pill" id="banCountPill">0 个</span>
+                    <button class="btn ghost sm" id="banClearBtn" type="button" hidden>清空</button>
                   </div>
                 </div>
-                <textarea id="c_ban" style="width:100%;margin-top:2px" placeholder="例如：汽车&#10;电动车&#10;小鹏"></textarea>
+                <textarea id="c_ban" hidden></textarea>
+                <div class="ban-input-row">
+                  <input id="banWordInput" placeholder="输入屏蔽词后按 Enter 添加，支持逗号或换行批量粘贴…" autocomplete="off">
+                  <button class="btn soft sm" id="banWordAdd" type="button">添加</button>
+                </div>
+                <div class="ban-presets" id="banPresets">
+                  <span>常见过滤：</span>
+                  <button class="ban-preset-btn" type="button" data-ban-preset="汽车">+ 汽车</button>
+                  <button class="ban-preset-btn" type="button" data-ban-preset="电动车">+ 电动车</button>
+                  <button class="ban-preset-btn" type="button" data-ban-preset="带货">+ 带货</button>
+                  <button class="ban-preset-btn" type="button" data-ban-preset="直播">+ 直播</button>
+                  <button class="ban-preset-btn" type="button" data-ban-preset="恐怖">+ 恐怖</button>
+                  <button class="ban-preset-btn" type="button" data-ban-preset="广告">+ 广告</button>
+                </div>
+                <div class="ban-chips" id="banChips"></div>
+              </div>
+
+              <div class="config-actions">
+                <button class="btn primary js-save-config" type="button">保存设置</button>
+                <span class="field-note js-save-msg"></span>
               </div>
             </div>
           </section>
@@ -1994,58 +2193,23 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
         </div>
 
         <aside class="config-col config-side">
-          <section class="card settings-card" id="sec-connection" hidden>
+          <section class="card settings-card" id="sec-ai" hidden>
             <header class="section-head">
               <div class="section-title">
                 <span class="section-num">03</span>
                 <div>
-                  <div class="eyebrow">纯 API 连接</div>
-                  <div class="section-sub">发送通道、会话状态与推荐 feed 状态。</div>
-                </div>
-              </div>
-              <span class="pill" id="apiBadge">检查中…</span>
-            </header>
-            <div class="section-body">
-              <div class="inline-note">当前已全面启用 <b>纯 API 模式</b>：选片、定时转发、慢递、自动已读、互关同步与昵称识别均直接走 HTTP 接口，不再启动或回退到浏览器。</div>
-              <div class="kv" style="margin-top:12px"><span>自动刷新</span>
-                <div style="display:flex;align-items:center;gap:10px"><span class="field-note" id="apiAutoText">-</span><span class="switch" id="apiAutoSwitch"></span></div>
-              </div>
-              <div class="card-actions">
-                <button class="btn ghost sm" id="btnApiRefresh" type="button">刷新会话</button>
-              </div>
-              <details style="margin-top:12px">
-                <summary>手动导入会话 JSON（零浏览器）</summary>
-                <div class="field-note" style="margin-bottom:8px">粘贴包含 <code>cookies</code>、<code>template</code> 等字段的会话 JSON 即可直接导入当前账户。</div>
-                <textarea id="apiImportJson" style="width:100%;min-height:90px;font-family:ui-monospace,monospace;font-size:11.5px" placeholder='{"cookies":[...],"template":{"bodyB64":"..."}}'></textarea>
-                <div class="card-actions" style="margin-top:8px">
-                  <button class="btn primary sm" id="btnApiImport" type="button">导入会话</button>
-                  <span class="field-note" id="apiImportMsg"></span>
-                </div>
-              </details>
-              <details style="margin-top:10px;margin-bottom:0">
-                <summary>会话详情</summary>
-                <div id="apiLine" class="hint" style="line-height:1.8">检查中…</div>
-                <div class="eyebrow" style="margin-top:12px">可选好友（来自会话）</div>
-                <div class="chips" id="apiFriends" style="margin-top:6px"><span class="muted">-</span></div>
-                <div class="field-note" id="apiMsg" style="margin-top:8px"></div>
-              </details>
-            </div>
-          </section>
-
-          <section class="card settings-card" id="sec-ai" hidden>
-            <header class="section-head">
-              <div class="section-title">
-                <span class="section-num">04</span>
-                <div>
                   <div class="eyebrow">AI</div>
-                  <div class="section-sub">推荐源筛选、只读问诊与自然语言改配置；默认关闭。</div>
+                  <div class="section-sub">连接模型、只读问诊与自然语言改配置；默认关闭。</div>
                 </div>
               </div>
               <span class="pill" id="aiPill">检查中…</span>
             </header>
             <div class="section-body">
-              <div class="inline-note">筛选开关已移到「02 视频来源」的「AI 参与视频筛选」，可对推荐源和池搜索的纯 API 选片生效。这里管理连接、问诊和配置草案。</div>
-              <details style="margin-top:12px">
+              <div class="source-note" style="margin-top:0">
+                <span>视频筛选开关位于「02 视频来源 → AI 参与视频筛选」。</span>
+                <button class="pool-ai-link" type="button" data-goto-config-tab="video">前往设置 ↗</button>
+              </div>
+              <details open style="margin-top:12px">
                 <summary>连接设置</summary>
                 <div class="form" style="margin-top:10px">
                   <label class="f">启用<select id="ai_enabled"><option value="false">关闭</option><option value="true">开启</option></select></label>
@@ -2056,12 +2220,12 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
                 <div class="card-actions">
                   <button class="btn ghost sm" id="ai_test" type="button">保存并测试</button>
                 </div>
-                <div class="field-note" id="aiMsg"></div><div class="field-note" style="margin-top:4px">「保存并测试」会先保存当前字段；只填不改旧 Key 时留空即可。</div>
+                <div class="field-note" id="aiMsg"></div><div class="field-note" style="margin-top:4px">「保存并测试」会先保存当前字段；只改其他项时 API Key 留空即可。</div>
               </details>
               <details style="margin-top:10px">
                 <summary>问 AI（只读）</summary>
                 <div class="inline-input">
-                  <input id="ai_question" placeholder="今天为什么只发了 3 条？" style="min-width:200px">
+                  <input id="ai_question" placeholder="今天为什么只发了 3 条？">
                   <button class="btn ghost sm" id="ai_ask" type="button">提问</button>
                 </div>
                 <div class="field-note" id="ai_answer" style="white-space:pre-wrap;line-height:1.7"></div>
@@ -2069,7 +2233,7 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
               <details style="margin-top:10px;margin-bottom:0">
                 <summary>用一句话改配置</summary>
                 <div class="inline-input">
-                  <input id="ai_draft_text" placeholder="例如：每天 8 条，晚上为主，避开恐怖内容" style="min-width:200px">
+                  <input id="ai_draft_text" placeholder="例如：每天 8 条，晚上为主，避开恐怖内容">
                   <button class="btn ghost sm" id="ai_draft" type="button">生成草案</button>
                 </div>
                 <div class="field-note" id="ai_draft_out" style="white-space:pre-wrap"></div>
@@ -2080,60 +2244,110 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
           <section class="card settings-card" id="sec-database" hidden>
             <header class="section-head">
               <div class="section-title">
-                <span class="section-num">05</span>
+                <span class="section-num">04</span>
                 <div>
                   <div class="eyebrow">数据库</div>
-                  <div class="section-sub">默认 SQLite；可选 MySQL / PostgreSQL，重启生效。</div>
+                  <div class="section-sub">默认 SQLite；可选 MySQL / PostgreSQL，保存后重启生效。</div>
                 </div>
               </div>
               <span class="pill" id="dbPill">检查中…</span>
             </header>
             <div class="section-body">
-              <details style="margin:0">
-                <summary>连接设置</summary>
-                <div class="form" style="margin-top:10px">
-                  <label class="f">类型<select id="db_driver"><option value="sqlite">SQLite</option><option value="postgres">PostgreSQL</option><option value="mysql">MySQL</option></select></label>
-                  <label class="f">SQLite 文件<input id="db_sqlite" readonly></label>
-                  <label class="f">主机<input id="db_host" placeholder="127.0.0.1"></label>
-                  <label class="f">端口<input id="db_port" type="number" placeholder="5432 / 3306"></label>
-                  <label class="f">数据库<input id="db_name" placeholder="douyin_forwarder"></label>
-                  <label class="f">用户<input id="db_user" placeholder="postgres / root"></label>
-                  <label class="f">密码<input id="db_password" type="password" placeholder="留空表示不修改"></label>
-                  <label class="f">SSL<select id="db_ssl"><option value="false">关闭</option><option value="true">开启</option></select></label>
-                  <label class="f">连接串（可选）<input id="db_url" placeholder="postgres://user:pass@host/db"></label>
-                </div>
-                <div class="card-actions">
-                  <button class="btn ghost sm" id="db_save" type="button">保存数据库配置</button>
-                  <button class="btn ghost sm" id="db_test" type="button">测试连接</button>
-                </div>
-                <div class="field-note" id="dbMsg"></div>
-              </details>
+              <div class="form">
+                <label class="f">类型<select id="db_driver"><option value="sqlite">SQLite</option><option value="postgres">PostgreSQL</option><option value="mysql">MySQL</option></select></label>
+                <label class="f" id="dbSqliteWrap">SQLite 文件<input id="db_sqlite" readonly></label>
+              </div>
+              <div class="form" id="dbExternalFields" style="margin-top:12px" hidden>
+                <label class="f">主机<input id="db_host" placeholder="127.0.0.1"></label>
+                <label class="f">端口<input id="db_port" type="number" placeholder="5432 / 3306"></label>
+                <label class="f">数据库<input id="db_name" placeholder="douyin_forwarder"></label>
+                <label class="f">用户<input id="db_user" placeholder="postgres / root"></label>
+                <label class="f">密码<input id="db_password" type="password" placeholder="留空表示不修改"></label>
+                <label class="f">SSL<select id="db_ssl"><option value="false">关闭</option><option value="true">开启</option></select></label>
+                <label class="f">连接串（可选）<input id="db_url" placeholder="postgres://user:pass@host/db"></label>
+              </div>
+              <div class="card-actions">
+                <button class="btn primary sm" id="db_save" type="button">保存数据库配置</button>
+                <button class="btn ghost sm" id="db_test" type="button">测试连接</button>
+              </div>
+              <div class="field-note" id="dbMsg" style="margin-top:10px"></div>
             </div>
           </section>
 
           <section class="card settings-card" id="sec-advanced" hidden>
             <header class="section-head">
               <div class="section-title">
-                <span class="section-num">06</span>
+                <span class="section-num">05</span>
                 <div>
                   <div class="eyebrow">高级与维护</div>
-                  <div class="section-sub">节奏、自然分享和排障；日常通常不用改。</div>
+                  <div class="section-sub">池间延迟、自然分享与纯 API 会话管理。</div>
                 </div>
               </div>
             </header>
             <div class="section-body">
-              <div class="field-grid">
-                <label class="f">池间延迟（毫秒）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
-                <label class="f">自然分享<select id="c_natural"><option value="false">关闭</option><option value="true">开启（随机 1–2 个视频）</option></select></label>
-              </div>
-              <div class="switch-row">
-                <div>
-                  <b>发送文字附言</b>
-                  <div class="field-note">关闭后自然分享只发视频，不读取评论，也不调用 AI 生成文字。</div>
+              <div class="sub-block" style="margin-top:0">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">发送与自然分享</div>
+                    <div class="field-note">属于账户配置，修改后点击「保存设置」生效。</div>
+                  </div>
                 </div>
-                <div class="switch-control"><span class="switch-state" id="c_natural_text_state">开启</span><button class="switch on" id="c_natural_text_switch" type="button" role="switch" aria-checked="true" aria-label="发送文字附言"></button></div>
+                <div class="field-grid">
+                  <label class="f">池间延迟（毫秒）<input id="c_pdelay" type="number" min="0" max="30000" step="500"></label>
+                  <label class="f">自然分享<select id="c_natural"><option value="false">关闭</option><option value="true">开启（随机 1–2 个视频）</option></select></label>
+                </div>
+                <div class="switch-row">
+                  <div>
+                    <b>发送文字附言</b>
+                    <div class="field-note">关闭后自然分享只发视频，不读取评论，也不调用 AI 生成文字。</div>
+                  </div>
+                  <div class="switch-control"><span class="switch-state" id="c_natural_text_state">开启</span><button class="switch on" id="c_natural_text_switch" type="button" role="switch" aria-checked="true" aria-label="发送文字附言"></button></div>
+                </div>
+                <div class="field-note" id="maintMsg" style="margin-top:10px">自然分享按需开启。<span class="hint-tip" tabindex="0" role="button" aria-label="查看自然分享说明" data-tip="自然分享：每次随机发 1–2 个视频，全部走纯 API。文字附言开启时读取公开评论、由 AI 写 1–2 句口语附言；关闭时不读评论、不发文字。">?</span></div>
+                <div class="config-actions">
+                  <button class="btn primary sm js-save-config" type="button">保存设置</button>
+                  <span class="field-note js-save-msg"></span>
+                </div>
               </div>
-              <div class="field-note" id="maintMsg" style="margin-top:10px">自然分享按需开启。<span class="hint-tip" tabindex="0" role="button" aria-label="查看自然分享说明" data-tip="自然分享：每次随机发 1–2 个视频，全部走纯 API。文字附言受上方开关控制：开启时读取公开评论、由 AI 写 1–2 句口语附言；关闭时不读评论、不发文字。暂停不拦截「立即发送一次」；推荐源失败不会回退浏览器。">?</span></div>
+
+              <div class="sub-block" id="apiSessionBlock">
+                <div class="sub-head">
+                  <div>
+                    <div class="eyebrow">纯 API 会话</div>
+                    <div class="field-note">选片、定时转发、慢递、自动已读与互关同步均直接走纯 API；操作后立即生效。</div>
+                  </div>
+                  <span class="pill" id="apiBadge">检查中…</span>
+                </div>
+                <div class="switch-row" style="margin-top:6px">
+                  <div>
+                    <b>会话到期前自动刷新</b>
+                    <div class="field-note">将在会话到期前 2 小时自动刷新登录态与模板。</div>
+                  </div>
+                  <div class="switch-control">
+                    <span class="switch-state" id="apiAutoText">-</span>
+                    <button class="switch" id="apiAutoSwitch" type="button" role="switch" aria-checked="false" aria-label="会话到期前自动刷新"></button>
+                  </div>
+                </div>
+                <div class="card-actions">
+                  <button class="btn soft sm" id="btnApiRefresh" type="button">刷新会话</button>
+                </div>
+                <details style="margin-top:12px">
+                  <summary>手动导入会话 JSON（零浏览器）</summary>
+                  <div class="field-note" style="margin-bottom:8px">粘贴包含 <code>cookies</code>、<code>template</code> 等字段的会话 JSON 即可直接导入当前账户。</div>
+                  <textarea id="apiImportJson" style="width:100%;min-height:90px;font-family:ui-monospace,monospace;font-size:11.5px" placeholder='{"cookies":[...],"template":{"bodyB64":"..."}}'></textarea>
+                  <div class="card-actions" style="margin-top:8px">
+                    <button class="btn primary sm" id="btnApiImport" type="button">导入会话</button>
+                    <span class="field-note" id="apiImportMsg"></span>
+                  </div>
+                </details>
+                <details style="margin-top:10px;margin-bottom:0">
+                  <summary>会话详情与可用好友</summary>
+                  <div id="apiLine" class="hint" style="line-height:1.8">检查中…</div>
+                  <div class="eyebrow" style="margin-top:12px">可选好友（来自会话）</div>
+                  <div class="chips" id="apiFriends" style="margin-top:6px"><span class="muted">-</span></div>
+                  <div class="field-note" id="apiMsg" style="margin-top:8px"></div>
+                </details>
+              </div>
             </div>
           </section>
 
@@ -2490,7 +2704,7 @@ async function postJSON(url, body, method = 'POST') {
 const VIEW_META = {
   home: ['首页', '总览 · 今日排班 · 好友'],
   accounts: ['账户', '当前账户 · 多账户切换 · 登录状态'],
-  config: ['配置', '计划 · 视频 · 好友 · 连接 · AI · 数据库'],
+  config: ['配置', '计划 · 视频 · AI · 数据库 · 高级与维护'],
   records: ['记录', '发送历史 · 分类统计 · 事件日志'],
   diagnostics: ['排查', '运行事件 · 失败归因 · 原始数据'],
 };
@@ -2498,6 +2712,7 @@ function setConfigDirty(dirty) {
   state.configDirty = !!dirty;
   const bar = $('#cfgDirtyBar');
   if (bar) bar.hidden = !state.configDirty;
+  document.body.classList.toggle('has-dirty-bar', state.configDirty);
 }
 function confirmLeaveDirtyConfig() {
   if (!state.configDirty) return true;
@@ -2616,7 +2831,10 @@ function bindHintTips() {
 
 function bindNav() {
   $$('.nav-item').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.view)));
-  $$('[data-goto]').forEach((b) => b.addEventListener('click', () => navigate(b.dataset.goto)));
+  $$('[data-goto]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.configTab) state.configTab = b.dataset.configTab;
+    navigate(b.dataset.goto);
+  }));
 }
 
 /* ---------------- sidebar quick account switcher ---------------- */
@@ -4109,11 +4327,25 @@ function hhmmMin(s) {
   const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '').trim());
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 }
-function scheduleRow(p) {
+function spanDurationText(from, to) {
+  const a = hhmmMin(from);
+  const b = hhmmMin(to);
+  if (a === null || b === null || b <= a) return '需晚于开始';
+  const diff = b - a;
+  if (diff >= 60 && diff % 60 === 0) return (diff / 60) + ' 小时';
+  if (diff >= 60) return Math.floor(diff / 60) + 'h ' + (diff % 60) + 'm';
+  return diff + ' 分钟';
+}
+function scheduleRow(p, idx = 0) {
   const point = p && typeof p === 'object' ? p : {};
   const mode = point.mode === 'random' ? 'random' : 'fixed';
   return '<div class="schedrow" data-mode="' + mode + '">'
-    + '<select data-sk="mode">'
+    + '<span class="sched-idx">' + String(idx + 1).padStart(2, '0') + '</span>'
+    + '<div class="seg sched-mode-seg" role="group" aria-label="触发方式">'
+    + '<button class="sched-mode-btn' + (mode === 'fixed' ? ' on' : '') + '" type="button" data-sched-mode="fixed">固定时刻</button>'
+    + '<button class="sched-mode-btn' + (mode === 'random' ? ' on' : '') + '" type="button" data-sched-mode="random">随机时段</button>'
+    + '</div>'
+    + '<select data-sk="mode" hidden>'
     + '<option value="fixed"' + (mode === 'fixed' ? ' selected' : '') + '>固定时间</option>'
     + '<option value="random"' + (mode === 'random' ? ' selected' : '') + '>时间范围</option>'
     + '</select>'
@@ -4121,17 +4353,23 @@ function scheduleRow(p) {
     + '<input class="single" type="time" data-sk="time" value="' + esc(point.time || '09:00') + '">'
     + '<span class="range">'
     + '<input type="time" data-sk="from" value="' + esc(point.from || '12:00') + '">'
-    + '<span class="muted">–</span>'
+    + '<span class="muted">至</span>'
     + '<input type="time" data-sk="to" value="' + esc(point.to || '14:00') + '">'
+    + '<span class="sched-span-badge">' + esc(spanDurationText(point.from || '12:00', point.to || '14:00')) + '</span>'
     + '</span>'
     + '</span>'
-    + '<input type="number" min="1" max="50" data-sk="count" value="' + esc(point.count ?? 3) + '" placeholder="条数">'
-    + '<button class="btn ghost sm" data-delpoint type="button">删</button>'
+    + '<div class="sched-stepper">'
+    + '<button class="sched-step-btn" type="button" data-sched-step="-1" aria-label="减少条数">−</button>'
+    + '<input type="number" min="1" max="50" data-sk="count" value="' + esc(point.count ?? 3) + '" aria-label="触发条数">'
+    + '<span class="sched-step-unit">条</span>'
+    + '<button class="sched-step-btn" type="button" data-sched-step="1" aria-label="增加条数">+</button>'
+    + '</div>'
+    + '<button class="sched-del" data-delpoint type="button" aria-label="删除触发点" title="删除触发点">×</button>'
     + '</div>';
 }
 function renderSchedule(points) {
   const list = Array.isArray(points) && points.length ? points : [{ mode: 'fixed', time: '09:00', count: 3 }];
-  $('#schedulePoints').innerHTML = list.map(scheduleRow).join('');
+  $('#schedulePoints').innerHTML = list.map((p, i) => scheduleRow(p, i)).join('');
 }
 function scheduleRowMode(row) {
   return row && row.querySelector('[data-sk="mode"]') && row.querySelector('[data-sk="mode"]').value === 'random'
@@ -4139,7 +4377,33 @@ function scheduleRowMode(row) {
     : 'fixed';
 }
 function syncScheduleRow(row) {
-  if (row) row.dataset.mode = scheduleRowMode(row);
+  if (!row) return;
+  const mode = scheduleRowMode(row);
+  row.dataset.mode = mode;
+  $$('[data-sched-mode]', row).forEach((b) => b.classList.toggle('on', b.dataset.schedMode === mode));
+  const badge = row.querySelector('.sched-span-badge');
+  if (badge && mode === 'random') {
+    const from = row.querySelector('[data-sk="from"]') ? row.querySelector('[data-sk="from"]').value : '';
+    const to = row.querySelector('[data-sk="to"]') ? row.querySelector('[data-sk="to"]').value : '';
+    badge.textContent = spanDurationText(from, to);
+  }
+}
+function syncFloorSwitchFromSelect() {
+  const sel = $('#c_floor');
+  const sw = $('#c_floor_switch');
+  const st = $('#c_floor_state');
+  const wrap = $('#c_fallback_wrap');
+  const on = !sel || sel.value !== 'false';
+  if (sw) {
+    sw.classList.toggle('on', on);
+    sw.setAttribute('aria-checked', String(on));
+  }
+  if (st) {
+    st.textContent = on ? '开启' : '关闭';
+    st.style.color = on ? 'var(--ok)' : 'var(--dim2)';
+  }
+  if (wrap) wrap.classList.toggle('is-off', !on);
+  if ($('#c_fallback')) $('#c_fallback').disabled = !on;
 }
 function scheduleDraft() {
   const num = (sel, dflt) => {
@@ -4176,6 +4440,14 @@ function nextScheduleTime() {
   }
   return '09:00';
 }
+function nextScheduleRange() {
+  const candidates = [['09:30', '11:30'], ['12:00', '13:30'], ['14:30', '17:00'], ['20:30', '22:30'], ['18:00', '20:00']];
+  const used = new Set($$('.schedrow')
+    .filter((r) => scheduleRowMode(r) === 'random')
+    .map((r) => (r.querySelector('[data-sk="from"]').value + '-' + r.querySelector('[data-sk="to"]').value)));
+  const hit = candidates.find(([a, b]) => !used.has(a + '-' + b));
+  return hit ? { from: hit[0], to: hit[1] } : { from: '12:00', to: '14:00' };
+}
 function scheduleConflict() {
   const rows = $$('.schedrow');
   const fixed = rows.filter((r) => scheduleRowMode(r) === 'fixed').map((r) => r.querySelector('[data-sk="time"]').value);
@@ -4193,40 +4465,128 @@ function scheduleConflict() {
   return '';
 }
 function updateScheduleHint() {
-  const hint = $('#scheduleHint');
-  if (!hint) return;
+  const rows = $$('.schedrow');
+  rows.forEach((r, i) => {
+    const idx = r.querySelector('.sched-idx');
+    if (idx) idx.textContent = String(i + 1).padStart(2, '0');
+    syncScheduleRow(r);
+  });
+  const conflict = scheduleConflict();
+  const conflictBox = $('#schedConflictNote');
+  if (conflictBox) {
+    conflictBox.hidden = !conflict;
+    conflictBox.textContent = conflict;
+  }
+  const fixedSeen = new Set();
+  const rangeSeen = new Set();
+  const rowErrors = rows.map((r) => {
+    const mode = scheduleRowMode(r);
+    if (mode === 'fixed') {
+      const t = r.querySelector('[data-sk="time"]').value;
+      const bad = !t || fixedSeen.has(t);
+      if (t) fixedSeen.add(t);
+      r.classList.toggle('is-invalid', bad);
+      return bad;
+    }
+    const from = r.querySelector('[data-sk="from"]').value;
+    const to = r.querySelector('[data-sk="to"]').value;
+    const key = from + '-' + to;
+    const a = hhmmMin(from);
+    const b = hhmmMin(to);
+    const bad = a === null || b === null || b <= a || rangeSeen.has(key);
+    rangeSeen.add(key);
+    r.classList.toggle('is-invalid', bad);
+    return bad;
+  });
+
   const plan = scheduleDraft();
-  const floorOff = $('#c_floor') && $('#c_floor').value === 'false';
-  if ($('#c_fallback')) $('#c_fallback').disabled = !!floorOff;
-  const avg = (Math.min(plan.minSec, plan.maxSec) + Math.max(plan.minSec, plan.maxSec)) / 2;
+  syncFloorSwitchFromSelect();
+  const minRaw = $('#c_min_sec') ? Number($('#c_min_sec').value) : plan.minSec;
+  const maxRaw = $('#c_max_sec') ? Number($('#c_max_sec').value) : plan.maxSec;
+  const minVal = Math.min(plan.minSec, plan.maxSec);
+  const maxVal = Math.max(plan.minSec, plan.maxSec);
+  const avg = Math.round((minVal + maxVal) / 2);
   const per = Math.max(1, Math.round(plan.floor ? Math.max(avg, plan.fallbackSec) : avg));
   const totalCount = plan.points.reduce((sum, p) => sum + p.count, 0);
-  const snap = state.config && state.config.scheduleState;
-  let progress = '';
-  if (snap && snap.day === localToday() && Array.isArray(snap.points)) {
-    const sent = snap.points.reduce((n, p) => n + (Number(p.sent) || 0), 0);
-    const total = snap.points.reduce((n, p) => n + (Number(p.count) || 0), 0);
-    const settled = snap.points.filter((p) => p.status === 'skipped' || p.status === 'aborted').length;
-    const active = snap.points[snap.active];
-    if (snap.status === 'done') {
-      progress = ' · 今天已完成 ' + sent + '/' + total + (settled ? '（' + settled + ' 个触发点跳过/中止）' : '');
-    } else if (active) {
-      const label = active.status === 'running' && Number(active.nextAt) > 0
-        ? '下一次 ' + timeLabel(active.nextAt)
-        : '下一个 ' + (active.mode === 'random' ? (active.from + '–' + active.to) : active.time);
-      progress = ' · 今天已发 ' + sent + '/' + total + ' · ' + label;
-    }
-  } else {
-    const now = new Date();
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    const upcoming = plan.points.find((p) => (hhmmMin(p.mode === 'random' ? p.from : p.time) ?? 9999) >= nowMin);
-    if (upcoming) {
-      progress = ' · 今天下一个：' + (upcoming.mode === 'random' ? (upcoming.from + '–' + upcoming.to) : upcoming.time);
+
+  if ($('#rhythmSummary')) {
+    if (Number.isFinite(minRaw) && Number.isFinite(maxRaw) && minRaw > maxRaw) {
+      $('#rhythmSummary').innerHTML = '<span class="bad">下限大于上限，保存时会自动按 ' + minVal + '–' + maxVal + ' 秒处理</span>';
     } else {
-      progress = ' · 今天已无待触发点，可点下面按钮重新开始';
+      $('#rhythmSummary').textContent = '每条随机等待 ' + minVal + '–' + maxVal + ' 秒（均值约 ' + avg + ' 秒）' + (plan.floor ? ' · 且不短于上条视频' : '');
     }
   }
-  hint.textContent = plan.points.length + ' 个触发点，共 ' + totalCount + ' 条；约 ' + per + ' 秒/条' + progress;
+  $$('#rhythmPresets [data-rhythm]').forEach((b) => {
+    const [a, c] = String(b.dataset.rhythm || '').split(',').map(Number);
+    b.classList.toggle('active', a === minRaw && c === maxRaw);
+  });
+  if ($('#planModePill')) {
+    $('#planModePill').textContent = plan.points.length + ' 点 · ' + totalCount + ' 条/天';
+    $('#planModePill').className = 'pill ' + (conflict ? 'bad' : 'blue');
+  }
+
+  const track = $('#schedTlTrack');
+  const legend = $('#schedTlLegend');
+  if (track && legend) {
+    let trackHtml = '';
+    const legendItems = [];
+    rows.forEach((r, i) => {
+      const mode = scheduleRowMode(r);
+      const count = Math.min(50, Math.max(1, Math.round(Number(r.querySelector('[data-sk="count"]').value) || 1)));
+      const isBad = !!rowErrors[i];
+      if (mode === 'fixed') {
+        const t = r.querySelector('[data-sk="time"]').value;
+        const m = hhmmMin(t);
+        if (m !== null) {
+          const left = ((m / 1440) * 100).toFixed(2);
+          trackHtml += '<span class="sched-tl-pin' + (isBad ? ' is-bad' : '') + '" style="left:' + left + '%" title="' + esc(t + ' ×' + count) + '"></span>';
+          legendItems.push({ min: m, html: '<span class="sched-tl-chip' + (isBad ? ' is-bad' : '') + '"><b>' + esc(t) + '</b><span>×' + count + '</span></span>' });
+        }
+      } else {
+        const from = r.querySelector('[data-sk="from"]').value;
+        const to = r.querySelector('[data-sk="to"]').value;
+        const a = hhmmMin(from);
+        const b = hhmmMin(to);
+        if (a !== null && b !== null && b > a) {
+          const left = ((a / 1440) * 100).toFixed(2);
+          const width = Math.max(1.8, ((b - a) / 1440) * 100).toFixed(2);
+          trackHtml += '<span class="sched-tl-range' + (isBad ? ' is-bad' : '') + '" style="left:' + left + '%;width:' + width + '%" title="' + esc(from + '–' + to + ' ×' + count) + '"></span>';
+        }
+        legendItems.push({ min: a === null ? 9999 : a, html: '<span class="sched-tl-chip' + (isBad ? ' is-bad' : '') + '"><b>' + esc(from + '–' + to) + '</b><span>随机 ×' + count + '</span></span>' });
+      }
+    });
+    legendItems.sort((x, y) => x.min - y.min);
+    track.innerHTML = trackHtml;
+    legend.innerHTML = legendItems.map((it) => it.html).join('');
+  }
+
+  const hint = $('#scheduleHint');
+  if (hint) {
+    const snap = state.config && state.config.scheduleState;
+    let progress = '';
+    if (snap && snap.day === localToday() && Array.isArray(snap.points)) {
+      const sent = snap.points.reduce((n, p) => n + (Number(p.sent) || 0), 0);
+      const total = snap.points.reduce((n, p) => n + (Number(p.count) || 0), 0);
+      const settled = snap.points.filter((p) => p.status === 'skipped' || p.status === 'aborted').length;
+      const active = snap.points[snap.active];
+      if (snap.status === 'done') {
+        progress = ' · 今日已完成 ' + sent + '/' + total + (settled ? '（' + settled + ' 个触发点跳过/中止）' : '');
+      } else if (active) {
+        const label = active.status === 'running' && Number(active.nextAt) > 0
+          ? '下一次 ' + timeLabel(active.nextAt)
+          : '下一个 ' + (active.mode === 'random' ? (active.from + '–' + active.to) : active.time);
+        progress = ' · 今日已发 ' + sent + '/' + total + ' · ' + label;
+      }
+    } else {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const upcoming = plan.points.find((p) => (hhmmMin(p.mode === 'random' ? p.from : p.time) ?? 9999) >= nowMin);
+      progress = upcoming
+        ? ' · 下个触发：' + (upcoming.mode === 'random' ? (upcoming.from + '–' + upcoming.to) : upcoming.time)
+        : ' · 今日剩余点位已过';
+    }
+    hint.textContent = '约 ' + per + ' 秒/条' + progress;
+  }
   if ($('#cfgHeroTotal')) $('#cfgHeroTotal').textContent = totalCount;
 }
 function selectedPoolMap() {
@@ -4472,7 +4832,7 @@ function setPoolFeedback(text = '', tone = 'info', withAiConfig = false) {
   box.hidden = false;
   box.className = 'pool-feedback ' + (tone === 'ok' || tone === 'bad' ? tone : '');
   box.innerHTML = '<span>' + esc(text)
-    + (withAiConfig ? ' <button class="pool-ai-link" type="button" data-pool-open-ai="1">前往「04 AI」配置 ↗</button>' : '')
+    + (withAiConfig ? ' <button class="pool-ai-link" type="button" data-pool-open-ai="1">前往「03 AI」配置 ↗</button>' : '')
     + '</span><button class="pool-feedback-close" type="button" aria-label="关闭提示">×</button>';
 }
 function updatePoolAiStatus() {
@@ -4709,6 +5069,57 @@ function initFilterSwitches() {
     });
   });
 }
+function parseBanWords(input) {
+  const raw = Array.isArray(input) ? input.join('\n') : String(input == null ? '' : input);
+  const seen = new Set();
+  const out = [];
+  for (const part of raw.split(/[\n\r,，;；]+/)) {
+    const w = part.trim();
+    if (!w || seen.has(w)) continue;
+    seen.add(w);
+    out.push(w);
+    if (out.length >= 200) break;
+  }
+  return out;
+}
+function getBanWords() {
+  return parseBanWords($('#c_ban') ? $('#c_ban').value : '');
+}
+function renderBanWords() {
+  const words = getBanWords();
+  const box = $('#banChips');
+  if ($('#banCountPill')) {
+    $('#banCountPill').textContent = words.length + ' 个';
+    $('#banCountPill').className = 'pill ' + (words.length ? 'blue' : '');
+  }
+  if ($('#banClearBtn')) $('#banClearBtn').hidden = !words.length;
+  const set = new Set(words);
+  $$('#banPresets [data-ban-preset]').forEach((b) => {
+    const w = b.dataset.banPreset;
+    const on = set.has(w);
+    b.classList.toggle('is-added', on);
+    b.textContent = (on ? '✓ ' : '+ ') + w;
+  });
+  if (!box) return;
+  box.innerHTML = words.length
+    ? words.map((w) => '<span class="ban-chip"><span>' + esc(w) + '</span><button class="ban-chip-del" type="button" data-ban-del="' + esc(w) + '" aria-label="移除屏蔽词 ' + esc(w) + '">×</button></span>').join('')
+    : '<span class="ban-empty">暂无屏蔽词；命中视频标题或作者昵称时会自动跳过。</span>';
+}
+function setBanWords(list, { dirty = false } = {}) {
+  const words = parseBanWords(list);
+  if ($('#c_ban')) $('#c_ban').value = words.join('\n');
+  renderBanWords();
+  if (dirty && state.cfgLoaded) setConfigDirty(true);
+}
+function addBanWordsFromText(text) {
+  const incoming = parseBanWords(text);
+  if (!incoming.length) return 0;
+  const current = getBanWords();
+  const merged = parseBanWords([...current, ...incoming]);
+  const added = merged.length - current.length;
+  setBanWords(merged, { dirty: added > 0 });
+  return added;
+}
 function setEnabledState(on) {
   const el = $('#c_enabled');
   if (el) el.value = on ? 'true' : 'false';
@@ -4718,6 +5129,17 @@ function updateSourceUI() {
   if (!$('#c_source')) return;
   const src = $('#c_source').value === 'recommend' ? 'recommend' : 'pool';
   const isRec = src === 'recommend';
+  $$('#sourceGrid [data-source]').forEach((b) => {
+    const on = b.dataset.source === src;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  const feedBadge = $('#sourceFeedBadge');
+  if (feedBadge) {
+    const hasFeed = !!(state.api && state.api.hasFeedUrl);
+    feedBadge.textContent = state.api ? (hasFeed ? '已捕获 feed' : '未捕获 feed') : '检查中…';
+    feedBadge.className = 'pill ' + (!state.api ? '' : (hasFeed ? 'ok' : 'warn'));
+  }
   const pill = $('#configSourcePill');
   if (pill) {
     pill.textContent = isRec ? '默认推荐' : '视频池';
@@ -4731,18 +5153,20 @@ function updateSourceUI() {
   if (poolHint) poolHint.hidden = !isRec;
   const note = $('#sourceNote');
   if (note) {
-    note.innerHTML = isRec
-      ? '抖音默认推荐：使用「推荐」tab 的个性化内容，只走纯 API；需要会话里已捕获 feed。视频池分类仍可查看/编辑，切换来源后生效。'
-      : '视频池搜索：按分类关键词挑选，内容更可控；每个池会轮换基础关键词和同类变体。';
+    if (isRec) {
+      const missing = state.api && !state.api.hasFeedUrl;
+      note.innerHTML = '<span>抖音默认推荐：读取「推荐」tab 个性化流（纯 API）。'
+        + (missing ? '当前会话尚未捕获推荐 feed，请先去导入或刷新会话。' : '下方视频池分类仍可编辑，切回视频池后生效。')
+        + '</span>'
+        + (missing ? '<button class="pool-ai-link" type="button" data-goto-config-tab="advanced">前往「05 高级与维护」配置会话 ↗</button>' : '');
+    } else {
+      note.innerHTML = '<span>视频池搜索：按下方已选分类的关键词轮换挑片，内容更可控；每个分类会轮换基础关键词和同类变体。</span>';
+    }
   }
   const account = state.config && (state.config.accountName || state.config.account);
   let hint = account ? ('独立保存 · ' + account) : '仅作用于当前账户';
-  if (isRec && state.config && state.config.sendMode === 'browser') {
-    hint = '推荐源只支持纯 API：请把「纯 API 连接」切到纯 API 优先';
-  } else if (isRec && state.api && !state.api.hasFeedUrl) {
-    hint = '推荐源已选，但当前会话没有捕获到 feed；请先导出/刷新纯 API 会话';
-  } else if (isRec) {
-    hint = '推荐源只走纯 API，不启动浏览器';
+  if (isRec && state.api && !state.api.hasFeedUrl) {
+    hint = '推荐源已选，但当前会话未捕获到 feed（在「05 高级与维护」导入或刷新会话）';
   }
   if ($('#configHint')) $('#configHint').textContent = hint;
   if ($('#ageSourceHint')) {
@@ -4779,10 +5203,10 @@ function collectConfig() {
     maxVideoAgeDays: Number($('#c_vmax').value),
     recommendMaxAgeDays: Number($('#c_rmax').value),
     pools,
-    banWords: $('#c_ban').value.split('\n').map((s) => s.trim()).filter(Boolean),
+    banWords: getBanWords(),
   };
 }
-const CONFIG_TABS = ['plan', 'video', 'connection', 'ai', 'database', 'advanced'];
+const CONFIG_TABS = ['plan', 'video', 'ai', 'database', 'advanced'];
 function setNaturalTextSwitch(on) {
   const el = $('#c_natural_text_switch');
   if (!el) return;
@@ -4801,6 +5225,7 @@ function setDailyReadSwitch(on) {
   if (state) { state.textContent = on ? '开启' : '关闭'; state.style.color = on ? 'var(--ok)' : 'var(--dim2)'; }
 }
 function activateConfigTab(tab, { scroll = false } = {}) {
+  if (tab === 'connection') tab = 'advanced';
   if (!CONFIG_TABS.includes(tab)) tab = 'plan';
   state.configTab = tab;
   $$('#configNav [data-config-tab]').forEach((b) => {
@@ -4808,6 +5233,7 @@ function activateConfigTab(tab, { scroll = false } = {}) {
     b.classList.toggle('is-active', on);
     b.setAttribute('aria-selected', String(on));
     b.tabIndex = on ? 0 : -1;
+    if (on && b.scrollIntoView) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   });
   $$('#view-config .settings-card').forEach((sec) => {
     const on = sec.id === 'sec-' + tab;
@@ -4823,7 +5249,7 @@ function activateConfigTab(tab, { scroll = false } = {}) {
     const offset = (header ? header.getBoundingClientRect().height : 140) + 16;
     if (section) {
       const top = section.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      window.scrollTo({ top: Math.max(0, top), behavior: 'auto' });
     }
   }
 }
@@ -4865,6 +5291,7 @@ function applyConfigPreset(key) {
   $('#c_floor').value = p.burstDurationFloor ? 'true' : 'false';
   $('#c_fallback').value = p.burstFallbackSec;
   $('#c_pdelay').value = p.poolDelayMs;
+  syncFloorSwitchFromSelect();
   updateScheduleHint();
   setConfigDirty(true);
   toast('已填充「' + p.label + '」预设，点击「保存设置」生效', 'ok');
@@ -4927,7 +5354,8 @@ async function loadConfigPage() {
     setFilterSwitch('favorites', cfg.filterFavoritesEnabled === true);
     setFilterSwitch('shares', cfg.filterSharesEnabled === true);
     setEnabledState(cfg.enabled !== false);
-    $('#c_ban').value = (cfg.banWords || []).join('\n');
+    setBanWords(cfg.banWords || []);
+    syncFloorSwitchFromSelect();
     renderCopyAccountOptions();
     updateScheduleHint();
     updateSourceUI();
@@ -4997,6 +5425,7 @@ async function loadApiSession() {
     badge.className = 'pill ' + (d.valid ? 'ok' : (d.present ? 'bad' : 'warn'));
     $('#apiAutoText').textContent = d.autoRefresh ? '开' : '关';
     $('#apiAutoSwitch').classList.toggle('on', !!d.autoRefresh);
+    $('#apiAutoSwitch').setAttribute('aria-checked', String(!!d.autoRefresh));
     const modeText = '纯 API 模式（已移除浏览器）';
     const lines = ['发送模式：' + modeText, '自动刷新：' + (d.autoRefresh ? '开' : '关')];
     if (d.present) {
@@ -5045,10 +5474,11 @@ async function loadAIStatus() {
       const ready = enabled && hasKey;
       filterPill.textContent = mode === 'off' ? '关闭' : (!enabled ? '未开启' : (hasKey ? '已启用' : '缺少 Key'));
       filterPill.className = 'pill ' + (mode === 'off' ? '' : (ready ? 'ok' : 'warn'));
+      if ($('#aiFilterSetupBtn')) $('#aiFilterSetupBtn').hidden = ready;
       filterHint.textContent = mode === 'off'
-        ? '关闭时使用规则筛选（去重、屏蔽词、时效、广告/直播过滤）；可在下方开启 AI。'
+        ? '关闭时使用规则筛选（去重、屏蔽词、时效、广告/直播过滤）；可按需开启 AI。'
         : (!enabled
-          ? 'AI 总开关未开启；到「04 AI → 连接设置」开启并保存后，筛选才会真正调用模型。'
+          ? 'AI 总开关未开启；到「03 AI → 连接设置」开启并保存后，筛选才会真正调用模型。'
           : (hasKey
             ? (mode === 'moderate' ? '安全过滤：AI 去掉广告/不安全内容，保留候选随机选。' : '过滤 + 排序：AI 去广告/不安全，并按账户兴趣排序。')
             : 'AI 模式已选择，但缺少 API Key；当前会自动回退规则筛选。'));
@@ -5121,10 +5551,12 @@ function applyDraftToForm(draft) {
     updateMetricFiltersUI();
   }
   $('#c_source').value = draft.videoSource === 'recommend' ? 'recommend' : 'pool';
-  $('#c_ban').value = (draft.banWords || []).join('\n');
+  setBanWords(draft.banWords || []);
+  syncFloorSwitchFromSelect();
   updateScheduleHint();
   updateSourceUI();
-  $('#msg').textContent = 'AI 草案已填入，请检查后点「保存设置」';
+  setConfigDirty(true);
+  $$('.js-save-msg').forEach((el) => { el.textContent = 'AI 草案已填入，请检查后点「保存设置」'; });
 }
 async function draftAI() {
   const text = $('#ai_draft_text').value.trim();
@@ -5645,14 +6077,13 @@ function bindAIChat() {
   $$('#aiChatSuggestions [data-ai-prompt]').forEach((b) => b.addEventListener('click', () => sendAIChat(b.dataset.aiPrompt)));
   $('#aiChatConfig').onclick = () => {
     setAIChatOpen(false);
+    state.configTab = 'ai';
     navigate('config');
     setTimeout(() => {
-      const card = document.querySelector('#sec-ai');
-      if (!card) return;
-      const first = card.querySelector('details');
+      activateConfigTab('ai', { scroll: true });
+      const first = document.querySelector('#sec-ai details');
       if (first) first.open = true;
-      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 500);
+    }, 120);
   };
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.aiChatOpen) { setAIChatOpen(false); fab.focus(); }
@@ -5850,6 +6281,7 @@ async function control(action) {
 }
 
 function bindConfigActions() {
+  const markDirty = () => { if (state.cfgLoaded) setConfigDirty(true); };
   $('#schedulePoints').addEventListener('input', (e) => {
     const row = e.target.closest('.schedrow');
     if (row) syncScheduleRow(row);
@@ -5861,17 +6293,80 @@ function bindConfigActions() {
     updateScheduleHint();
   });
   $('#schedulePoints').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-delpoint]');
-    if (!btn) return;
-    if ($$('.schedrow').length <= 1) { toast('至少保留一个触发点', 'bad'); return; }
-    btn.closest('.schedrow').remove();
-    updateScheduleHint();
+    const row = e.target.closest('.schedrow');
+    if (!row) return;
+    const modeBtn = e.target.closest('[data-sched-mode]');
+    if (modeBtn) {
+      const mode = modeBtn.dataset.schedMode === 'random' ? 'random' : 'fixed';
+      const sel = row.querySelector('[data-sk="mode"]');
+      if (sel && sel.value !== mode) {
+        sel.value = mode;
+        syncScheduleRow(row);
+        updateScheduleHint();
+        markDirty();
+      }
+      return;
+    }
+    const stepBtn = e.target.closest('[data-sched-step]');
+    if (stepBtn) {
+      const inp = row.querySelector('[data-sk="count"]');
+      if (inp) {
+        const cur = Number(inp.value) || 1;
+        const next = Math.min(50, Math.max(1, cur + Number(stepBtn.dataset.schedStep || 0)));
+        if (next !== cur) {
+          inp.value = String(next);
+          updateScheduleHint();
+          markDirty();
+        }
+      }
+      return;
+    }
+    const delBtn = e.target.closest('[data-delpoint]');
+    if (delBtn) {
+      if ($$('.schedrow').length <= 1) { toast('至少保留一个触发点', 'bad'); return; }
+      row.remove();
+      updateScheduleHint();
+      markDirty();
+    }
   });
   if ($('#scheduleAdd')) {
     $('#scheduleAdd').onclick = () => {
-      $('#schedulePoints').insertAdjacentHTML('beforeend', scheduleRow({ mode: 'fixed', time: nextScheduleTime(), count: 3 }));
+      $('#schedulePoints').insertAdjacentHTML('beforeend', scheduleRow({ mode: 'fixed', time: nextScheduleTime(), count: 3 }, $$('.schedrow').length));
       updateScheduleHint();
+      markDirty();
     };
+  }
+  if ($('#scheduleAddRandom')) {
+    $('#scheduleAddRandom').onclick = () => {
+      const r = nextScheduleRange();
+      $('#schedulePoints').insertAdjacentHTML('beforeend', scheduleRow({ mode: 'random', from: r.from, to: r.to, count: 2 }, $$('.schedrow').length));
+      updateScheduleHint();
+      markDirty();
+    };
+  }
+  if ($('#rhythmPresets')) {
+    $('#rhythmPresets').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-rhythm]');
+      if (!b) return;
+      const [minS, maxS] = String(b.dataset.rhythm || '').split(',').map(Number);
+      if (Number.isFinite(minS) && Number.isFinite(maxS)) {
+        $('#c_min_sec').value = String(minS);
+        $('#c_max_sec').value = String(maxS);
+        updateScheduleHint();
+        markDirty();
+      }
+    });
+  }
+  if ($('#c_floor_switch')) {
+    const flipFloor = () => {
+      const next = !$('#c_floor_switch').classList.contains('on');
+      if ($('#c_floor')) $('#c_floor').value = next ? 'true' : 'false';
+      syncFloorSwitchFromSelect();
+      updateScheduleHint();
+      markDirty();
+    };
+    $('#c_floor_switch').onclick = flipFloor;
+    $('#c_floor_switch').onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flipFloor(); } };
   }
   ['#c_min_sec', '#c_max_sec', '#c_fallback'].forEach((sel) => {
     if ($(sel)) $(sel).addEventListener('input', updateScheduleHint);
@@ -5886,11 +6381,77 @@ function bindConfigActions() {
     } catch (e) { toast('重置失败：' + e.message, 'bad'); }
   };
   $('#c_source').addEventListener('change', updateSourceUI);
+  if ($('#sourceGrid')) {
+    $('#sourceGrid').addEventListener('click', (e) => {
+      const card = e.target.closest('[data-source]');
+      if (!card) return;
+      const next = card.dataset.source === 'recommend' ? 'recommend' : 'pool';
+      if ($('#c_source').value !== next) {
+        $('#c_source').value = next;
+        updateSourceUI();
+        markDirty();
+      }
+    });
+  }
+  if ($('#aiFilterSetupBtn')) {
+    $('#aiFilterSetupBtn').onclick = () => openAiSettingsFromPool();
+  }
+  $('#view-config').addEventListener('click', (e) => {
+    const tabJump = e.target.closest('[data-goto-config-tab]');
+    if (tabJump) activateConfigTab(tabJump.dataset.gotoConfigTab, { scroll: true });
+  });
+  const submitBanInput = () => {
+    const inp = $('#banWordInput');
+    if (!inp) return;
+    const raw = inp.value.trim();
+    if (!raw) return;
+    const added = addBanWordsFromText(raw);
+    inp.value = '';
+    if (!added) toast('该屏蔽词已存在', 'warn', 2200);
+  };
+  if ($('#banWordAdd')) $('#banWordAdd').onclick = submitBanInput;
+  if ($('#banWordInput')) {
+    $('#banWordInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submitBanInput(); }
+      else if (e.key === 'Backspace' && !e.target.value) {
+        const list = getBanWords();
+        if (list.length) { list.pop(); setBanWords(list, { dirty: true }); }
+      }
+    });
+    $('#banWordInput').addEventListener('paste', (e) => {
+      const text = (e.clipboardData && e.clipboardData.getData('text')) || '';
+      if (/[\n\r,，;；]/.test(text)) {
+        e.preventDefault();
+        const added = addBanWordsFromText(text);
+        if (added) toast('已添加 ' + added + ' 个屏蔽词', 'ok', 2200);
+      }
+    });
+  }
+  if ($('#banPresets')) {
+    $('#banPresets').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-ban-preset]');
+      if (!btn) return;
+      const word = btn.dataset.banPreset;
+      const cur = getBanWords();
+      if (cur.includes(word)) setBanWords(cur.filter((w) => w !== word), { dirty: true });
+      else setBanWords([...cur, word], { dirty: true });
+    });
+  }
+  if ($('#banChips')) {
+    $('#banChips').addEventListener('click', (e) => {
+      const del = e.target.closest('[data-ban-del]');
+      if (!del) return;
+      const target = del.dataset.banDel;
+      setBanWords(getBanWords().filter((w) => w !== target), { dirty: true });
+    });
+  }
+  if ($('#banClearBtn')) {
+    $('#banClearBtn').onclick = () => setBanWords([], { dirty: true });
+  }
   initFilterSwitches();
   ['#c_min_likes', '#c_min_comments', '#c_min_favorites', '#c_min_shares', '#c_vmax', '#c_rmax'].forEach((sel) => {
     if ($(sel)) $(sel).addEventListener('input', updateMetricFiltersUI);
   });
-  const markDirty = () => { if (state.cfgLoaded) setConfigDirty(true); };
   $('#poolTrigger').onclick = () => togglePoolPanel(true);
   $('#poolClose').onclick = () => togglePoolPanel(false);
   $('#poolPanelClose').onclick = () => togglePoolPanel(false);
@@ -6023,12 +6584,14 @@ function bindConfigActions() {
   ['#sec-plan', '#sec-video', '#sec-advanced'].forEach((sel) => {
     const sec = $(sel);
     if (!sec) return;
-    sec.addEventListener('input', markDirty);
-    sec.addEventListener('change', markDirty);
-  });
-  if ($('#scheduleAdd')) $('#scheduleAdd').addEventListener('click', markDirty);
-  $('#schedulePoints').addEventListener('click', (e) => {
-    if (e.target.closest('[data-delpoint]')) markDirty();
+    sec.addEventListener('input', (e) => {
+      if (e.target && (e.target.id === 'banWordInput' || e.target.id === 'apiImportJson')) return;
+      markDirty();
+    });
+    sec.addEventListener('change', (e) => {
+      if (e.target && (e.target.id === 'banWordInput' || e.target.id === 'apiImportJson')) return;
+      markDirty();
+    });
   });
   FILTER_SWITCHES.forEach((name) => {
     const sw = $('#sw_' + name);
@@ -6036,20 +6599,25 @@ function bindConfigActions() {
   });
   $('#c_natural_text_switch').onclick = () => { setNaturalTextSwitch(!$('#c_natural_text_switch').classList.contains('on')); markDirty(); };
   $('#c_daily_read_switch').onclick = () => { setDailyReadSwitch(!$('#c_daily_read_switch').classList.contains('on')); markDirty(); };
+  const setSaveMsgs = (text) => { $$('.js-save-msg').forEach((el) => { el.textContent = text; }); };
   const saveConfig = async () => {
-    const msg = $('#msg');
     const conflict = scheduleConflict();
-    if (conflict) { msg.textContent = conflict; toast(conflict, 'bad'); return; }
-    msg.textContent = '保存中…';
+    if (conflict) {
+      setSaveMsgs(conflict);
+      toast(conflict, 'bad');
+      return;
+    }
+    setSaveMsgs('保存中…');
     try {
       const saved = await postJSON('/api/config', collectConfig());
       setConfigDirty(false);
-      msg.textContent = '已保存到 ' + ((saved.config && saved.config.accountName) || '当前账户');
+      setSaveMsgs('已保存到 ' + ((saved.config && saved.config.accountName) || '当前账户'));
       toast('设置已保存；调度器会在下一轮读取新计划', 'ok');
       await Promise.all([loadConfigPage(), loadHome()]);
-    } catch (e) { msg.textContent = '保存失败：' + e.message; toast('保存失败：' + e.message, 'bad'); }
+    } catch (e) { setSaveMsgs('保存失败：' + e.message); toast('保存失败：' + e.message, 'bad'); }
   };
   $('#save').onclick = saveConfig;
+  $$('.js-save-config').forEach((b) => { b.onclick = saveConfig; });
   if ($('#cfgDirtySave')) $('#cfgDirtySave').onclick = saveConfig;
   if ($('#cfgDirtyDiscard')) $('#cfgDirtyDiscard').onclick = () => { setConfigDirty(false); loadConfigPage(); toast('已放弃未保存的更改', 'warn'); };
   if ($('#cfgApplyPreset')) $('#cfgApplyPreset').onclick = () => applyConfigPreset($('#cfgPresetSelect') ? $('#cfgPresetSelect').value : '');
@@ -6097,10 +6665,12 @@ function bindConfigActions() {
       setTimeout(loadApiSession, 8000); setTimeout(loadApiSession, 25000);
     } catch (e) { $('#apiMsg').textContent = '启动失败：' + e.message; }
   };
-  $('#apiAutoSwitch').onclick = async () => {
+  const toggleApiAuto = async () => {
     const d = await getJSON('/api/api-session').catch(() => ({}));
     try { await postJSON('/api/api-session/auto-refresh', { enabled: !d.autoRefresh }); await loadApiSession(); } catch (e) { toast(e.message, 'bad'); }
   };
+  $('#apiAutoSwitch').onclick = toggleApiAuto;
+  $('#apiAutoSwitch').onkeydown = (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleApiAuto(); } };
   if ($('#btnApiImport')) $('#btnApiImport').onclick = async () => {
     const raw = $('#apiImportJson') ? $('#apiImportJson').value.trim() : '';
     const msg = $('#apiImportMsg');
@@ -6125,6 +6695,8 @@ function bindConfigActions() {
   $('#db_driver').onchange = () => {
     const driver = $('#db_driver').value;
     const sqlite = driver === 'sqlite';
+    if ($('#dbSqliteWrap')) $('#dbSqliteWrap').hidden = !sqlite;
+    if ($('#dbExternalFields')) $('#dbExternalFields').hidden = sqlite;
     ['db_host', 'db_port', 'db_name', 'db_user', 'db_password', 'db_url'].forEach((id) => { $('#' + id).disabled = sqlite; });
     $('#db_ssl').disabled = sqlite;
     const port = $('#db_port').value;

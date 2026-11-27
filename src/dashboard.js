@@ -641,7 +641,7 @@ async function fetchDouyinWebJson(session, apiPath, { baseUrl = process.env.DOUY
 async function fetchMutualFriends(acc, opts = {}) {
   const session = apiSession.load(acc.label);
   if (!session || !Array.isArray(session.cookies) || !session.cookies.length) {
-    throw new Error('没有可用的纯 API 会话，请先在「配置 → 03 纯 API 连接」导入或刷新会话');
+    throw new Error('没有可用的纯 API 会话，请先在「配置 → 05 高级与维护」导入或刷新会话');
   }
   const common = 'device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&source_type=1&count=50';
   const get = (p) => fetchDouyinWebJson(session, p, opts).catch((e) => ({ error: e.message }));
@@ -1770,7 +1770,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
         const session = apiSession.load(acc.label);
         if (!session || !Array.isArray(session.cookies) || !session.cookies.length) {
-          return send(res, 200, { ok: true, loggedIn: false, reason: '没有可用的纯 API 会话，请先在「03 纯 API 连接」导入或刷新会话' });
+          return send(res, 200, { ok: true, loggedIn: false, reason: '没有可用的纯 API 会话，请先在「配置 → 05 高级与维护」导入或刷新会话' });
         }
         let profile = null;
         try {
