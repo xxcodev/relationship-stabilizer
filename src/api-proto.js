@@ -231,6 +231,75 @@ function parseCreateResponse(buf) {
   return out;
 }
 
+/** Conversation IDs baked into the captured send template (used when no new conversation was created). */
+function templateConversation(templateB64) {
+  const top = parseRaw(Buffer.from(templateB64, 'base64'));
+  const body = findRaw(top, 8);
+  if (!body) return null;
+  const content = findRaw(parseRaw(body.v), 100);
+  if (!content) return null;
+  const message = parseRaw(content.v);
+  const idField = message.find((x) => x.f === 1 && x.w === 2);
+  if (!idField) return null;
+  const shortField = message.find((x) => x.f === 3 && x.w === 0);
+  return {
+    conversationId: idField.v.toString('utf8'),
+    conversationShortId: shortField ? varintBig(shortField.rawVarint) : null,
+  };
+}
+
+/** Rebuild a v3/conversation/mark_read request for one conversation. */
+function buildMarkReadBody(templateB64, {
+  conversationId,
+  conversationShortId,
+  conversationType = 1,
+  readIndex = 999999999,
+  unreadCount = 1,
+} = {}) {
+  const top = parseRaw(Buffer.from(templateB64, 'base64'));
+  const body = findRaw(top, 8);
+  if (!body) throw new Error(`${POC_ERR}: mark_read template missing body`);
+  const bodyFields = parseRaw(body.v);
+  const mark = findRaw(bodyFields, 604);
+  if (!mark) throw new Error(`${POC_ERR}: mark_read template missing conversation info`);
+  const info = parseRaw(mark.v);
+  const setString = (field, value) => {
+    const item = findRaw(info, field);
+    if (item) item.replace = Buffer.from(String(value));
+  };
+  const setVarint = (field, value) => {
+    const item = info.find((x) => x.f === field && x.w === 0);
+    if (item) item.rawVarintReplace = encodeVarintBig(value);
+  };
+  setString(1, conversationId);
+  setVarint(2, conversationShortId);
+  setVarint(3, conversationType === 2 ? 2 : 1);
+  // The private endpoint marks up to this index. The web client sends its latest local index;
+  // a large value is the equivalent of "everything currently in this conversation".
+  setVarint(7, readIndex);
+  setVarint(8, unreadCount);
+  mark.replace = encodeRaw(info);
+  body.replace = encodeRaw(bodyFields);
+  // The 1:1 and group variants use different command ids on the envelope.
+  const cmd = top.find((x) => x.f === 2 && x.w === 0);
+  if (cmd) cmd.rawVarintReplace = encodeVarint(conversationType === 2 ? 10011 : 10008);
+  return encodeRaw(top);
+}
+
+/** Parse the mark_read envelope: OK + command id + the authenticated user. */
+function parseMarkReadResponse(buf) {
+  const out = { ok: false, status: '', cmd: null, userId: null };
+  const top = parseRaw(buf);
+  const status = findRaw(top, 4);
+  if (status) out.status = status.v.toString('utf8');
+  out.ok = out.status === 'OK';
+  const cmd = top.find((x) => x.f === 2 && x.w === 0);
+  if (cmd) out.cmd = varintBig(cmd.rawVarint);
+  const uid = top.find((x) => x.f === 13 && x.w === 0);
+  if (uid) out.userId = varintBig(uid.rawVarint);
+  return out;
+}
+
 module.exports = {
   parseRaw,
   encodeRaw,
@@ -240,4 +309,7 @@ module.exports = {
   parseCreateResponse,
   contentJson,
   parseSendResponse,
+  templateConversation,
+  buildMarkReadBody,
+  parseMarkReadResponse,
 };

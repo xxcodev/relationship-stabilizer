@@ -80,16 +80,15 @@ node src/index.js api:send --friends "Hime,🖐🏻"       # 一次发给多个�
 
 限制：好友必须在导出时捕获的最近好友列表里，或在已同步的互关好友缓存里（带 userid）。
 都不在时会明确报错并回退浏览器；想更新捕获列表，在导出前先和对方在抖音里聊一句再重新导出会话；
-互关好友可在首页快速发送下拉里点「刷新互关」单独更新，不需要出现在会话捕获里。
+互关 / 关注 / 粉丝可在首页「好友关系」里点「同步关注 / 粉丝」单独更新，不需要出现在会话捕获里。
 
-### 在面板里选择好友发送
+### 独立自动已读接口
 
-面板「⚡ 纯 API 发送」区块是一个互关好友下拉多选（带搜索、全选、清空；列表会缓存），可以：
+- `GET /api/auto-read`：当前账户配置、可选好友、最近状态和 API 会话；
+- `POST /api/auto-read`：保存 `{enabled, friends:[{uid,name}], minMin, maxMin, windowEnabled, windowStart, windowEnd, windowIntervalMin, outside}`；
+- `POST /api/auto-read/now`：立即检查全部已选好友（即使开关关闭，用于测试），并重置下一次时间。
 
-- 「只试选片」：只调搜索接口选一条视频，不发送；
-- 「发送给所选好友」：先自动建会话，再通过纯 HTTP 发送，并写入发送记录（toast `HTTP API (panel)`）。
-
-对应接口：`POST /api/api-session/send {friend, dry}`。
+实际定时由 scheduler 子进程的 5 秒轮询 + `nextAt` 执行，不依赖 `/api/slow` 或排班配置。
 
 ### 选片随机、时效与去重
 

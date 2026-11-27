@@ -153,6 +153,25 @@ function clearBurstState(accountId) {
   deleteAccountSetting(accountId, BURST_STATE_KEY);
 }
 
+// ---------- slow mail (慢递) runtime state ----------
+// One ad-hoc session per account: timing config is frozen inside the state, so the dashboard
+// only writes it on start/stop. Like burstState it is runtime data, not a seeded config field.
+const SLOW_MAIL_STATE_KEY = 'slowMailState';
+
+function getSlowMailState(accountId) {
+  const value = getAccountSetting(accountId, SLOW_MAIL_STATE_KEY, null);
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function saveSlowMailState(accountId, state) {
+  setAccountSetting(accountId, SLOW_MAIL_STATE_KEY, state);
+  return state;
+}
+
+function clearSlowMailState(accountId) {
+  deleteAccountSetting(accountId, SLOW_MAIL_STATE_KEY);
+}
+
 // ---------- accounts ----------
 function getAccount(label) {
   const conn = db.open();
@@ -227,6 +246,64 @@ function getFriendByName(accountId, name) {
   return db.open().prepare('SELECT * FROM friends WHERE account_id = ? AND name = ?').get(accountId, String(name || '').trim()) || null;
 }
 
+// UID is the stable identity; names are display labels and may change on Douyin. These helpers
+// let the mutual-list sync keep a friend row current without ever matching by nickname alone.
+function getFriendByUid(accountId, userid) {
+  const uid = String(userid || '').trim();
+  if (!uid) return null;
+  return db.open().prepare('SELECT * FROM friends WHERE account_id = ? AND userid = ?').get(accountId, uid) || null;
+}
+
+function updateFriendName(accountId, friendId, name) {
+  const clean = String(name || '').trim();
+  if (!clean) throw new Error('好友昵称不能为空');
+  db.open().prepare('UPDATE friends SET name = ? WHERE id = ? AND account_id = ?').run(clean, friendId, accountId);
+  syncAccountFriend(accountId);
+  return true;
+}
+
+function setFriendUserid(accountId, friendId, userid) {
+  db.open().prepare('UPDATE friends SET userid = ? WHERE id = ? AND account_id = ?')
+    .run(String(userid || '').trim(), friendId, accountId);
+  return true;
+}
+
+/**
+ * Add/refresh a friend using UID as the key. If the UID already exists, update its display
+ * name (when free); if a name-only row exists, attach the UID instead of creating a duplicate.
+ * A nickname already owned by a different UID is a conflict, never a silent overwrite.
+ */
+function upsertFriendByUid(accountId, name, userid) {
+  const clean = String(name || '').trim();
+  const uid = String(userid || '').trim();
+  if (!clean) throw new Error('好友昵称不能为空');
+  const conn = db.open();
+  if (uid) {
+    const byUid = conn.prepare('SELECT * FROM friends WHERE account_id = ? AND userid = ?').get(accountId, uid);
+    if (byUid) {
+      if (byUid.name !== clean) {
+        const clash = conn.prepare('SELECT id FROM friends WHERE account_id = ? AND name = ? AND id <> ?').get(accountId, clean, byUid.id);
+        if (clash) throw new Error(`昵称「${clean}」已被另一位好友占用`);
+        conn.prepare('UPDATE friends SET name = ? WHERE id = ?').run(clean, byUid.id);
+      }
+      syncAccountFriend(accountId);
+      return listFriends(accountId);
+    }
+    const byName = conn.prepare('SELECT * FROM friends WHERE account_id = ? AND name = ?').get(accountId, clean);
+    if (byName) {
+      const oldUid = String(byName.userid || '').trim();
+      if (!oldUid) {
+        conn.prepare('UPDATE friends SET userid = ? WHERE id = ?').run(uid, byName.id);
+        syncAccountFriend(accountId);
+        return listFriends(accountId);
+      }
+      if (oldUid === uid) return listFriends(accountId);
+      throw new Error(`昵称「${clean}」已被另一位好友占用（UID 不同）`);
+    }
+  }
+  return addFriend(accountId, clean, uid);
+}
+
 function setFriendEnabled(accountId, friendId, enabled) {
   db.open()
     .prepare('UPDATE friends SET enabled = ? WHERE id = ? AND account_id = ?')
@@ -237,6 +314,71 @@ function setFriendEnabled(accountId, friendId, enabled) {
 function removeFriend(accountId, friendId) {
   db.open().prepare('DELETE FROM friends WHERE id = ? AND account_id = ?').run(friendId, accountId);
   syncAccountFriend(accountId);
+}
+
+function batchAddFriends(accountId, entries = []) {
+  const list = Array.isArray(entries) ? entries : [];
+  const conn = db.open();
+  let added = 0;
+  let skipped = 0;
+  const errors = [];
+  conn.exec('BEGIN');
+  try {
+    for (const item of list) {
+      const name = String((item && item.name) || '').trim();
+      const userid = String((item && (item.userid || item.uid)) || '').trim();
+      if (!name) { skipped++; continue; }
+      try {
+        if (userid) upsertFriendByUid(accountId, name, userid);
+        else addFriend(accountId, name);
+        added++;
+      } catch (e) {
+        errors.push(`${name}: ${(e && e.message) || '添加失败'}`);
+      }
+    }
+    syncAccountFriend(accountId);
+    conn.exec('COMMIT');
+  } catch (e) {
+    conn.exec('ROLLBACK');
+    throw e;
+  }
+  return { added, skipped, failed: errors.length, errors, friends: listFriends(accountId) };
+}
+
+const RUNTIME_SETTING_KEYS = new Set([
+  BURST_STATE_KEY,
+  SLOW_MAIL_STATE_KEY,
+  'autoReadState',
+  'slowMailFriend',
+  'slowMailFriendUid',
+  'autoReadFriends',
+  'autoReadEnabled',
+]);
+
+function copyAccountConfig(fromAccountId, toAccountId) {
+  if (fromAccountId === toAccountId) return { copiedSettings: 0, copiedPools: 0 };
+  const settings = listAccountSettings(fromAccountId);
+  const pools = listAccountPools(fromAccountId);
+  const conn = db.open();
+  let copiedSettings = 0;
+  let copiedPools = 0;
+  conn.exec('BEGIN');
+  try {
+    for (const [name, value] of Object.entries(settings)) {
+      if (RUNTIME_SETTING_KEYS.has(name)) continue;
+      setAccountSetting(toAccountId, name, value);
+      copiedSettings++;
+    }
+    for (const p of pools) {
+      setAccountPoolEnabled(toAccountId, p.name, !!p.enabled);
+      copiedPools++;
+    }
+    conn.exec('COMMIT');
+  } catch (e) {
+    conn.exec('ROLLBACK');
+    throw e;
+  }
+  return { copiedSettings, copiedPools };
 }
 
 // keep accounts.friend as a compatibility default (first enabled friend)
@@ -376,6 +518,54 @@ function insertSend(s) {
     );
 }
 
+function buildSendWhere({ accountId = null, bucket = '', ok = null, search = '' } = {}) {
+  const where = [];
+  const params = [];
+  if (accountId != null) { where.push('account_id = ?'); params.push(accountId); }
+  const b = String(bucket || '').trim();
+  if (b) { where.push('bucket = ?'); params.push(b); }
+  if (ok === true || ok === 1) { where.push('ok = 1'); }
+  else if (ok === false || ok === 0) { where.push('ok = 0'); }
+  const q = String(search || '').trim().toLowerCase();
+  if (q) {
+    const like = `%${q}%`;
+    where.push('(LOWER(title) LIKE ? OR LOWER(author) LIKE ? OR LOWER(friend) LIKE ?)');
+    params.push(like, like, like);
+  }
+  return { clause: where.length ? `WHERE ${where.join(' AND ')}` : '', params };
+}
+
+function countSends(filters = {}) {
+  const { clause, params } = buildSendWhere(filters);
+  const row = db.open().prepare(`SELECT COUNT(*) AS c FROM sends ${clause}`).get(...params);
+  return row ? Number(row.c) : 0;
+}
+
+function countSendsByAccount() {
+  const rows = db.open().prepare('SELECT account_id, COUNT(*) AS c FROM sends GROUP BY account_id').all();
+  const out = {};
+  for (const r of rows) out[r.account_id] = Number(r.c);
+  return out;
+}
+
+function querySends({ accountId = null, bucket = '', ok = null, search = '', limit = 20, offset = 0 } = {}) {
+  const { clause, params } = buildSendWhere({ accountId, bucket, ok, search });
+  const safeLimit = Math.min(5000, Math.max(1, Math.round(Number(limit) || 20)));
+  const safeOffset = Math.max(0, Math.round(Number(offset) || 0));
+  const rows = db.open()
+    .prepare(`SELECT * FROM sends ${clause} ORDER BY ts DESC LIMIT ? OFFSET ?`)
+    .all(...params, safeLimit, safeOffset);
+  return rows.map((r) => ({ ...r, ok: !!r.ok }));
+}
+
+function listSendBuckets(accountId = null) {
+  const conn = db.open();
+  const rows = accountId != null
+    ? conn.prepare("SELECT DISTINCT bucket FROM sends WHERE account_id = ? AND bucket <> '' ORDER BY bucket").all(accountId)
+    : conn.prepare("SELECT DISTINCT bucket FROM sends WHERE bucket <> '' ORDER BY bucket").all();
+  return rows.map((r) => r.bucket).filter(Boolean);
+}
+
 function listSends({ accountId = null, limit = 100 } = {}) {
   const conn = db.open();
   const sql = accountId
@@ -445,12 +635,16 @@ module.exports = {
   getSetting, setSetting,
   getAccountSetting, setAccountSetting, listAccountSettings, hasAccountSetting, deleteAccountSetting,
   getBurstState, saveBurstState, clearBurstState,
+  getSlowMailState, saveSlowMailState, clearSlowMailState,
   seedAccountDefaults, deriveDailyTotal, DEFAULT_ACCOUNT_SETTINGS,
   getAccount, upsertAccount, updateAccountDisplayName, listAccounts, setAccountEnabled,
-  listFriends, listEnabledFriendNames, addFriend, getFriendByName, setFriendEnabled, removeFriend, syncAccountFriend,
+  listFriends, listEnabledFriendNames, addFriend, getFriendByName, getFriendByUid,
+  updateFriendName, setFriendUserid, upsertFriendByUid,
+  setFriendEnabled, removeFriend, batchAddFriends, copyAccountConfig, syncAccountFriend,
   listPools, seedPools, setPoolEnabled, addPool, listAccountPools, setAccountPoolEnabled,
   listBands, replaceBands,
   getPlan, savePlan,
-  insertSend, listSends, countSendsByDay, friendSendCounts, listRecentSentVideos, bucketStats,
+  insertSend, listSends, countSends, countSendsByAccount, querySends, listSendBuckets,
+  countSendsByDay, friendSendCounts, listRecentSentVideos, bucketStats,
   logEvent, listEvents,
 };

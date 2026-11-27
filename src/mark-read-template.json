@@ -1,0 +1,15 @@
+{
+  "note": "1:1 mark_read request template captured from a real web client; cookies are not included and must be supplied by the account session.",
+  "url": "https://imapi.douyin.com/v3/conversation/mark_read",
+  "headers": {
+    "sec-ch-ua-platform": "\"macOS\"",
+    "referer": "https://www.douyin.com/",
+    "accept-language": "zh-CN",
+    "sec-ch-ua": "\"Chromium\";v=\"158\", \"Not.A/Brand\";v=\"24\", \"Google Chrome\";v=\"158\"",
+    "sec-ch-ua-mobile": "?0",
+    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.0.0 Safari/537.36",
+    "accept": "application/x-protobuf",
+    "content-type": "application/x-protobuf"
+  },
+  "bodyB64": "CNIPEJhOGgUwLjEuOCIAKAMwAToYMGQ1MDkzNTpmZWF0L3BjLWltLWdyb3VwQk3iJUoKJTA6MToyODkyMTQzMzQ1NTY1MDk3OjMwNjgwNzE5ODA4MjcxNDgQqISCurWshIRrGAEg8OLE+5yk/AIoADAAOAdAAVoECDIQAEoBMFoJZG91eWluX3BjcgYzNjAwMDB6EwoLc2Vzc2lvbl9haWQSBDYzODN6EAoLc2Vzc2lvbl9kaWQSATB6FQoIYXBwX25hbWUSCWRvdXlpbl9wY3oVCg9wcmlvcml0eV9yZWdpb24SAmNueoMBCgp1c2VyX2FnZW50EnVNb3ppbGxhLzUuMCAoTWFjaW50b3NoOyBJbnRlbCBNYWMgT1MgWCAxMF8xNV83KSBBcHBsZVdlYktpdC81MzcuMzYgKEtIVE1MLCBsaWtlIEdlY2tvKSBDaHJvbWUvMTU4LjAuMC4wIFNhZmFyaS81MzcuMzZ6FgoOY29va2llX2VuYWJsZWQSBHRydWV6GQoQYnJvd3Nlcl9sYW5ndWFnZRIFemgtQ056HAoQYnJvd3Nlcl9wbGF0Zm9ybRIITWFjSW50ZWx6FwoMYnJvd3Nlcl9uYW1lEgdNb3ppbGxheoABCg9icm93c2VyX3ZlcnNpb24SbTUuMCAoTWFjaW50b3NoOyBJbnRlbCBNYWMgT1MgWCAxMF8xNV83KSBBcHBsZVdlYktpdC81MzcuMzYgKEtIVE1MLCBsaWtlIEdlY2tvKSBDaHJvbWUvMTU4LjAuMC4wIFNhZmFyaS81MzcuMzZ6FgoOYnJvd3Nlcl9vbmxpbmUSBHRydWV6FAoMc2NyZWVuX3dpZHRoEgQxMjgwehQKDXNjcmVlbl9oZWlnaHQSAzg2MHoLCgdyZWZlcmVyEgB6HgoNdGltZXpvbmVfbmFtZRINQXNpYS9TaGFuZ2hhaXoNCghkZXZpY2VJZBIBMHoNCghpcy1yZXRyeRIBMJABAaoBCmRvdXlpbl93ZWKyAQd3ZWJfc2Rr"
+}

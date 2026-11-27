@@ -115,6 +115,12 @@ test('gapMs stays inside the range and never shorter than the previous video', (
   assert.equal(short.gapMs, 10000);
   const fallback = burst.gapMs({ minSec: 10, maxSec: 20, prevDurationMs: 0, fallbackSec: 35, random: () => 0 });
   assert.equal(fallback.gapMs, 35000);
+  const buffered = burst.gapMs({ minSec: 10, maxSec: 50, prevDurationMs: 42000, bufferSec: 5, random: () => 0 });
+  assert.equal(buffered.gapMs, 47000);
+  assert.equal(buffered.referenceMs, 47000);
+  assert.equal(buffered.bufferMs, 5000);
+  const bufferedFallback = burst.gapMs({ minSec: 10, maxSec: 20, prevDurationMs: 0, fallbackSec: 35, bufferSec: 5, random: () => 0 });
+  assert.equal(bufferedFallback.gapMs, 40000);
 });
 
 test('freshState creates one trigger per point and resolves random times', () => {

@@ -329,7 +329,7 @@ src/ai/
 
 | 位置 | 改动 |
 |---|---|
-| `scheduler.sendOne` / 快速发送 | 在确定性过滤之后调用 `ranker`；AI 失败不阻塞发送 |
+| `scheduler.sendOne`（排班 / 慢递） | 在确定性过滤之后调用 `ranker`；AI 失败不阻塞发送 |
 | `src/dashboard.js` | 增加 `/api/ai/status`、`/api/ai/config-draft`、`/api/ai/assistant`；只读/草案接口 |
 | `src/page.html` | 配置页「AI」折叠区；助手入口；AI 状态/回退计数 |
 | `schema/` | 可选 `ai_cache(aweme_id, kind, model, result_json, created_at)`；或复用 `events` |

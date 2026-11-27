@@ -100,6 +100,15 @@ function canSendTo(session, friend) {
   return Array.isArray(session.friends) && session.friends.some((f) => f.name === friend);
 }
 
+/** UID-first capability check; the captured friend name may be stale after a rename. */
+function canSendToUid(session, userid) {
+  if (!session) return false;
+  const uid = String(userid || '').trim();
+  if (!uid) return false;
+  const list = Array.isArray(session.friends) ? session.friends : [];
+  return list.some((f) => String((f && (f.userid || f.uid)) || '').trim() === uid);
+}
+
 /**
  * @returns {{valid:boolean, reason?:string, ageHours:number|null}}
  * Pass friend only to require that specific recipient; omit it for a general session check.
@@ -127,6 +136,7 @@ module.exports = {
   clearLegacy,
   status,
   canSendTo,
+  canSendToUid,
   ageHours,
   DEFAULT_MAX_AGE_HOURS,
 };

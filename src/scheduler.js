@@ -8,11 +8,14 @@ const path = require('path');
 const env = require('./env');
 const repos = require('./repos');
 const burstPlanner = require('./burst');
+const slowMail = require('./slow-mail');
 const scheduleConfig = require('./schedule');
 const { chooseKeyword } = require('./pools');
 const picker = require('./picker');
 const apiSender = require('./api-sender');
 const apiSession = require('./api-session');
+const apiRead = require('./api-read');
+const autoRead = require('./auto-read');
 const friendPicker = require('./friend-picker');
 const videoPicker = require('./video-picker');
 const aiRanker = require('./ai/ranker');
@@ -72,10 +75,8 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
   const ageEnabledRaw = repos.getAccountSetting(acc.id, 'filterAgeEnabled', true);
   cfg.ageEnabled = !(ageEnabledRaw === false || ageEnabledRaw === 0 || ageEnabledRaw === '0' || ageEnabledRaw === 'false');
   cfg.poolDelayMs = repos.getAccountSetting(acc.id, 'poolDelayMs', 2500);
-  // 'auto' = try the pure-HTTP path first, fall back to the browser (pool source only);
-  // 'browser' = old behavior. Recommendation source is API-only.
-  const sendMode = repos.getAccountSetting(acc.id, 'sendMode', 'auto');
-  cfg.sendMode = sendMode === 'browser' ? 'browser' : 'auto';
+  // Pure-API only: browser sending and fallback have been removed.
+  cfg.sendMode = 'api';
   const videoSource = repos.getAccountSetting(acc.id, 'videoSource', 'pool');
   cfg.videoSource = videoSource === 'recommend' ? 'recommend' : 'pool';
   cfg.aiMode = repos.getAccountSetting(acc.id, 'aiMode', 'off');
@@ -83,6 +84,8 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
   cfg.naturalShare = naturalRaw === true || naturalRaw === 1 || naturalRaw === '1' || naturalRaw === 'true';
   const naturalTextRaw = repos.getAccountSetting(acc.id, 'naturalText', true);
   cfg.naturalText = !(naturalTextRaw === false || naturalTextRaw === 0 || naturalTextRaw === '0' || naturalTextRaw === 'false');
+  const dailyReadRaw = repos.getAccountSetting(acc.id, 'dailyReadEnabled', '1');
+  cfg.dailyReadEnabled = !(dailyReadRaw === false || dailyReadRaw === 0 || dailyReadRaw === '0' || dailyReadRaw === 'false');
   cfg.friendRows = repos
     .listFriends(acc.id)
     .filter((f) => f.enabled)
@@ -96,15 +99,20 @@ function runtimeConfig(accountLabel = process.env.ACCOUNT || null) {
 const baseOf = (cfg) => `http://127.0.0.1:${cfg.port}`;
 
 // Rotate friends by their successful sends today: everyone gets a turn before anyone gets
-// a second message. When all friends have been used, another evenly spread round starts.
-function chooseFriendToday(cfg, names) {
+// a second message. A row carries the stable UID; the name is only the display label.
+function chooseFriendToday(cfg, rows) {
+  const list = (Array.isArray(rows) ? rows : [])
+    .map((row) => (typeof row === 'string' ? { name: row, userid: '' } : row))
+    .filter((row) => row && row.name);
+  if (!list.length) return null;
   const last = repos.listSends({ accountId: cfg.accountId, limit: 1 })[0];
-  return friendPicker.chooseFriend(
-    names,
+  const picked = friendPicker.chooseFriend(
+    list.map((row) => row.name),
     repos.friendSendCounts(cfg.accountId, ymd(new Date())),
     Math.random,
     last && last.friend
   );
+  return list.find((row) => row.name === picked) || null;
 }
 
 function recentVideoHistory(accountId) {
@@ -304,6 +312,8 @@ async function apiNaturalAttempt(cfg, { session, friend, toUserId, source, pool,
   return {
     ok: true, natural: true, api: true, source, bucket: picked.bucket, title: sent[0].title, friend,
     toast: 'HTTP API · 自然分享', serverMessageId: sent[0].serverMessageId,
+    conversationId: conversation.conversationId || null,
+    conversationShortId: conversation.conversationShortId || null,
     videos: sent, messages: sentMessages, durationMs: sent[sent.length - 1].durationMs,
   };
 }
@@ -317,33 +327,30 @@ async function apiNaturalAttempt(cfg, { session, friend, toUserId, source, pool,
 async function apiAttempt(cfg, { dryRun = false } = {}) {
   const source = cfg.videoSource === 'recommend' ? 'recommend' : 'pool';
   const apiOnly = source === 'recommend';
-  const fail = (error) => apiOnly ? { ok: false, error, source, noFallback: true } : null;
-  if (cfg.sendMode === 'browser') {
-    return fail('推荐源只支持纯 API：请把该账户的发送模式切到「纯 API 优先」');
-  }
+  const fail = (error, code = '') => ({ ok: false, error: error || '纯 API 发送失败', source, noFallback: true, code });
   const session = apiSession.load(cfg.accountLabel);
   const state = apiSession.status(session, null);
   if (!state.valid) {
     if (session) repos.logEvent('api-session-invalid', { account: cfg.accountLabel, reason: state.reason, ageHours: state.ageHours });
-    return fail(`纯 API 会话不可用：${state.reason}`);
+    return fail(`纯 API 会话不可用：${state.reason}`, 'session');
   }
   const rows = (cfg.friendRows || [])
     .map((row) => ({
       ...row,
-      apiCapable: !!row.userid || apiSession.canSendTo(session, row.name),
+      apiCapable: !!row.userid || apiSession.canSendToUid(session, row.userid) || apiSession.canSendTo(session, row.name),
     }))
     .filter((row) => row.apiCapable);
   if (!rows.length) {
     repos.logEvent('api-fallback-friend', { account: cfg.accountLabel, friends: cfg.friends });
-    return fail('没有可用于纯 API 的收件人（好友不在会话里且没有 userid）');
+    return fail('没有可用于纯 API 的收件人（好友不在会话里且没有 userid）', 'friend');
   }
-  const apiNames = rows.map((row) => row.name);
-  const picked = chooseFriendToday(cfg, apiNames);
-  if (!picked) return fail('没有可用好友');
-  cfg.friend = picked;
-  const row = rows.find((r) => r.name === picked) || rows[0];
+  const picked = chooseFriendToday(cfg, rows);
+  if (!picked) return fail('没有可用好友', 'friend');
+  cfg.friend = picked.name;
+  cfg.friendUserId = picked.userid || '';
+  const row = picked;
   const friend = row.name;
-  const toUserId = row.userid || null;
+  const toUserId = row.userid || cfg.friendUserId || null;
 
   let pool = null;
   if (!apiOnly) {
@@ -429,10 +436,16 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
         source,
       });
       repos.logEvent('sent-api', { account: cfg.accountLabel, pool: bucket, source, friend, title: video.title, serverMessageId: res.serverMessageId });
-      return { ok: true, api: true, source, bucket, title: video.title, friend, toast: 'HTTP API', serverMessageId: res.serverMessageId, durationMs: Number(video.durationMs) || 0 };
+      return {
+        ok: true, api: true, source, bucket, title: video.title, friend, toast: 'HTTP API',
+        serverMessageId: res.serverMessageId,
+        conversationId: res.conversationId || null,
+        conversationShortId: res.conversationShortId || null,
+        durationMs: Number(video.durationMs) || 0,
+      };
     }
     repos.logEvent('api-send-rejected', { source, statusCode: res.statusCode, statusMessage: res.statusMessage, title: video.title, friend });
-    return fail(res.statusMessage || `发送被拒绝（${res.statusCode || res.httpStatus || 'unknown'}）`);
+    return fail(res.statusMessage || `发送被拒绝（${res.statusCode || res.httpStatus || 'unknown'}）`, 'rejected');
   } catch (e) {
     const message = (e.message || '').split('\n')[0];
     repos.logEvent('api-send-error', { source, error: message, friend });
@@ -447,29 +460,25 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
       const f = cfg.metricFilters || {};
       const sw = videoPicker.normalizeFilterSwitches(f, f);
       if ((sw.comments && f.minComments > 0) || (sw.favorites && f.minFavorites > 0) || (sw.shares && f.minShares > 0)) {
-        return { ok: false, error: message, source, noFallback: true };
+        return { ok: false, error: message, source, noFallback: true, code: 'metric-filter' };
       }
     }
-    return fail(apiOnly ? message : null);
+    return fail(message, (e && e.code) || 'send-error');
   }
 }
 
 async function sendOne(cfg, { dryRun = false } = {}) {
-  if (!Array.isArray(cfg.friends) || !cfg.friends.length) return { ok: false, error: 'no friend configured' };
-  const picked = chooseFriendToday(cfg, cfg.friends);
-  if (picked) cfg.friend = picked;
+  if (!Array.isArray(cfg.friends) || !cfg.friends.length) return { ok: false, error: 'no friend configured', code: 'no-friend' };
+  const rows = (Array.isArray(cfg.friendRows) && cfg.friendRows.length)
+    ? cfg.friendRows
+    : cfg.friends.map((name) => ({ name, userid: '' }));
+  const picked = chooseFriendToday(cfg, rows);
+  if (picked) {
+    cfg.friend = picked.name;
+    cfg.friendUserId = picked.userid || '';
+  }
   const api = await apiAttempt(cfg, { dryRun });
-  if (api) return api;
-  if (cfg.videoSource === 'recommend') {
-    return { ok: false, error: '推荐源只支持纯 API，未启动浏览器', source: 'recommend', noFallback: true };
-  }
-  const startedHere = !(await serverUp(cfg));
-  if (startedHere && !(await startServer(cfg))) return { ok: false, error: 'server failed' };
-  try {
-    return await sendOneBrowser(cfg, { dryRun });
-  } finally {
-    if (startedHere) await stopServer(cfg);
-  }
+  return api || { ok: false, error: '纯 API 发送失败（已移除浏览器回退）', noFallback: true, code: 'api-only' };
 }
 
 async function sendOneBrowser(cfg, { dryRun = false } = {}) {
@@ -478,7 +487,7 @@ async function sendOneBrowser(cfg, { dryRun = false } = {}) {
   const health = await serverUp(cfg);
   if (health && health.challenge) {
     repos.logEvent('captcha-blocked', { port: cfg.port, url: health.url });
-    return { ok: false, error: 'captcha' };
+    return { ok: false, error: 'captcha', code: 'captcha' };
   }
   const history = recentVideoHistory(cfg.accountId);
   const outcome = await picker.pick({
@@ -497,21 +506,22 @@ async function sendOneBrowser(cfg, { dryRun = false } = {}) {
       const desc = videoPicker.describeMetricFilters(cfg.metricFilters);
       return {
         ok: false,
+        code: 'metric-filter',
         error: `没有达到互动指标（${desc}）的候选；浏览器回退只能校验点赞数，请改用纯 API`,
         metricFiltered: outcome.metricFiltered,
       };
     }
-    return { ok: false, error: 'no candidate' };
+    return { ok: false, error: 'no candidate', code: 'no-candidate' };
   }
   const opened = await picker.open(base, target);
-  if (!opened.ok) return { ok: false, error: opened.error, title: target.title };
+  if (!opened.ok) return { ok: false, error: opened.error, title: target.title, code: 'open-failed' };
 
   await fetch(base + '/openshare', { method: 'POST' }).then((r) => r.json()).catch(() => ({}));
   if (dryRun) {
     const check = await fetch(base + '/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: cfg.friend, confirm: false }),
+      body: JSON.stringify({ name: cfg.friend, userid: cfg.friendUserId || '', confirm: false }),
     }).then((r) => r.json());
     return { ok: !!check.ok, dryRun: true, title: target.title, check, durationMs: Number(target.durationMs) || 0 };
   }
@@ -519,9 +529,10 @@ async function sendOneBrowser(cfg, { dryRun = false } = {}) {
   const res = await fetch(base + '/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: cfg.friend, confirm: true }),
+    body: JSON.stringify({ name: cfg.friend, userid: cfg.friendUserId || '', confirm: true }),
   }).then((r) => r.json());
 
+  const sentFriend = (res && res.target && res.target.name) || cfg.friend;
   const ts = new Date().toISOString();
   repos.insertSend({
     accountId: cfg.accountId,
@@ -531,14 +542,14 @@ async function sendOneBrowser(cfg, { dryRun = false } = {}) {
     title: target.title,
     author: target.author,
     likes: target.likes,
-    friend: cfg.friend,
+    friend: sentFriend,
     ok: !!(res && res.ok),
     toast: (res && (res.toast || res.error)) || '',
     shot: res && res.shot ? path.basename(res.shot) : null,
     videoId: (opened.url.match(/modal_id=(\d+)/) || [])[1] || null,
     source: 'pool',
   });
-  return { ...res, durationMs: Number(target.durationMs) || 0 };
+  return { ...res, friend: sentFriend, durationMs: Number(target.durationMs) || 0 };
 }
 
 function accountEnabled(cfg) {
@@ -591,6 +602,33 @@ function scheduleResult(state, extra = {}) {
   return { ...summary, ok: true, done: state.status === 'done', status: state.status, ...extra };
 }
 
+// Daily plan read receipts are best-effort and independent: one call after every successful
+// pure-API send. The slow-mail lane owns its own periodic read loop.
+async function markDailyRead(cfg, res) {
+  if (cfg.dailyReadEnabled === false) return null;
+  if (!res || !res.ok || !res.conversationId || !res.conversationShortId) return null;
+  // mark_read is the 1:1 template; a group conversation (0:2:...) must not be touched.
+  if (!/^0:1:/.test(String(res.conversationId))) return null;
+  let out;
+  try {
+    out = await apiRead.markConversationRead(apiSession.load(cfg.accountLabel), {
+      conversationId: res.conversationId,
+      conversationShortId: res.conversationShortId,
+      conversationType: 1,
+      readIndex: apiRead.READ_INDEX,
+    });
+  } catch (e) {
+    out = { ok: false, error: e.message || '已读请求失败' };
+  }
+  repos.logEvent(out.ok ? 'daily-read' : 'daily-read-fail', {
+    account: cfg.accountLabel,
+    friend: res.friend || '',
+    conversationId: res.conversationId,
+    ...(out.ok ? {} : { error: out.error }),
+  });
+  return out;
+}
+
 async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15000 } = {}) {
   const nowMs = () => now().getTime();
   const stored = repos.getBurstState(cfg.accountId);
@@ -610,6 +648,9 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
     const at = now();
     if (ymd(at) !== day) return scheduleResult(state, { dayChanged: true });
     if (!accountEnabled(cfg)) return scheduleResult(state, { paused: true });
+    if (slowMail.isLive(repos.getSlowMailState(cfg.accountId))) {
+      return scheduleResult(state, { slowPending: true });
+    }
 
     // Re-read the account config on every step so pause/edit takes effect mid-run.
     const latest = refreshConfig(cfg);
@@ -678,8 +719,9 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
     }
     if (t < Number(point.nextAt)) {
       const left = Number(point.nextAt) - t;
-      // poll often near the target, lazily far away (config edits are still picked up)
-      const chunk = left > 60000 ? 30000 : Math.min(5000, Math.max(250, left));
+      // Poll every few seconds even far from the target: a slow-mail start must be picked up
+      // within ~3s, and config edits are still cheap local reads.
+      const chunk = Math.min(3000, Math.max(250, left));
       if (!(await interruptibleWait(chunk, cfg))) return scheduleResult(state, { paused: true });
       continue;
     }
@@ -754,6 +796,7 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
       floored: gapInfo ? gapInfo.floored : null,
       nextAt: point.nextAt ? new Date(point.nextAt).toISOString() : null,
     });
+    await markDailyRead(cfg, res);
     if (state.status === 'done') {
       repos.logEvent('schedule-done', { account: cfg.accountLabel, day, sent: state.sent, total: burstPlanner.counts(state).total });
       return scheduleResult(state);
@@ -761,18 +804,467 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
   }
 }
 
+// ---------- 慢递 (ad-hoc slow-mail session) ----------
+// One long-lived session that preempts the daily plan. It reuses sendOne (dedupe/AI/filters/
+// friend checks) and only owns the clock: random gap, video-duration + buffer floor, deadline.
+
+function slowSessionCfg(cfg, state) {
+  const rows = cfg.friendRows || [];
+  const uid = String(state.friendUid || '').trim();
+  const row = (uid && rows.find((f) => String(f.userid || '') === uid))
+    || rows.find((f) => f.name === state.friend);
+  if (!row) {
+    const err = new Error(`好友「${state.friend}」已被停用或删除`);
+    err.code = 'friend';
+    throw err;
+  }
+  return {
+    ...cfg,
+    friend: row.name,
+    friendUserId: row.userid || uid || '',
+    slowFriendName: row.name,
+    slowFriendUid: row.userid || uid || '',
+    friends: [row.name],
+    friendRows: [row],
+    naturalShare: false,
+  };
+}
+
+// A dashboard stop is a newer revision. Never let a send result overwrite it back to running.
+function persistSlow(cfg, state) {
+  const prev = repos.getSlowMailState(cfg.accountId);
+  if (prev && prev.updatedAt && state.updatedAt
+    && prev.updatedAt > state.updatedAt && !slowMail.isLive(prev)) {
+    return prev;
+  }
+  if (!prev || JSON.stringify(prev) !== JSON.stringify(state)) repos.saveSlowMailState(cfg.accountId, state);
+  return state;
+}
+
+// Daily triggers that would fire inside the window step aside. Points after the window keep
+// their schedule; already settled points are untouched. Idempotent across scheduler restarts.
+function preemptDaily(cfg, endsAt, nowMs) {
+  const day = ymd(new Date(nowMs));
+  const state = repos.getBurstState(cfg.accountId);
+  if (!state || state.day !== day || !Array.isArray(state.points)) return [];
+  const deferred = [];
+  for (const point of state.points) {
+    if (!point || (point.status !== 'pending' && point.status !== 'running')) continue;
+    const ref = Number(point.sent) > 0 ? Number(point.nextAt) : Number(point.startAt);
+    if (!(ref > 0) || ref >= endsAt) continue;
+    point.status = 'skipped';
+    point.nextAt = null;
+    point.lastError = 'slow-mail';
+    deferred.push(burstPlanner.triggerLabel(point) + 'x' + point.count);
+  }
+  if (!deferred.length) return [];
+  burstPlanner.settleState(state);
+  state.updatedAt = new Date(nowMs).toISOString();
+  repos.saveBurstState(cfg.accountId, state);
+  repos.logEvent('slow-preempt', {
+    account: cfg.accountLabel, day, endsAt: new Date(endsAt).toISOString(),
+    points: deferred, count: deferred.length,
+  });
+  return deferred;
+}
+
+function pauseSlowIfNeeded(cfg) {
+  const state = repos.getSlowMailState(cfg.accountId);
+  if (!state || (state.status !== 'running' && state.status !== 'pending')) return false;
+  const paused = slowMail.pause(state, Date.now());
+  if (paused === state) return false;
+  repos.saveSlowMailState(cfg.accountId, paused);
+  repos.logEvent('slow-paused', {
+    account: cfg.accountLabel, sessionId: paused.id, sent: paused.sent, reason: 'account-paused',
+  });
+  return true;
+}
+
+function classifyFailure(res) {
+  const error = String((res && (res.error || res.reason)) || '');
+  const code = String((res && res.code) || '');
+  if (code === 'captcha' || error === 'captcha' || /验证码|人机验证|captcha/i.test(error)) return 'blocked';
+  if (code === 'session' || (/会话/.test(error) && /(失效|不可用|过期|invalid|missing)/i.test(error))) return 'blocked';
+  if (code === 'friend' || code === 'no-friend' || /好友.*(停用|删除|不可用)|收件人|no friend/i.test(error)) return 'blocked';
+  if (code === 'config' || /只支持纯 API|推荐源只支持/i.test(error)) return 'blocked';
+  if (code === 'no-fresh-candidate' || code === 'no-candidate'
+    || /候选都已发送过|没有新的候选|no candidate|没有可用候选|dedup-exhausted/i.test(error)) return 'exhausted';
+  return 'retry';
+}
+
+function blockedSlow(cfg, state, nowMs, message) {
+  const blocked = slowMail.block(state, nowMs, message);
+  const saved = persistSlow(cfg, blocked);
+  repos.logEvent('slow-blocked', {
+    account: cfg.accountLabel, sessionId: blocked.id, sent: blocked.sent, error: message,
+  });
+  return { ok: false, status: saved.status, error: message, sent: saved.sent };
+}
+
+function logSlowTerminal(cfg, state, extra = {}) {
+  const event = state.status === 'blocked' ? 'slow-blocked'
+    : state.status === 'exhausted' ? 'slow-exhausted'
+      : state.status === 'expired' ? 'slow-expired'
+        : state.status === 'stopped' ? 'slow-stop'
+          : 'slow-done';
+  repos.logEvent(event, {
+    account: cfg.accountLabel, sessionId: state.id, sent: state.sent,
+    reason: state.doneReason, error: state.lastError, ...extra,
+  });
+}
+
+/**
+ * Drive one slow-mail session. Injected `now`/`send`/`wait`/`random` keep the integration test
+ * off the network and off real sleeps. Returns when the session reaches a terminal state,
+ * pauses, or the dashboard stops it.
+ */
+const SLOW_READ_EVERY_MS = 45 * 1000;
+const SLOW_READ_LOG_MS = 10 * 60 * 1000;
+
+// Best-effort read receipt. It never blocks or aborts the session: a failed read only updates
+// the session's readError and emits a throttled event. `readFn` is injectable for tests.
+async function markSlowRead(cfg, state, nowMs, readFn = apiRead.markConversationRead) {
+  if (!state || state.readEnabled === false) return state;
+  if (!state.conversationId || !state.conversationShortId) return state;
+  if (!/^0:1:/.test(String(state.conversationId))) return state;
+  const at = Number(nowMs) || Date.now();
+  const session = apiSession.load(cfg.accountLabel);
+  let res;
+  try {
+    res = await readFn(session, {
+      conversationId: state.conversationId,
+      conversationShortId: state.conversationShortId,
+      conversationType: 1,
+      readIndex: apiRead.READ_INDEX,
+    });
+  } catch (e) {
+    res = { ok: false, error: e.message || '已读请求失败' };
+  }
+  const previous = { ...state };
+  const next = {
+    ...state,
+    lastReadAt: at,
+    lastReadOk: !!res.ok,
+    readError: res.ok ? '' : (res.error || '已读失败'),
+    updatedAt: new Date(at).toISOString(),
+  };
+  let saved = persistSlow(cfg, next);
+  const changed = previous.lastReadOk !== !!res.ok;
+  const dueLog = !previous.lastReadEventAt || at - Number(previous.lastReadEventAt) >= SLOW_READ_LOG_MS;
+  if (res.ok && (changed || dueLog)) {
+    repos.logEvent('slow-read', {
+      account: cfg.accountLabel, sessionId: saved.id,
+      conversationId: saved.conversationId, readIndex: apiRead.READ_INDEX,
+    });
+    saved = persistSlow(cfg, { ...saved, lastReadEventAt: at });
+  } else if (!res.ok && (changed || dueLog)) {
+    repos.logEvent('slow-read-fail', {
+      account: cfg.accountLabel, sessionId: saved.id, error: saved.readError,
+    });
+    saved = persistSlow(cfg, { ...saved, lastReadEventAt: at });
+  }
+  return saved;
+}
+
+async function runSlowMail(cfg, initial, opts = {}) {
+  const now = opts.now || (() => new Date());
+  const send = opts.send || sendOne;
+  const wait = opts.wait || interruptibleWait;
+  const random = opts.random || Math.random;
+  const read = opts.read || apiRead.markConversationRead;
+  const readEveryMs = opts.readEveryMs == null
+    ? SLOW_READ_EVERY_MS
+    : Math.max(5000, Number(opts.readEveryMs) || SLOW_READ_EVERY_MS);
+  const retryDelayMs = opts.retryDelayMs == null ? 15000 : Math.max(0, Number(opts.retryDelayMs) || 0);
+  const nowMs = () => Number(now().getTime());
+  let state = initial;
+  let browserOwned = false;
+  let startLogged = false;
+
+  if (!state || !slowMail.isLive(state)) return { ok: true, status: state && state.status, sent: state && state.sent };
+  preemptDaily(cfg, state.endsAt, nowMs());
+
+  try {
+    for (;;) {
+      const t = nowMs();
+
+      if (!accountEnabled(cfg)) {
+        const paused = slowMail.pause(state, t);
+        if (paused !== state) {
+          state = persistSlow(cfg, paused);
+          repos.logEvent('slow-paused', {
+            account: cfg.accountLabel, sessionId: state.id, sent: state.sent, reason: 'account-paused',
+          });
+        }
+        return { ok: true, status: state.status, sent: state.sent };
+      }
+
+      // A panel stop (or a defensive newer state) wins over our local progress.
+      const stored = repos.getSlowMailState(cfg.accountId);
+      if (stored && stored.updatedAt !== state.updatedAt) {
+        const next = slowMail.reconcile(stored, { nowMs: t });
+        if (!slowMail.isLive(next)) {
+          state = next;
+          if (state.status === 'stopped') logSlowTerminal(cfg, state, { by: 'panel' });
+          else logSlowTerminal(cfg, state);
+          return { ok: true, status: state.status, sent: state.sent };
+        }
+        state = next;
+      }
+
+      let latest;
+      try {
+        latest = runtimeConfig(cfg.accountLabel);
+      } catch (e) {
+        return blockedSlow(cfg, state, t, `账户配置不可用：${e.message.split('\n')[0]}`);
+      }
+      let sessionCfg;
+      try {
+        sessionCfg = slowSessionCfg(latest, state);
+      } catch (e) {
+        return blockedSlow(cfg, state, t, e.message);
+      }
+      cfg = latest;
+
+      // A rename is harmless: the UID found the row, now refresh the display name on the state.
+      if (sessionCfg.slowFriendName && sessionCfg.slowFriendName !== state.friend) {
+        state = persistSlow(cfg, {
+          ...state,
+          friend: sessionCfg.slowFriendName,
+          friendUid: sessionCfg.slowFriendUid || state.friendUid || '',
+          updatedAt: new Date(t).toISOString(),
+        });
+        if (!slowMail.isLive(state)) {
+          logSlowTerminal(cfg, state);
+          return { ok: true, status: state.status, sent: state.sent };
+        }
+      }
+
+      // pending -> running, or close the window if it already passed while we were down.
+      const reconciled = slowMail.reconcile(state, { nowMs: t });
+      if (reconciled !== state) {
+        state = persistSlow(cfg, reconciled);
+        if (!slowMail.isLive(state)) {
+          logSlowTerminal(cfg, state);
+          return { ok: true, status: state.status, sent: state.sent };
+        }
+      }
+      if (!startLogged && state.status === 'running' && !Number(state.sent) && !Number(state.failed)) {
+        startLogged = true;
+        repos.logEvent('slow-start', {
+          account: cfg.accountLabel, sessionId: state.id, friend: state.friend,
+          friendUid: state.friendUid || sessionCfg.friendUserId || '',
+          endsAt: new Date(state.endsAt).toISOString(),
+          durationMin: Math.round((Number(state.endsAt) - Number(state.startedAt)) / 60000),
+          minGapSec: state.minGapSec, maxGapSec: state.maxGapSec,
+          bufferSec: state.bufferSec, maxSends: state.maxSends,
+          readEnabled: state.readEnabled !== false,
+        });
+      }
+
+      if (state.status === 'paused') {
+        const resumed = slowMail.resume(state, t);
+        state = persistSlow(cfg, resumed);
+        if (!slowMail.isLive(state)) {
+          logSlowTerminal(cfg, state);
+          return { ok: true, status: state.status, sent: state.sent };
+        }
+        repos.logEvent('slow-resumed', {
+          account: cfg.accountLabel, sessionId: state.id, sent: state.sent, pausedMs: state.pausedMs,
+        });
+        // The paused duration shifted endsAt; daily points that now fall inside the extended
+        // window also need to step aside, not fire right after the session.
+        preemptDaily(cfg, state.endsAt, t);
+        continue;
+      }
+
+      if (slowMail.isLate(state, t)) {
+        const lateMin = Math.round((t - Number(state.nextAt)) / 60000);
+        const redrawn = slowMail.redrawNext(state, { nowMs: t, random });
+        state = persistSlow(cfg, redrawn.state);
+        repos.logEvent('slow-skip', {
+          account: cfg.accountLabel, sessionId: state.id, reason: 'late-resume', lateMin,
+          gapMs: redrawn.gap ? redrawn.gap.gapMs : null, sent: state.sent,
+        });
+        if (!slowMail.isLive(state)) {
+          logSlowTerminal(cfg, state);
+          return { ok: true, status: state.status, sent: state.sent };
+        }
+        continue;
+      }
+
+      // A read receipt is independent of the next video. Wake at most every 45s so a message
+      // that arrives between two sends is marked read long before the next gap finishes.
+      if (state.readEnabled !== false && state.conversationId && state.conversationShortId
+        && (!state.lastReadAt || t - Number(state.lastReadAt) >= readEveryMs)) {
+        state = await markSlowRead(cfg, state, t, read);
+        if (!slowMail.isLive(state)) {
+          logSlowTerminal(cfg, state);
+          return { ok: true, status: state.status, sent: state.sent };
+        }
+        continue;
+      }
+
+      if (t < Number(state.nextAt)) {
+        const left = Math.min(2000, Number(state.nextAt) - t);
+        if (!(await wait(left, cfg))) continue;
+        continue;
+      }
+
+      const startedAt = nowMs();
+      let res = await send(sessionCfg, { keepBrowser: true }).catch((e) => ({ ok: false, error: e.message, code: e.code }));
+      browserOwned = browserOwned || !!(res && res.browserOwned);
+      let kind = res && res.ok ? '' : classifyFailure(res);
+
+      if (!res || !res.ok) {
+        if (kind !== 'blocked') {
+          repos.logEvent('slow-retry', {
+            account: cfg.accountLabel, sessionId: state.id, sent: state.sent,
+            n: Number(state.sent) + 1,
+            error: (res && (res.error || res.reason)) || 'send failed', kind,
+          });
+          if (!(await wait(retryDelayMs, cfg))) continue;
+          const check = repos.getSlowMailState(cfg.accountId);
+          if (check && check.updatedAt !== state.updatedAt && !slowMail.isLive(check)) {
+            state = check;
+            logSlowTerminal(cfg, state, { by: 'panel' });
+            return { ok: true, status: state.status, sent: state.sent };
+          }
+          let retryCfg = null;
+          try {
+            retryCfg = slowSessionCfg(runtimeConfig(cfg.accountLabel), state);
+          } catch (e) {
+            kind = 'blocked';
+            res = { ok: false, error: e.message, code: 'friend' };
+          }
+          if (retryCfg) {
+            res = await send(retryCfg, { keepBrowser: true }).catch((e) => ({ ok: false, error: e.message, code: e.code }));
+            browserOwned = browserOwned || !!(res && res.browserOwned);
+            kind = res && res.ok ? '' : classifyFailure(res);
+            sessionCfg = retryCfg;
+          }
+        }
+      }
+
+      if (!res || !res.ok) {
+        const at = nowMs();
+        const failed = slowMail.afterFailure(state, {
+          nowMs: at, kind, error: (res && (res.error || res.reason)) || 'send failed',
+        });
+        state = persistSlow(cfg, failed);
+        repos.logEvent('slow-fail', {
+          account: cfg.accountLabel, sessionId: state.id, kind, error: state.lastError,
+          n: Number(state.sent) + 1,
+          failed: state.failed,
+          consecutive: kind === 'exhausted' ? state.consecutiveNoCandidate : state.consecutiveFailures,
+        });
+        if (!slowMail.isLive(state)) {
+          logSlowTerminal(cfg, state);
+          return { ok: false, status: state.status, error: state.lastError, sent: state.sent };
+        }
+        continue;
+      }
+
+      const finished = nowMs();
+      const after = slowMail.afterSend(state, {
+        atMs: startedAt, durationMs: res.durationMs, title: res.title, nowMs: finished, random,
+      });
+      repos.logEvent('slow-send', {
+        account: cfg.accountLabel, sessionId: after.state.id, friend: after.state.friend,
+        friendUid: after.state.friendUid || sessionCfg.friendUserId || '',
+        n: after.state.sent, maxSends: after.state.maxSends,
+        title: res.title || '', durationMs: Math.max(0, Number(res.durationMs) || 0),
+        gapMs: after.gap.gapMs, baseMs: after.gap.baseMs,
+        floorMs: after.gap.referenceMs, floored: after.gap.floored,
+        nextAt: after.nextAt ? new Date(after.nextAt).toISOString() : null,
+      });
+
+      // The panel may have stopped us while the send was in flight. Log the send above, then
+      // honor the newer terminal state instead of resurrecting it.
+      const latestStored = repos.getSlowMailState(cfg.accountId);
+      if (latestStored && latestStored.updatedAt > after.state.updatedAt && !slowMail.isLive(latestStored)) {
+        state = latestStored;
+        logSlowTerminal(cfg, state, { by: 'panel' });
+        return { ok: true, status: state.status, sent: state.sent };
+      }
+      const saved = persistSlow(cfg, {
+        ...after.state,
+        conversationId: res.conversationId || after.state.conversationId || '',
+        conversationShortId: res.conversationShortId || after.state.conversationShortId || '',
+      });
+      state = saved;
+      // Mark read immediately after the send; periodic reads continue while the window runs.
+      if (state.readEnabled !== false && state.conversationId && state.conversationShortId) {
+        state = await markSlowRead(cfg, state, nowMs(), read);
+      }
+      if (!slowMail.isLive(state)) {
+        logSlowTerminal(cfg, state);
+        return { ok: true, status: state.status, sent: state.sent };
+      }
+    }
+  } finally {
+    if (browserOwned) await stopServer(cfg).catch(() => false);
+  }
+}
+
+// The daily loop sleeps 60s when the plan is done; sample the slow state so a click is picked
+// up within a few seconds instead of a minute.
+async function waitForIdle(ms, cfg) {
+  const deadline = Date.now() + Math.max(0, Number(ms) || 0);
+  while (Date.now() < deadline) {
+    if (!accountEnabled(cfg)) return false;
+    if (slowMail.isLive(repos.getSlowMailState(cfg.accountId))) return true;
+    await sleep(Math.min(3000, Math.max(250, deadline - Date.now())));
+  }
+  return accountEnabled(cfg);
+}
+
+// Standalone read receipts run in the per-account scheduler child, independently from the daily
+// plan and slow-mail. A 5s poll only performs the read when the persisted nextAt is due; the next
+// time is a random 10-60 min interval (or a fixed frequency inside the configured window).
+let autoReadTimer = null;
+let autoReadBusy = false;
+
+function startAutoReadLoop() {
+  if (autoReadTimer) return;
+  const tick = async () => {
+    if (!autoReadBusy) {
+      autoReadBusy = true;
+      try {
+        const label = process.env.ACCOUNT || repos.getSetting('activeAccount', null);
+        const acc = label ? repos.getAccount(label) : null;
+        if (acc) await autoRead.tick(acc);
+      } catch (e) {
+        // autoRead.tick records its own state; never let the watcher kill the scheduler.
+      } finally {
+        autoReadBusy = false;
+      }
+    }
+    autoReadTimer = setTimeout(tick, autoRead.POLL_MS);
+  };
+  autoReadTimer = setTimeout(tick, 3000);
+}
+
 async function runLoop({ once = false } = {}) {
   for (;;) {
     const cfg = runtimeConfig();
     if (!cfg.enabled) {
+      pauseSlowIfNeeded(cfg);
       if (once) return { ok: false, reason: 'disabled' };
-      await sleep(5 * 60 * 1000);
+      // Wake quickly on resume so a paused slow-mail does not wait the old five minutes.
+      for (let i = 0; i < 150 && !accountEnabled(cfg); i += 1) await sleep(2000);
       continue;
     }
     if (!Array.isArray(cfg.friends) || !cfg.friends.length) {
       if (once) return { ok: false, reason: 'no friends configured' };
       repos.logEvent('no-friends', { account: cfg.accountLabel });
       await sleep(5 * 60 * 1000);
+      continue;
+    }
+    const slow = repos.getSlowMailState(cfg.accountId);
+    if (slowMail.isLive(slow)) {
+      const r = await runSlowMail(cfg, slow);
+      if (once) return r;
       continue;
     }
     const day = ymd(new Date());
@@ -783,10 +1275,14 @@ async function runLoop({ once = false } = {}) {
       continue;
     }
     if (r && r.dayChanged) continue;
+    if (r && r.slowPending) continue;
     // done / all triggers settled: re-check once a minute so a config edit (or the next day)
-    // is picked up without restarting the scheduler child.
-    await interruptibleWait(60 * 1000, cfg);
+    // is picked up without restarting the scheduler child. Slow-mail state is sampled every 3s.
+    await waitForIdle(60 * 1000, cfg);
   }
 }
 
-module.exports = { runLoop, runSchedule, runBurst: runSchedule, sendOne, sendOneBrowser, apiAttempt, runtimeConfig, startServer, stopServer };
+module.exports = {
+  runLoop, runSchedule, runBurst: runSchedule, runSlowMail, startAutoReadLoop,
+  sendOne, sendOneBrowser, apiAttempt, runtimeConfig, startServer, stopServer,
+};

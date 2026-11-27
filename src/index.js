@@ -452,13 +452,14 @@ async function main() {
     case 'schedule': {
       dbReady();
       await acquireSchedulerLock();
-      const { runLoop } = require('./scheduler');
+      const { runLoop, startAutoReadLoop } = require('./scheduler');
       if (args.includes('--once')) {
         const out = await runLoop({ once: true });
         console.log(JSON.stringify(out));
         break;
       }
       console.log('scheduler started (config from SQLite)');
+      startAutoReadLoop();
       await runLoop({});
       break;
     }

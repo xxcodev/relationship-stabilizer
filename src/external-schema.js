@@ -105,7 +105,7 @@ function postgres() {
 function mysql() {
   return [
     'CREATE TABLE IF NOT EXISTS meta (`key` VARCHAR(128) PRIMARY KEY, `value` TEXT NOT NULL) ENGINE=InnoDB',
-    'CREATE TABLE IF NOT EXISTS settings (`key` VARCHAR(128) PRIMARY KEY, `value` TEXT NOT NULL) ENGINE=InnoDB',
+    'CREATE TABLE IF NOT EXISTS settings (`key` VARCHAR(128) PRIMARY KEY, `value` MEDIUMTEXT NOT NULL) ENGINE=InnoDB',
     `CREATE TABLE IF NOT EXISTS accounts (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       label VARCHAR(255) NOT NULL UNIQUE,
@@ -186,7 +186,7 @@ function mysql() {
     `CREATE TABLE IF NOT EXISTS account_settings (
       account_id INT NOT NULL,
       name VARCHAR(64) NOT NULL,
-      value TEXT NOT NULL,
+      value MEDIUMTEXT NOT NULL,
       updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (account_id, name),
       FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
@@ -223,6 +223,16 @@ function marker(driver) {
 
 function ensureSchema(conn, driver) {
   for (const sql of statements(driver)) conn.exec(sql);
+  // The mutual-friends cache keeps full following/follower lists; MySQL TEXT is only 64 KiB.
+  // Existing databases created before 0.32.0 still have TEXT, so widen idempotently.
+  if (driver === 'mysql') {
+    for (const sql of [
+      'ALTER TABLE settings MODIFY value MEDIUMTEXT NOT NULL',
+      'ALTER TABLE account_settings MODIFY value MEDIUMTEXT NOT NULL',
+    ]) {
+      try { conn.exec(sql); } catch (e) { /* column may already be MEDIUMTEXT / no permission */ }
+    }
+  }
   conn.exec(marker(driver));
 }
 

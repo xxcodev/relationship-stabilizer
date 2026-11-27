@@ -204,23 +204,26 @@ function fingerprint(burst) {
 /**
  * Gap before the next share:
  * - draw uniformly in [minSec, maxSec];
- * - when the floor is on, never shorter than the previous video's duration;
+ * - when the floor is on, never shorter than the previous video's duration plus `bufferSec`
+ *   (the "慢递" mode uses a 5s buffer so the recipient can finish the clip);
  * - an unknown duration falls back to `fallbackSec` (0 disables the floor for that round).
  * `floored` tells the caller the video length overrode the configured range (for logs/UI).
  */
-function gapMs({ minSec = DEFAULTS.minSec, maxSec = DEFAULTS.maxSec, fallbackSec = DEFAULTS.fallbackSec, floor = true, prevDurationMs = 0, random = Math.random } = {}) {
+function gapMs({ minSec = DEFAULTS.minSec, maxSec = DEFAULTS.maxSec, fallbackSec = DEFAULTS.fallbackSec, bufferSec = 0, floor = true, prevDurationMs = 0, random = Math.random } = {}) {
   const lo = Math.max(1, Math.round(Number(minSec) || DEFAULTS.minSec));
   const hi = Math.max(lo, Math.round(Number(maxSec) || lo));
   const pick = clamp01(random());
   const baseMs = Math.round((lo + pick * (hi - lo)) * 1000);
   const measured = Math.max(0, Math.round(Number(prevDurationMs) || 0));
-  const referenceMs = measured > 0 ? measured : Math.round(Math.max(0, Number(fallbackSec) || 0) * 1000);
+  const bufferMs = Math.round(Math.max(0, Math.min(600, Number(bufferSec) || 0)) * 1000);
+  const referenceMs = (measured > 0 ? measured : Math.round(Math.max(0, Number(fallbackSec) || 0) * 1000)) + bufferMs;
   const applied = floor ? Math.max(baseMs, referenceMs) : baseMs;
   return {
     gapMs: Math.max(MIN_GAP_MS, applied),
     baseMs,
     referenceMs,
     durationMs: measured,
+    bufferMs,
     floored: !!floor && referenceMs > baseMs,
   };
 }

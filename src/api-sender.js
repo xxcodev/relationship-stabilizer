@@ -340,10 +340,21 @@ async function createConversation(session, toUserId) {
 /** Send arbitrary message content over HTTP. Returns {ok, statusCode, statusMessage, ...}. */
 async function sendContent(session, content, { friend, toUserId, video = null, conversationId: givenConversationId, conversationShortId: givenConversationShortId, messageType = null } = {}) {
   const target = String(friend || session.friend || '').trim();
+  const defaultFriend = String(session.friend || '').trim();
+  // The captured default conversation belongs to the exported friend. If the scheduler sends
+  // to the same nickname but a different UID (rename/recycled nickname), build a new conversation
+  // by UID instead of reusing the wrong one.
+  const defaultEntry = defaultFriend && Array.isArray(session.friends)
+    ? session.friends.find((f) => f && f.name === defaultFriend)
+    : null;
+  const defaultUid = String((defaultEntry && (defaultEntry.userid || defaultEntry.uid)) || '').trim();
+  const wantedUid = String(toUserId || '').trim();
+  const sameDefault = !!target && target === defaultFriend
+    && (!wantedUid || !defaultUid || wantedUid === defaultUid);
   let conversationId = givenConversationId || null;
   let conversationShortId = givenConversationShortId || null;
-  if (!conversationId && target && session.friend && target !== session.friend) {
-    const uid = String(toUserId || '').trim();
+  if (!conversationId && target && defaultFriend && !sameDefault) {
+    const uid = wantedUid;
     const row = uid ? { userid: uid } : resolveFriend(session, target);
     if (!row) {
       return {
@@ -360,6 +371,21 @@ async function sendContent(session, content, { friend, toUserId, video = null, c
     if (!conv.ok) return { ok: false, error: conv.error, video, friend: target };
     conversationId = conv.conversationId;
     conversationShortId = conv.conversationShortId;
+  }
+  // A same-default send reuses the conversation baked into the captured template. Return its IDs
+  // too, so the caller (slow-mail) can address the same conversation for a read receipt.
+  if (!conversationId || !conversationShortId) {
+    let tpl = null;
+    try {
+      tpl = apiProto.templateConversation(session.template.bodyB64);
+    } catch (e) {
+      // Older tests/fixtures carry placeholder templates; a missing conversation id only means
+      // the caller cannot later mark this conversation read, not that the send should fail.
+    }
+    if (tpl) {
+      conversationId = conversationId || tpl.conversationId;
+      conversationShortId = conversationShortId || tpl.conversationShortId;
+    }
   }
   const clientMessageId = crypto.randomUUID();
   const stime = `${Date.now()}.${Math.floor(Math.random() * 9000 + 1000)}`;

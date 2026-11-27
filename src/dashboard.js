@@ -4,12 +4,15 @@
 // Dashboard backed by SQLite. Same UI as the prototype, but every value comes from the DB.
 const http = require('http');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const env = require('./env');
 const repos = require('./repos');
 const burstPlanner = require('./burst');
+const slowMail = require('./slow-mail');
+const autoRead = require('./auto-read');
 const scheduleConfig = require('./schedule');
 const { chooseKeyword } = require('./pools');
 const service = require('./service');
@@ -67,7 +70,8 @@ function scheduleFromAccount(acc) {
 }
 
 const clockLabel = (ms) => new Date(ms).toLocaleTimeString('zh-CN', { hour12: false });
-const mapTriggerStatus = (status) => {
+const mapTriggerStatus = (status, reason) => {
+  if (status === 'skipped' && reason === 'slow-mail') return 'deferred';
   if (status === 'done') return 'done';
   if (status === 'skipped' || status === 'aborted') return 'failed';
   return 'pending';
@@ -106,6 +110,7 @@ function scheduleRuntime(acc, day, plan, sends = []) {
       status: sp ? String(sp.status || 'pending') : 'pending',
       startAt: sp ? Number(sp.startAt) || null : null,
       nextAt: sp ? Number(sp.nextAt) || null : null,
+      lastError: sp ? String(sp.lastError || '') : '',
     };
   });
   const total = points.reduce((n, p) => n + p.count, 0);
@@ -135,7 +140,8 @@ function scheduleRuntime(acc, day, plan, sends = []) {
   }
   const timeline = points.map((p) => ({
     time: p.status === 'running' && p.nextAt ? clockLabel(p.nextAt) : p.label,
-    status: mapTriggerStatus(p.status),
+    status: mapTriggerStatus(p.status, p.lastError),
+    reason: p.lastError || '',
   }));
   return {
     points,
@@ -154,6 +160,275 @@ function scheduleRuntime(acc, day, plan, sends = []) {
     lastError: live ? String(live.lastError || '') : '',
     timeline,
   };
+}
+
+// ---------- 慢递 (ad-hoc slow-mail session) ----------
+// Config is per account (slowMail*); runtime state is one JSON blob (slowMailState). The
+// scheduler child owns sending; the dashboard only writes pending/stopped and renders progress.
+
+function slowError(status, message) {
+  const e = new Error(message);
+  e.statusCode = status;
+  return e;
+}
+
+function schedulerLockUp(label) {
+  try {
+    const safe = String(label || 'default').replace(/[^a-zA-Z0-9._-]+/g, '_') || 'default';
+    const info = JSON.parse(fs.readFileSync(path.join(env.DATA_DIR, 'run', `schedule-${safe}.lock`), 'utf8'));
+    const pid = Number(info.pid);
+    if (!Number.isInteger(pid) || pid <= 0) return false;
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function slowConfigFromDb(acc) {
+  const cfg = slowMail.normalizeConfig({
+    durationMin: repos.getAccountSetting(acc.id, 'slowMailDurationMin', slowMail.DEFAULTS.durationMin),
+    minGapSec: repos.getAccountSetting(acc.id, 'slowMailMinGapSec', slowMail.DEFAULTS.minGapSec),
+    maxGapSec: repos.getAccountSetting(acc.id, 'slowMailMaxGapSec', slowMail.DEFAULTS.maxGapSec),
+    bufferSec: repos.getAccountSetting(acc.id, 'slowMailBufferSec', slowMail.DEFAULTS.bufferSec),
+    fallbackSec: repos.getAccountSetting(acc.id, 'slowMailFallbackSec', slowMail.DEFAULTS.fallbackSec),
+    maxSends: repos.getAccountSetting(acc.id, 'slowMailMaxSends', slowMail.DEFAULTS.maxSends),
+    friend: repos.getAccountSetting(acc.id, 'slowMailFriend', ''),
+    friendUid: repos.getAccountSetting(acc.id, 'slowMailFriendUid', ''),
+    readEnabled: repos.getAccountSetting(acc.id, 'slowMailReadEnabled', '1') !== '0',
+  });
+  const rows = repos.listFriends(acc.id).filter((f) => f.enabled);
+  const byUid = cfg.friendUid ? rows.find((f) => String(f.userid || '') === cfg.friendUid) : null;
+  const byName = cfg.friend ? rows.find((f) => f.name === cfg.friend) : null;
+  const friend = byUid || byName || rows[0] || null;
+  cfg.friend = friend ? friend.name : '';
+  cfg.friendUid = friend ? String(friend.userid || cfg.friendUid || '') : '';
+  return cfg;
+}
+
+function slowFriendsState(acc) {
+  const session = apiSession.load(acc.label);
+  const api = apiSession.status(session, null);
+  const allFriends = repos.listFriends(acc.id);
+  const enabled = allFriends.filter((f) => f.enabled);
+  const friends = enabled.map((f) => ({
+    name: f.name,
+    uid: String(f.userid || ''),
+    userid: f.userid || '',
+    apiCapable: !!f.userid || (api.valid && apiSession.canSendTo(session, f.name)),
+    source: 'friend',
+  }));
+  // The slow-mail recipient list is the union of enabled send friends and every mutual friend
+  // from the last sync. Selecting a mutual-only entry adds/enables just that friend at start.
+  const cache = repos.getSetting(`mutualFriends:${acc.label}`, null);
+  const mutual = Array.isArray(cache && cache.mutual) ? cache.mutual : [];
+  const seenUids = new Set(friends.map((f) => f.uid).filter(Boolean));
+  const seenNames = new Set(friends.map((f) => f.name));
+  const extra = [];
+  for (const p of mutual) {
+    const uid = String((p && p.uid) || '').trim();
+    const name = String((p && p.name) || '').trim();
+    if (!uid || !name || seenUids.has(uid) || seenNames.has(name)) continue;
+    seenUids.add(uid);
+    seenNames.add(name);
+    extra.push({ name, uid, userid: uid, apiCapable: true, source: 'mutual' });
+  }
+  return {
+    api,
+    friends: [...friends, ...extra],
+    present: !!session,
+    counts: {
+      enabled: enabled.length,
+      disabled: allFriends.filter((f) => !f.enabled).length,
+      mutual: mutual.length,
+      extra: extra.length,
+    },
+  };
+}
+
+function slowStateView(state, now = Date.now()) {
+  if (!state) return null;
+  return {
+    id: state.id,
+    status: state.status,
+    friend: state.friend,
+    friendUid: state.friendUid || '',
+    startedAt: state.startedAt,
+    endsAt: state.endsAt,
+    remainingMs: slowMail.remainingMs(state, now),
+    nextAt: state.nextAt || null,
+    nextInMs: slowMail.nextInMs(state, now),
+    sent: state.sent || 0,
+    failed: state.failed || 0,
+    maxSends: state.maxSends || 0,
+    minGapSec: state.minGapSec,
+    maxGapSec: state.maxGapSec,
+    bufferSec: state.bufferSec,
+    lastAt: state.lastAt || null,
+    lastDurationMs: state.lastDurationMs || 0,
+    lastTitle: state.lastTitle || '',
+    lastError: state.lastError || '',
+    doneReason: state.doneReason || '',
+    readEnabled: state.readEnabled !== false,
+    conversationId: state.conversationId || '',
+    conversationShortId: state.conversationShortId || '',
+    lastReadAt: state.lastReadAt || null,
+    lastReadOk: state.lastReadOk === undefined ? null : state.lastReadOk,
+    readError: state.readError || '',
+    pausedAt: state.pausedAt || null,
+    pausedMs: state.pausedMs || 0,
+    stoppedAt: state.stoppedAt || null,
+    updatedAt: state.updatedAt || '',
+  };
+}
+
+function slowView(acc = currentAccount()) {
+  const config = slowConfigFromDb(acc);
+  const state = repos.getSlowMailState(acc.id);
+  const { api, friends, present, counts } = slowFriendsState(acc);
+  return {
+    config,
+    state: slowStateView(state),
+    live: slowMail.isLive(state),
+    estimate: slowMail.estimate(config),
+    friends,
+    counts,
+    accountEnabled: !!acc.enabled,
+    schedulerUp: schedulerLockUp(acc.label),
+    api: { present, valid: !!api.valid, reason: api.reason || '', ageHours: api.ageHours },
+    videoSource: repos.getAccountSetting(acc.id, 'videoSource', 'pool') === 'recommend' ? 'recommend' : 'pool',
+    sendMode: 'api',
+  };
+}
+
+function startSlowSession(input = {}) {
+  input = input && typeof input === 'object' ? input : {};
+  const acc = accountFromInput(input);
+  if (!acc.enabled) throw slowError(409, '账户已暂停，先点顶部「继续」');
+  if (sendJob.status === 'running') throw slowError(409, '手动发送进行中，稍后再开始慢递');
+  const existing = repos.getSlowMailState(acc.id);
+  if (slowMail.isLive(existing)) throw slowError(409, `已经有一条慢递在跑（发给 ${existing.friend}）`);
+  if (!schedulerLockUp(acc.label)) throw slowError(409, '后台调度未运行，慢递不会开始；先启动或重启调度');
+
+  const base = slowConfigFromDb(acc);
+  const pick = (key) => (input[key] === undefined || input[key] === null || input[key] === ''
+    ? base[key]
+    : Number(input[key]));
+  const inputFriend = String(input.friend || '').trim();
+  const inputUid = String(input.friendUid || input.userid || '').trim();
+  const readEnabled = input.readEnabled === undefined || input.readEnabled === null
+    ? base.readEnabled !== false
+    : (input.readEnabled === true || input.readEnabled === 1 || input.readEnabled === '1' || input.readEnabled === 'true');
+  const raw = {
+    durationMin: pick('durationMin'),
+    minGapSec: pick('minGapSec'),
+    maxGapSec: pick('maxGapSec'),
+    bufferSec: pick('bufferSec'),
+    fallbackSec: pick('fallbackSec'),
+    maxSends: pick('maxSends'),
+    friend: inputFriend || base.friend || '',
+    friendUid: inputUid || (inputFriend ? '' : (base.friendUid || '')),
+    readEnabled,
+  };
+  const limits = [
+    ['durationMin', 15, 480, '时长'],
+    ['minGapSec', 10, 3600, '间隔下限'],
+    ['maxGapSec', 10, 3600, '间隔上限'],
+    ['bufferSec', 0, 60, '视频时长让路'],
+    ['fallbackSec', 0, 300, '未知时长兜底'],
+    ['maxSends', 1, 200, '条数上限'],
+  ];
+  for (const [key, min, max, label] of limits) {
+    const n = Number(raw[key]);
+    if (!Number.isFinite(n) || n < min || n > max) throw slowError(400, `${label}需要在 ${min}–${max} 之间`);
+  }
+  if (Number(raw.maxGapSec) < Number(raw.minGapSec)) throw slowError(400, '间隔上限不能小于下限');
+
+  let friend = (() => {
+    const enabled = repos.listFriends(acc.id).filter((f) => f.enabled);
+    if (raw.friendUid) {
+      const byUid = enabled.find((f) => String(f.userid || '') === raw.friendUid);
+      if (byUid) return byUid;
+    }
+    return enabled.find((f) => f.name === raw.friend) || null;
+  })();
+  if (!friend && raw.friendUid) {
+    const cache = repos.getSetting(`mutualFriends:${acc.label}`, null);
+    const mutual = Array.isArray(cache && cache.mutual) ? cache.mutual : [];
+    const picked = mutual.find((p) => String((p && p.uid) || '') === raw.friendUid);
+    if (picked && picked.uid) {
+      try {
+        repos.upsertFriendByUid(acc.id, picked.name, String(picked.uid));
+        let row = repos.listFriends(acc.id).find((f) => String(f.userid || '') === raw.friendUid);
+        if (row && !row.enabled) {
+          repos.setFriendEnabled(acc.id, row.id, true);
+          row = repos.listFriends(acc.id).find((f) => String(f.userid || '') === raw.friendUid);
+        }
+        friend = row || null;
+        if (friend) {
+          repos.logEvent('slow-friend-add', {
+            account: acc.label, friend: friend.name, friendUid: friend.userid, source: 'mutual',
+          });
+        }
+      } catch (e) {
+        throw slowError(409, `加入互关好友失败：${e.message}`);
+      }
+    }
+  }
+  if (!friend) throw slowError(400, '请选择一位发送好友或互关好友');
+  if (raw.friendUid && friend.userid && String(friend.userid) !== raw.friendUid) {
+    throw slowError(409, '收件人的 UID 与好友记录不一致，请刷新互关后再试');
+  }
+  if (raw.friendUid && !friend.userid) {
+    // Legacy name-only row: attach the UID now so the session can survive a later rename.
+    repos.setFriendUserid(acc.id, friend.id, raw.friendUid);
+    friend.userid = raw.friendUid;
+  }
+  raw.friend = friend.name;
+  raw.friendUid = raw.friendUid || String(friend.userid || '');
+  if (repos.getAccountSetting(acc.id, 'videoSource', 'pool') === 'recommend') {
+    if (repos.getAccountSetting(acc.id, 'sendMode', 'auto') === 'browser') {
+      throw slowError(400, '推荐源需要把发送模式切到「纯 API 优先」');
+    }
+    const session = apiSession.load(acc.label);
+    const st = apiSession.status(session, null);
+    if (!st.valid) throw slowError(400, `默认推荐需要可用的纯 API 会话：${st.reason || '不可用'}`);
+    if (!friend.userid && !apiSession.canSendTo(session, friend.name)) {
+      throw slowError(400, `好友「${friend.name}」不在纯 API 会话里，也没有 userid；请先刷新会话或换好友`);
+    }
+  }
+
+  const cfg = slowMail.normalizeConfig({ ...raw, friend: friend.name });
+  const state = slowMail.createState({ cfg: { ...cfg, account: acc.label }, nowMs: Date.now() });
+  const defaults = {
+    slowMailDurationMin: cfg.durationMin,
+    slowMailMinGapSec: cfg.minGapSec,
+    slowMailMaxGapSec: cfg.maxGapSec,
+    slowMailBufferSec: cfg.bufferSec,
+    slowMailFallbackSec: cfg.fallbackSec,
+    slowMailMaxSends: cfg.maxSends,
+    slowMailFriend: cfg.friend,
+    slowMailFriendUid: cfg.friendUid,
+    slowMailReadEnabled: cfg.readEnabled ? '1' : '0',
+  };
+  for (const [key, value] of Object.entries(defaults)) repos.setAccountSetting(acc.id, key, value);
+  repos.saveSlowMailState(acc.id, state);
+  repos.logEvent('slow-request', {
+    account: acc.label, sessionId: state.id, friend: state.friend, friendUid: state.friendUid,
+    durationMin: cfg.durationMin, minGapSec: cfg.minGapSec, maxGapSec: cfg.maxGapSec,
+    maxSends: cfg.maxSends, readEnabled: cfg.readEnabled, endsAt: new Date(state.endsAt).toISOString(),
+  });
+  return { ok: true, state: slowStateView(state), config: cfg, estimate: slowMail.estimate(cfg) };
+}
+
+function stopSlowSession(acc = currentAccount()) {
+  const state = repos.getSlowMailState(acc.id);
+  if (!state) throw slowError(404, '还没有慢递记录');
+  if (!slowMail.isLive(state)) return { ok: true, already: true, state: slowStateView(state) };
+  const next = slowMail.stop(state, Date.now());
+  repos.saveSlowMailState(acc.id, next);
+  repos.logEvent('slow-stop-request', { account: acc.label, sessionId: next.id, sent: next.sent, by: 'panel' });
+  return { ok: true, already: false, state: slowStateView(next) };
 }
 
 // Clear today's progress. If the first trigger's earliest moment already passed, it starts now
@@ -204,7 +479,8 @@ function configFromDb(acc = currentAccount()) {
     recommendMaxAgeDays: Number(repos.getAccountSetting(acc.id, 'recommendMaxAgeDays', 30)),
     naturalShare: (() => { const v = repos.getAccountSetting(acc.id, 'naturalShare', false); return v === true || v === 1 || v === '1' || v === 'true'; })(),
     naturalText: (() => { const v = repos.getAccountSetting(acc.id, 'naturalText', true); return !(v === false || v === 0 || v === '0' || v === 'false'); })(),
-    sendMode: sendMode === 'browser' ? 'browser' : 'auto',
+    dailyReadEnabled: (() => { const v = repos.getAccountSetting(acc.id, 'dailyReadEnabled', '1'); return !(v === false || v === 0 || v === '0' || v === 'false'); })(),
+    sendMode: 'api',
     videoSource: videoSource === 'recommend' ? 'recommend' : 'pool',
     aiMode: repos.getAccountSetting(acc.id, 'aiMode', 'off'),
     filterAgeEnabled: !(() => { const v = repos.getAccountSetting(acc.id, 'filterAgeEnabled', true); return v === false || v === 0 || v === '0' || v === 'false'; })(),
@@ -221,11 +497,29 @@ function configFromDb(acc = currentAccount()) {
   };
 }
 
+function formatSendRow(s) {
+  return {
+    ts: s.ts,
+    local: new Date(s.ts).toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }),
+    bucket: s.bucket,
+    source: s.source || 'pool',
+    title: s.title,
+    author: s.author,
+    friend: s.friend,
+    likes: s.likes,
+    ok: s.ok,
+    toast: s.toast,
+    shot: s.shot,
+  };
+}
+
 function dataFromDb() {
   const acc = currentAccount();
   const day = today();
   const plan = scheduleFromAccount(acc);
   const sends = repos.listSends({ accountId: acc.id, limit: 200 });
+  const totalSends = repos.countSends({ accountId: acc.id });
+  const totalOkSends = repos.countSends({ accountId: acc.id, ok: true });
   const schedule = scheduleRuntime(acc, day, plan, sends);
   return {
     account: acc.label,
@@ -234,49 +528,26 @@ function dataFromDb() {
     friend: repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
     friends: repos.listEnabledFriendNames(acc.id),
     schedule,
+    slow: slowView(acc),
     todayPlan: schedule.count,
     todayDone: repos.countSendsByDay(day, acc.id),
     todayTimeline: schedule.timeline,
     nextTime: schedule.nextAt,
-    totalSends: sends.length,
+    totalSends,
+    totalOkSends,
     bucketStats: Object.fromEntries(repos.bucketStats(acc.id).map((r) => [r.bucket || '-', r.n])),
-    sends: sends.map((s) => ({
-      ts: s.ts,
-      local: new Date(s.ts).toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }),
-      bucket: s.bucket,
-      source: s.source || 'pool',
-      title: s.title,
-      author: s.author,
-      friend: s.friend,
-      likes: s.likes,
-      ok: s.ok,
-      toast: s.toast,
-      shot: s.shot,
-    })),
+    sends: sends.map(formatSendRow),
     generatedAt: new Date().toISOString(),
   };
 }
 
 // one ad-hoc send at a time; the browser profile cannot serve two senders
 const sendJob = { id: null, startedAt: null, status: 'idle', result: null, dry: false, account: null };
-// A manual click can be repeated by double-click, a stale tab, or a second client.
-// Keep a short cooldown after the job finishes so natural-share batches cannot stack.
-const MANUAL_SEND_COOLDOWN_MS = 90 * 1000;
-let lastManualSend = { account: null, at: 0 };
-
+// Only one manual send may run at a time; there is no post-send time cooldown.
 function manualSendBlocked(acc, dry = false) {
   if (dry) return null;
   if (sendJob.status === 'running') return { status: 409, error: '已经有一条在发送中' };
-  const label = acc && acc.label;
-  if (label && lastManualSend.account === label) {
-    const left = MANUAL_SEND_COOLDOWN_MS - (Date.now() - lastManualSend.at);
-    if (left > 0) return { status: 429, error: `刚手动发送过，请 ${Math.ceil(left / 1000)} 秒后再试，避免重复发送` };
-  }
   return null;
-}
-
-function markManualSend(acc) {
-  if (acc && acc.label) lastManualSend = { account: acc.label, at: Date.now() };
 }
 
 async function runSendJob({ dry = false, accountLabel = null } = {}) {
@@ -289,9 +560,10 @@ async function runSendJob({ dry = false, accountLabel = null } = {}) {
   sendJob.dry = dry;
   sendJob.account = accountLabel || (cfg && cfg.account && cfg.account.label) || null;
   try {
-    // sendOne decides whether the browser is needed (pure-API mode skips it entirely) and
-    // starts/stops the browser itself on the fallback path.
-    const res = await scheduler.sendOne(cfg, { dryRun: dry }).catch((e) => ({ ok: false, error: e.message }));
+    // "立即发送一次" means exactly one video. Natural-share batches remain for the daily plan
+    // and slow-mail; turning it off here prevents one manual click from producing two records.
+    const manualCfg = { ...cfg, naturalShare: false };
+    const res = await scheduler.sendOne(manualCfg, { dryRun: dry }).catch((e) => ({ ok: false, error: e.message }));
     sendJob.result = res;
     sendJob.status = res && res.ok ? 'done' : 'failed';
   } catch (e) {
@@ -299,7 +571,6 @@ async function runSendJob({ dry = false, accountLabel = null } = {}) {
     sendJob.status = 'failed';
   }
   repos.logEvent('manual-send', { dry, status: sendJob.status, result: sendJob.result });
-  if (!dry && sendJob.account) markManualSend({ label: sendJob.account });
   return sendJob;
 }
 
@@ -329,79 +600,282 @@ function saveMutualCache(label, out) {
   return cache;
 }
 
-function mutualUserFor(acc, name) {
+function mutualUserFor(acc, name, uid = '') {
   const cache = readMutualCache(acc.label);
-  return cache ? cache.mutual.find((u) => u.name === name) || null : null;
+  if (!cache) return null;
+  const wanted = String(uid || '').trim();
+  if (wanted) {
+    const byUid = cache.mutual.find((u) => String(u.uid || '').trim() === wanted);
+    if (byUid) return byUid;
+  }
+  return cache.mutual.find((u) => u.name === name) || null;
 }
 
-async function fetchMutualFriends(acc) {
-  const state = await ensureAccountBrowser(acc);
-  if (!state.up) throw new Error(state.error || '浏览器未能启动');
-  const js = `
-    (async () => {
-      const common = 'device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&source_type=1&count=50';
-      const prof = await fetch('/aweme/v1/web/user/profile/self/?' + common, { credentials: 'include', headers: { referer: location.href } })
-        .then((r) => r.json()).catch((e) => ({ error: e.message }));
-      if (!prof || !prof.user || !prof.user.sec_uid) return { ok: false, error: (prof && prof.status_msg) || '未登录' };
-      const sec = encodeURIComponent(prof.user.sec_uid);
-      const mutual = [];
-      const seen = new Set();
-      const seenMutual = new Set();
-      // following/list pages are bounded by min_time, not max_time. Passing max_time back
-      // only re-reads the top of the list and silently drops most of the roster.
-      let maxTime = 0;
-      let page = 0;
-      let scanned = 0;
-      let error = null;
-      while (page < 30) {
-        const url = '/aweme/v1/web/user/following/list/?' + common + '&sec_user_id=' + sec + '&max_time=' + maxTime + '&min_time=0&offset=0';
-        const j = await fetch(url, { credentials: 'include', headers: { referer: location.href } })
-          .then((r) => r.json()).catch((e) => ({ error: e.message }));
-        if (!j || j.status_code !== 0) { error = String((j && (j.status_msg || j.error)) || '接口失败'); break; }
-        const list = j.followings || [];
-        for (const u of list) {
-          const id = String(u.uid || u.sec_uid || '');
-          if (!id || seen.has(id)) continue;
-          seen.add(id);
-          scanned++;
-          // follow_status 2 / relation_label 好友 = 互相关注
-          if (u.follow_status === 2 || (u.relation_label && String(u.relation_label).includes('好友'))) {
-            if (seenMutual.has(id)) continue;
-            seenMutual.add(id);
-            mutual.push({ name: u.nickname || '', uid: String(u.uid || ''), sec_uid: u.sec_uid || '', unique_id: u.unique_id || '' });
-          }
-        }
-        if (!j.has_more) break;
-        const nextMaxTime = Number(j.min_time) || 0;
-        if (!nextMaxTime || (maxTime && nextMaxTime >= maxTime)) {
-          error = '关注列表分页游标没有进展';
-          break;
-        }
-        maxTime = nextMaxTime;
-        page++;
-      }
-      const followingTotal = Number(prof.user.following_count) || scanned;
-      return {
-        ok: true,
-        self: { nickname: prof.user.nickname, uid: String(prof.user.uid || ''), sec_uid: prof.user.sec_uid },
-        mutual,
-        following: scanned,
-        followingTotal,
-        complete: scanned >= followingTotal,
-        followers: Number(prof.user.follower_count) || null,
-        errors: error ? [error] : [],
-      };
-    })()
-  `;
-  const res = await fetch(`http://127.0.0.1:${acc.port}/eval`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ js }),
-    signal: AbortSignal.timeout(90000),
+function sessionCookieHeader(session) {
+  const cookies = Array.isArray(session && session.cookies) ? session.cookies : [];
+  return cookies.filter((c) => c && c.name).map((c) => `${c.name}=${c.value == null ? '' : c.value}`).join('; ');
+}
+
+async function fetchDouyinWebJson(session, apiPath, { baseUrl = process.env.DOUYIN_API_BASE || 'https://www.douyin.com', timeoutMs = 15000 } = {}) {
+  const cookie = sessionCookieHeader(session);
+  if (!cookie) throw new Error('纯 API 会话缺少 cookies，请先导入或刷新会话');
+  const url = baseUrl.replace(/\/$/, '') + apiPath;
+  const res = await fetch(url, {
+    headers: {
+      accept: 'application/json, text/plain, */*',
+      cookie,
+      referer: 'https://www.douyin.com/',
+      'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    },
+    signal: AbortSignal.timeout(timeoutMs),
   });
-  const out = await res.json();
-  if (!out.out || !out.out.ok) throw new Error((out.out && out.out.error) || '读取失败');
-  return out.out;
+  const text = await res.text();
+  if (!text || !text.trim()) throw new Error(`接口返回空响应（HTTP ${res.status}），会话可能已过期`);
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`接口返回非 JSON（HTTP ${res.status}）`);
+  }
+}
+
+async function fetchMutualFriends(acc, opts = {}) {
+  const session = apiSession.load(acc.label);
+  if (!session || !Array.isArray(session.cookies) || !session.cookies.length) {
+    throw new Error('没有可用的纯 API 会话，请先在「配置 → 03 纯 API 连接」导入或刷新会话');
+  }
+  const common = 'device_platform=webapp&aid=6383&channel=channel_pc_web&pc_client_type=1&source_type=1&count=50';
+  const get = (p) => fetchDouyinWebJson(session, p, opts).catch((e) => ({ error: e.message }));
+  const prof = await get('/aweme/v1/web/user/profile/self/?' + common);
+  if (!prof || !prof.user || !prof.user.sec_uid) {
+    throw new Error((prof && (prof.status_msg || prof.error)) || '纯 API 会话未登录或已过期');
+  }
+  const sec = encodeURIComponent(prof.user.sec_uid);
+  const errors = [];
+  const collect = async (kind) => {
+    const apiPath = kind === 'following' ? '/aweme/v1/web/user/following/list/' : '/aweme/v1/web/user/follower/list/';
+    const field = kind === 'following' ? 'followings' : 'followers';
+    const out = [];
+    const seen = new Set();
+    let maxTime = 0;
+    let page = 0;
+    let scanned = 0;
+    let complete = true;
+    while (page < 30) {
+      const p = apiPath + '?' + common + '&sec_user_id=' + sec + '&max_time=' + maxTime + '&min_time=0&offset=0';
+      const j = await get(p);
+      if (!j || j.status_code !== 0) {
+        errors.push(kind + '：' + String((j && (j.status_msg || j.error)) || '接口失败'));
+        complete = false;
+        break;
+      }
+      const list = j[field] || [];
+      for (const u of list) {
+        const uid = String(u.uid || '');
+        const id = uid || String(u.sec_uid || '');
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        scanned++;
+        out.push({
+          name: u.nickname || '',
+          uid,
+          sec_uid: u.sec_uid || '',
+          unique_id: u.unique_id || '',
+          follow_status: u.follow_status,
+          relation_label: u.relation_label || '',
+        });
+      }
+      if (!j.has_more) break;
+      const nextMaxTime = Number(j.min_time) || 0;
+      if (!nextMaxTime || (maxTime && nextMaxTime >= maxTime)) {
+        errors.push(kind + '：分页游标没有进展');
+        complete = false;
+        break;
+      }
+      maxTime = nextMaxTime;
+      page++;
+    }
+    return { out, scanned, complete };
+  };
+  const following = await collect('following');
+  const followers = await collect('follower');
+  const followingByUid = new Map();
+  for (const u of following.out) if (u.uid) followingByUid.set(u.uid, u);
+  const followerByUid = new Map();
+  for (const u of followers.out) if (u.uid) followerByUid.set(u.uid, u);
+  const mutual = [];
+  const mutualSeen = new Set();
+  for (const u of following.out) {
+    if (!u.uid || mutualSeen.has(u.uid)) continue;
+    if (followerByUid.has(u.uid) || u.follow_status === 2 || (u.relation_label && String(u.relation_label).includes('好友'))) {
+      mutualSeen.add(u.uid);
+      mutual.push(u);
+    }
+  }
+  const followingOnly = following.out.filter((u) => u.uid && !followerByUid.has(u.uid));
+  const followerOnly = followers.out.filter((u) => u.uid && !followingByUid.has(u.uid));
+  const followingTotal = Number(prof.user.following_count) || following.scanned;
+  const followersTotal = Number(prof.user.follower_count) || followers.scanned;
+  return {
+    ok: true,
+    self: { nickname: prof.user.nickname, uid: String(prof.user.uid || ''), sec_uid: prof.user.sec_uid },
+    mutual,
+    followingList: following.out,
+    followerList: followers.out,
+    following: following.scanned,
+    followingTotal,
+    followers: followers.scanned,
+    followersTotal,
+    complete: {
+      following: following.complete && following.scanned >= followingTotal,
+      followers: followers.complete && followers.scanned >= followersTotal,
+    },
+    analysis: {
+      mutual: mutual.length,
+      following: following.scanned,
+      followers: followers.scanned,
+      followingOnly: followingOnly.length,
+      followerOnly: followerOnly.length,
+      mutualRate: following.scanned ? Math.round((mutual.length / following.scanned) * 1000) / 10 : null,
+    },
+    errors,
+  };
+}
+
+/**
+ * Keep existing friend rows current by UID. A rename updates the display name; a name-only
+ * legacy row gets its UID attached. New mutuals are never auto-added or auto-enabled.
+ */
+function syncFriendNamesFromMutual(acc, mutual) {
+  const rows = repos.listFriends(acc.id);
+  const byUid = new Map(rows.filter((r) => String(r.userid || '').trim()).map((r) => [String(r.userid), r]));
+  const byName = new Map(rows.map((r) => [r.name, r]));
+  const list = Array.isArray(mutual) ? mutual : [];
+  const nameUids = new Map();
+  for (const u of list) {
+    const uid = String((u && u.uid) || '').trim();
+    const name = String((u && u.name) || '').trim();
+    if (!uid || !name) continue;
+    if (!nameUids.has(name)) nameUids.set(name, new Set());
+    nameUids.get(name).add(uid);
+  }
+  let renamed = 0;
+  let linked = 0;
+  let conflicts = 0;
+  for (const u of list) {
+    const uid = String((u && u.uid) || '').trim();
+    const name = String((u && u.name) || '').trim();
+    if (!uid || !name) continue;
+    const row = byUid.get(uid);
+    if (row) {
+      if (row.name === name) continue;
+      const clash = byName.get(name);
+      if (clash && clash.id !== row.id) { conflicts++; continue; }
+      try {
+        repos.updateFriendName(acc.id, row.id, name);
+        byName.delete(row.name);
+        byName.set(name, { ...row, name });
+        row.name = name;
+        renamed++;
+      } catch (e) {
+        conflicts++;
+      }
+      continue;
+    }
+    const sameName = byName.get(name);
+    if (!sameName) continue;
+    // A nickname shared by two different UIDs is not enough to attach a UID: that could link
+    // the wrong person. The same person appearing in both lists (same UID) is fine.
+    if ((nameUids.get(name) ? nameUids.get(name).size : 0) !== 1) { conflicts++; continue; }
+    const oldUid = String(sameName.userid || '').trim();
+    if (!oldUid) {
+      try {
+        repos.setFriendUserid(acc.id, sameName.id, uid);
+        byUid.set(uid, { ...sameName, userid: uid });
+        linked++;
+      } catch (e) {
+        conflicts++;
+      }
+    } else if (oldUid !== uid) {
+      conflicts++;
+    }
+  }
+  if (renamed || linked) repos.syncAccountFriend(acc.id);
+  return { renamed, linked, conflicts };
+}
+
+const MUTUAL_SYNC_DEFAULT_HOURS = 6;
+const MUTUAL_SYNC_RETRY_MS = 60 * 60 * 1000;
+let mutualSyncTimer = null;
+let mutualSyncBusy = false;
+let mutualSyncRetryAt = 0;
+
+function mutualSyncHours() {
+  const n = Number(repos.getSetting('mutualSyncHours', MUTUAL_SYNC_DEFAULT_HOURS));
+  return Number.isFinite(n) && n >= 1 ? Math.min(168, Math.round(n)) : MUTUAL_SYNC_DEFAULT_HOURS;
+}
+
+function mutualSyncOn() {
+  const v = repos.getSetting('mutualSyncEnabled', true);
+  return !(v === false || v === 0 || v === '0' || v === 'false');
+}
+
+function mutualSyncDue(acc, now = Date.now()) {
+  const cache = readMutualCache(acc.label);
+  if (!cache || !cache.fetchedAt) return true;
+  const at = Date.parse(cache.fetchedAt);
+  if (!Number.isFinite(at)) return true;
+  return now - at >= mutualSyncHours() * 3600 * 1000;
+}
+
+async function syncMutualFriends(acc, { reason = 'manual', baseUrl } = {}) {
+  const out = await fetchMutualFriends(acc, baseUrl ? { baseUrl } : {});
+  const cache = saveMutualCache(acc.label, out);
+  const people = [...(out.followingList || []), ...(out.followerList || [])];
+  const touched = syncFriendNamesFromMutual(acc, people);
+  repos.logEvent('mutual-sync', {
+    account: acc.label, reason,
+    mutual: out.mutual.length, following: out.following, followers: out.followers,
+    renamed: touched.renamed, linked: touched.linked, conflicts: touched.conflicts,
+    errors: out.errors || [],
+  });
+  return { ...cache, ok: true, touched };
+}
+
+/**
+ * Periodic sync: one due account per 15-minute tick. Skip while a manual/slow send is running;
+ * a failure backs off for an hour instead of starting a browser every tick.
+ */
+async function runMutualSyncTick() {
+  if (mutualSyncBusy || !mutualSyncOn()) return;
+  if (Date.now() < mutualSyncRetryAt) return;
+  if (sendJob.status === 'running') return;
+  const accounts = repos.listAccounts().filter((a) => a.enabled);
+  if (!accounts.length) return;
+  const active = activeLabel();
+  accounts.sort((a, b) => (a.label === active ? -1 : 0) - (b.label === active ? -1 : 0));
+  const acc = accounts.find((a) => mutualSyncDue(a));
+  if (!acc) return;
+  if (slowMail.isLive(repos.getSlowMailState(acc.id))) return;
+  mutualSyncBusy = true;
+  try {
+    await syncMutualFriends(acc, { reason: 'auto', closeBrowser: true });
+    mutualSyncRetryAt = 0;
+  } catch (e) {
+    mutualSyncRetryAt = Date.now() + MUTUAL_SYNC_RETRY_MS;
+    repos.logEvent('mutual-sync-error', {
+      account: acc.label, reason: 'auto', error: (e.message || '').split('\n')[0],
+    });
+  } finally {
+    mutualSyncBusy = false;
+  }
+}
+
+function startMutualSync() {
+  if (mutualSyncTimer) return;
+  mutualSyncTimer = setInterval(() => { runMutualSyncTick().catch(() => {}); }, 15 * 60 * 1000);
+  if (mutualSyncTimer.unref) mutualSyncTimer.unref();
+  const first = setTimeout(() => { runMutualSyncTick().catch(() => {}); }, 3 * 60 * 1000);
+  if (first.unref) first.unref();
 }
 
 function profileDirFor(label) {
@@ -423,10 +897,13 @@ function startBrowserFor(acc) {
 async function statusFromDb() {
   const acc = currentAccount();
   const sched = service.schedulerStatus();
-  const browser = await service.browserStatus(acc.port);
+  const session = apiSession.load(acc.label);
+  const api = apiSession.status(session, null);
   return {
     scheduler: sched,
-    browser,
+    mode: 'api',
+    api: { present: !!session, valid: !!api.valid, reason: api.reason || null, ageHours: api.ageHours },
+    browser: { up: false, disabled: true },
     account: acc.label,
     accountName: acc.display_name || acc.label,
     enabled: !!acc.enabled,
@@ -469,6 +946,7 @@ function sanitize(input) {
     recommendMaxAgeDays: Math.min(365, Math.max(0, Math.round(Number(src.recommendMaxAgeDays ?? 30)) || 0)),
     naturalShare: src.naturalShare === true,
     naturalText: src.naturalText !== false,
+    dailyReadEnabled: src.dailyReadEnabled !== false,
     videoSource: src.videoSource === 'recommend' ? 'recommend' : 'pool',
     filterAgeEnabled: ageEnabled,
     filterMinLikes: metrics.minLikes,
@@ -503,6 +981,7 @@ function persist(cfg, acc = currentAccount()) {
     repos.setAccountSetting(acc.id, 'recommendMaxAgeDays', cfg.recommendMaxAgeDays);
     repos.setAccountSetting(acc.id, 'naturalShare', !!cfg.naturalShare);
     repos.setAccountSetting(acc.id, 'naturalText', cfg.naturalText !== false);
+    repos.setAccountSetting(acc.id, 'dailyReadEnabled', cfg.dailyReadEnabled !== false);
     repos.setAccountSetting(acc.id, 'videoSource', cfg.videoSource);
     repos.setAccountSetting(acc.id, 'filterAgeEnabled', cfg.filterAgeEnabled !== false);
     repos.setAccountSetting(acc.id, 'filterMinLikes', cfg.filterMinLikes);
@@ -532,6 +1011,11 @@ function regenerateToday(acc) {
   const { forceNow, plan } = resetSchedule(acc);
   repos.logEvent('schedule-reset', { account: acc.label, reason: 'regenerate', forceNow, points: plan.pointCount });
   return { count: plan.totalCount, schedule: true, times: [], notes: ['已重置今天的发送计划'] };
+}
+
+function autoReadView(acc = currentAccount()) {
+  const slow = slowFriendsState(acc);
+  return autoRead.view(acc, { friends: slow.friends, api: slow.api });
 }
 
 const PAGE = fs.readFileSync(path.join(__dirname, 'page.html'), 'utf8');
@@ -573,9 +1057,75 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         }
       }
       if (u.pathname === '/') {
-        res.setHeader('Content-Type', 'text/html; charset=utf-8');
         const pools = repos.listPools().map((p) => p.name);
-        return res.end(PAGE.replace('__POOL_NAMES__', JSON.stringify(pools)).replaceAll('__APP_VERSION__', APP_VERSION));
+        const html = PAGE.replace('__POOL_NAMES__', JSON.stringify(pools)).replaceAll('__APP_VERSION__', APP_VERSION);
+        const etag = '"' + crypto.createHash('sha1').update(html).digest('hex').slice(0, 16) + '"';
+        res.setHeader('ETag', etag);
+        res.setHeader('Cache-Control', 'no-cache');
+        if (req.headers['if-none-match'] === etag) {
+          res.statusCode = 304;
+          return res.end();
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        if (String(req.headers['accept-encoding'] || '').includes('gzip')) {
+          res.setHeader('Content-Encoding', 'gzip');
+          res.setHeader('Vary', 'Accept-Encoding');
+          return res.end(zlib.gzipSync(Buffer.from(html, 'utf8')));
+        }
+        return res.end(html);
+      }
+      if (u.pathname === '/api/records' && req.method === 'GET') {
+        const acc = currentAccount();
+        const day = today();
+        const page = Math.max(1, Math.round(Number(u.searchParams.get('page')) || 1));
+        const pageSize = Math.min(200, Math.max(1, Math.round(Number(u.searchParams.get('pageSize')) || 20)));
+        const search = String(u.searchParams.get('q') || '').trim();
+        const bucket = String(u.searchParams.get('bucket') || '').trim();
+        const result = String(u.searchParams.get('result') || '').trim();
+        const ok = result === 'ok' ? true : (result === 'failed' ? false : null);
+        const filterTotal = repos.countSends({ accountId: acc.id, bucket, ok, search });
+        const totalPages = Math.max(1, Math.ceil(filterTotal / pageSize));
+        const safePage = Math.min(page, totalPages);
+        const items = repos.querySends({
+          accountId: acc.id, bucket, ok, search, limit: pageSize, offset: (safePage - 1) * pageSize,
+        }).map(formatSendRow);
+        const allTotal = repos.countSends({ accountId: acc.id });
+        const okCount = repos.countSends({ accountId: acc.id, ok: true });
+        return send(res, 200, {
+          ok: true,
+          account: acc.label,
+          items,
+          total: filterTotal,
+          allTotal,
+          okCount,
+          failCount: Math.max(0, allTotal - okCount),
+          todayDone: repos.countSendsByDay(day, acc.id),
+          buckets: repos.listSendBuckets(acc.id),
+          page: safePage,
+          pageSize,
+          totalPages,
+        });
+      }
+      if (u.pathname === '/api/records/export.csv' && req.method === 'GET') {
+        const acc = currentAccount();
+        const search = String(u.searchParams.get('q') || '').trim();
+        const bucket = String(u.searchParams.get('bucket') || '').trim();
+        const result = String(u.searchParams.get('result') || '').trim();
+        const ok = result === 'ok' ? true : (result === 'failed' ? false : null);
+        const rows = repos.querySends({ accountId: acc.id, bucket, ok, search, limit: 5000, offset: 0 }).map(formatSendRow);
+        const head = ['时间', '分类', '标题', '作者', '好友', '赞', '结果', '截图'];
+        const escCsv = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const lines = [
+          head.map(escCsv).join(','),
+          ...rows.map((s) => [
+            s.local, s.bucket, s.title, s.author, s.friend || '', s.likes,
+            s.ok ? (s.toast || '成功') : (s.toast || '失败'), s.shot || '',
+          ].map(escCsv).join(',')),
+        ];
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="heartbeat-sends-${today()}.csv"`);
+        return res.end('\ufeff' + lines.join('\n'));
       }
       if (u.pathname === '/viewer' || u.pathname === '/viewer.html') {
         const file = path.join(env.ROOT, 'app', 'viewer.html');
@@ -584,6 +1134,21 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         return res.end(fs.readFileSync(file));
       }
       if (u.pathname === '/api/data') return send(res, 200, dataFromDb());
+      if (u.pathname === '/api/slow' && req.method === 'GET') {
+        return send(res, 200, { ok: true, ...slowView() });
+      }
+      if (u.pathname === '/api/slow/start' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = body ? JSON.parse(body) : {};
+        return send(res, 202, startSlowSession(input));
+      }
+      if (u.pathname === '/api/slow/stop' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = body ? JSON.parse(body) : {};
+        return send(res, 200, stopSlowSession(accountFromInput(input)));
+      }
       if (u.pathname === '/api/status') return send(res, 200, await statusFromDb());
       if (u.pathname === '/api/send-now' && req.method === 'GET') {
         return send(res, 200, { job: sendJob });
@@ -599,10 +1164,11 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           dry = !!(JSON.parse(body || '{}').dry);
         } catch (e) {}
         const acc = currentAccount();
+        if (slowMail.isLive(repos.getSlowMailState(acc.id))) {
+          return send(res, 409, { ok: false, error: '慢递进行中，先收束再手动发送' });
+        }
         const blocked = manualSendBlocked(acc, dry);
         if (blocked) return send(res, blocked.status, { ok: false, error: blocked.error });
-        const browser = await service.browserStatus(acc.port);
-        if (browser.up) return send(res, 409, { ok: false, error: '浏览器窗口已被占用(可能调度正在发送),稍后再试' });
         runSendJob({ dry, accountLabel: acc.label }).catch(() => {});
         return send(res, 202, { ok: true, job: sendJob });
       }
@@ -692,7 +1258,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           hasCreateTemplate: !!(session && session.createTemplate),
           hasFeedUrl: !!(session && session.feedUrl),
           feedPaths: session && Array.isArray(session.feedPaths) ? session.feedPaths : [],
-          sendMode: repos.getAccountSetting(acc.id, 'sendMode', 'auto'),
+          sendMode: 'api',
           videoSource: repos.getAccountSetting(acc.id, 'videoSource', 'pool'),
           autoRefresh: settingOn('apiAutoRefresh'),
           maxAgeHours: apiSession.DEFAULT_MAX_AGE_HOURS,
@@ -714,153 +1280,105 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
         }
       }
-      if (u.pathname === '/api/api-session/send' && req.method === 'POST') {
+      if (u.pathname === '/api/auto-read' && req.method === 'GET') {
+        return send(res, 200, autoReadView());
+      }
+      if (u.pathname === '/api/auto-read' && req.method === 'POST') {
         const acc = currentAccount();
         let body = '';
         for await (const c of req) body += c;
-        const input = JSON.parse(body || '{}');
-        const list = Array.isArray(input.friends)
-          ? [...new Set(input.friends.map((f) => String(f || '').trim()).filter(Boolean))]
-          : [String(input.friend || '').trim()].filter(Boolean);
-        if (!list.length) return send(res, 400, { ok: false, error: '没有选择好友' });
-        const dry = !!input.dry;
-        const blocked = manualSendBlocked(acc, dry);
-        if (blocked) return send(res, blocked.status, { ok: false, error: blocked.error });
-        const apiSender = require('./api-sender');
-        const session = apiSession.load(acc.label);
-        const state = apiSession.status(session, null);
-        if (!state.valid) return send(res, 400, { ok: false, error: `api session 不可用：${state.reason}` });
-        const accountSource = repos.getAccountSetting(acc.id, 'videoSource', 'pool');
-        const source = input.source === 'recommend' || input.source === 'pool'
-          ? input.source
-          : (accountSource === 'recommend' ? 'recommend' : 'pool');
-        let pool = null;
-        if (source === 'pool') {
-          const pools = repos.listAccountPools(acc.id).filter((p) => p.enabled);
-          if (!pools.length) return send(res, 400, { ok: false, error: '没有启用的视频池' });
-          pool = pools[Math.floor(Math.random() * pools.length)];
-        } else if (!session || !session.feedUrl) {
-          return send(res, 400, { ok: false, error: '当前账户的纯 API 会话没有捕获到首页推荐 feed，请先重新导出会话' });
+        const input = body ? JSON.parse(body) : {};
+        const previous = autoRead.config(acc);
+        const enabled = input.enabled === undefined ? previous.enabled : input.enabled !== false;
+        const rawFriends = input.friends === undefined ? previous.friends : input.friends;
+        const seen = new Set();
+        const friends = (Array.isArray(rawFriends) ? rawFriends : [])
+          .map((f) => ({
+            uid: String((f && (f.uid || f.userid)) || '').trim(),
+            name: String((f && f.name) || '').trim(),
+          }))
+          .filter((f) => {
+            if (!/^\d+$/.test(f.uid) || seen.has(f.uid)) return false;
+            seen.add(f.uid);
+            if (!f.name) f.name = f.uid;
+            return true;
+          });
+        if (enabled && !friends.length) return send(res, 400, { ok: false, error: '开启自动已读前至少选择一位好友' });
+        const clamp = (v, min, max, def) => {
+          const n = Math.round(Number(v));
+          if (!Number.isFinite(n)) return def;
+          return Math.min(max, Math.max(min, n));
+        };
+        const minMin = clamp(input.minMin, autoRead.MIN_MIN_MIN, autoRead.MAX_MIN_MIN, autoRead.DEFAULT_MIN_MIN);
+        const maxMin = clamp(input.maxMin, minMin, autoRead.MAX_MIN_MIN, autoRead.DEFAULT_MAX_MIN);
+        const time = (v, def) => (/^\d{1,2}:\d{2}$/.test(String(v || '').trim()) ? String(v).trim() : def);
+        const windowEnabled = input.windowEnabled === undefined ? previous.windowEnabled : !!input.windowEnabled;
+        const windowStart = time(input.windowStart, previous.windowStart || autoRead.DEFAULT_WINDOW_START);
+        const windowEnd = time(input.windowEnd, previous.windowEnd || autoRead.DEFAULT_WINDOW_END);
+        const windowIntervalMin = clamp(input.windowIntervalMin, 1, autoRead.MAX_MIN_MIN, autoRead.DEFAULT_WINDOW_INTERVAL_MIN);
+        const outside = String(input.outside || previous.outside || 'random') === 'pause' ? 'pause' : 'random';
+        repos.setAccountSetting(acc.id, 'autoReadEnabled', !!enabled);
+        repos.setAccountSetting(acc.id, 'autoReadFriends', friends);
+        repos.setAccountSetting(acc.id, 'autoReadMinMin', minMin);
+        repos.setAccountSetting(acc.id, 'autoReadMaxMin', Math.max(minMin, maxMin));
+        repos.setAccountSetting(acc.id, 'autoReadWindowEnabled', !!windowEnabled);
+        repos.setAccountSetting(acc.id, 'autoReadWindowStart', windowStart);
+        repos.setAccountSetting(acc.id, 'autoReadWindowEnd', windowEnd);
+        repos.setAccountSetting(acc.id, 'autoReadWindowIntervalMin', windowIntervalMin);
+        repos.setAccountSetting(acc.id, 'autoReadOutside', outside);
+        autoRead.clearState(acc);
+        repos.logEvent('auto-read-config', {
+          account: acc.label,
+          enabled: !!enabled,
+          friends: friends.map((f) => f.name),
+          friendUids: friends.map((f) => f.uid),
+          minMin,
+          maxMin,
+          windowEnabled: !!windowEnabled,
+          windowStart,
+          windowEnd,
+          windowIntervalMin,
+          outside,
+        });
+        return send(res, 200, autoReadView(acc));
+      }
+      if (u.pathname === '/api/auto-read/now' && req.method === 'POST') {
+        const acc = currentAccount();
+        const result = await autoRead.tick(acc, { force: true });
+        return send(res, 200, { ...autoReadView(acc), ok: !!result.ok, error: result.error, result });
+      }
+      if (u.pathname === '/api/api-session/import' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        let payload = input.session && typeof input.session === 'object' ? input.session : input;
+        if (typeof input.raw === 'string' && input.raw.trim()) {
+          try { payload = JSON.parse(input.raw); } catch (e) { return send(res, 400, { ok: false, error: '会话 JSON 格式无效' }); }
         }
-        try {
-          const history = videoPicker.buildHistory(repos.listRecentSentVideos(acc.id, videoPicker.DEFAULT_HISTORY_DAYS));
-          const pickOptions = {
-            banWords: repos.getAccountSetting(acc.id, 'banWords', []),
-            excludeVideoIds: history.ids,
-            excludeTitles: history.titles,
-          };
-          const poolMaxAgeDays = Number(repos.getAccountSetting(acc.id, 'maxVideoAgeDays', 7));
-          const recommendMaxAgeDays = Number(repos.getAccountSetting(acc.id, 'recommendMaxAgeDays', 30));
-          let video;
-          if (source === 'recommend') {
-            const collected = await apiSender.collectFeedCandidates(session, { ...pickOptions, maxAgeDays: recommendMaxAgeDays });
-            const interests = repos.listAccountPools(acc.id).filter((p) => p.enabled).map((p) => p.name);
-            const ranked = await aiRanker.rankCandidates(collected.candidates, {
-              mode: repos.getAccountSetting(acc.id, 'aiMode', 'off'),
-              interests,
-              banWords: pickOptions.banWords,
-            });
-            if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
-            if (ranked.used) {
-              repos.logEvent('ai-rank', { account: acc.label, model: ranked.model, kept: ranked.candidates.length, reason: ranked.reason, via: 'panel' });
-            }
-            const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : collected.candidates, {
-              ids: pickOptions.excludeVideoIds,
-              titles: pickOptions.excludeTitles,
-            });
-            if (!chosen) throw new Error('推荐 feed 没有可用候选');
-            video = { ...chosen, source: 'recommend', bucket: '默认推荐' };
-          } else {
-            const keyword = (() => {
-              const value = chooseKeyword(pool);
-              return value.startsWith('@') ? pool.name : value;
-            })();
-            const aiMode = repos.getAccountSetting(acc.id, 'aiMode', 'off');
-            if (aiRanker.active(aiMode)) {
-              const collected = await apiSender.collectSearchCandidates(session, {
-                keyword,
-                banWords: pickOptions.banWords,
-                maxAgeDays: poolMaxAgeDays,
-              });
-              const interests = repos.listAccountPools(acc.id).filter((p) => p.enabled).map((p) => p.name);
-              const ranked = await aiRanker.rankCandidates(collected.candidates, {
-                mode: aiMode,
-                interests,
-                banWords: pickOptions.banWords,
-              });
-              if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
-              if (ranked.used) {
-                repos.logEvent('ai-rank', { account: acc.label, model: ranked.model, kept: ranked.candidates.length, reason: ranked.reason, via: 'panel', source: 'pool' });
-              }
-              const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : collected.candidates, {
-                ids: pickOptions.excludeVideoIds,
-                titles: pickOptions.excludeTitles,
-              });
-              if (!chosen) throw new Error('池搜索没有可用候选');
-              video = { ...chosen, source: 'pool', bucket: pool.name };
-            } else {
-              video = await apiSender.pick(session, {
-                ...pickOptions,
-                maxAgeDays: poolMaxAgeDays,
-                keyword,
-              });
-            }
-          }
-          const bucket = source === 'recommend' ? '默认推荐' : pool.name;
-          if (dry) {
-            return send(res, 200, { ok: true, dry: true, source, bucket, friends: list, picked: video });
-          }
-          const results = [];
-          for (const friend of list) {
-            const row = repos.getFriendByName(acc.id, friend);
-            const mutual = mutualUserFor(acc, friend);
-            const toUserId = (row && row.userid) || (mutual && mutual.uid) || '';
-            if (!apiSession.canSendTo(session, friend) && !toUserId) {
-              results.push({ friend, ok: false, error: '好友不在会话好友列表里，也不是互关好友（刷新互关或重新导出会话）' });
-              continue;
-            }
-            const out = await apiSender.sendVideo(session, video, { friend, toUserId }).catch((e) => ({ ok: false, error: e.message }));
-            if (out.ok) {
-              repos.insertSend({
-                accountId: acc.id,
-                ts: new Date().toISOString(),
-                day: today(),
-                bucket,
-                title: video.title,
-                author: video.author,
-                likes: video.likes,
-                friend,
-                ok: true,
-                toast: 'HTTP API (panel)',
-                shot: null,
-                videoId: video.awemeId,
-                source,
-              });
-              repos.logEvent('sent-api', { source, pool: bucket, title: video.title, friend, serverMessageId: out.serverMessageId, via: 'panel' });
-            } else {
-              repos.logEvent('api-send-rejected', { source, statusCode: out.statusCode, statusMessage: out.statusMessage, title: video.title, friend });
-            }
-            results.push({ ...out, friend });
-          }
-          const ok = results.some((r) => r.ok);
-          if (!dry && ok) markManualSend(acc);
-          return send(res, ok ? 200 : 502, { ok, source, bucket, friends: list, results, video });
-        } catch (e) {
-          repos.logEvent('api-send-error', { source, error: (e.message || '').split('\n')[0], friends: list });
-          return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
+        if (!payload || !Array.isArray(payload.cookies) || !payload.cookies.length) {
+          return send(res, 400, { ok: false, error: '会话 JSON 缺少有效的 cookies 数组' });
         }
+        const session = {
+          ...payload,
+          account: acc.label,
+          accountName: acc.display_name || payload.accountName || acc.label,
+          createdAt: payload.createdAt || new Date().toISOString(),
+        };
+        apiSession.save(session, acc.label);
+        repos.logEvent('api-session-import', { account: acc.label, cookies: session.cookies.length, hasTemplate: !!(session.template && session.template.bodyB64) });
+        const st = apiSession.status(session, null);
+        return send(res, 200, { ok: true, valid: st.valid, reason: st.reason || null, cookies: session.cookies.length });
       }
       if (u.pathname === '/api/api-session/mode' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
         const input = JSON.parse(body || '{}') || {};
-        const mode = input.mode;
-        if (!['auto', 'browser'].includes(mode)) return send(res, 400, { ok: false, error: 'mode must be auto|browser' });
+        if (input.mode === 'browser') return send(res, 400, { ok: false, error: '已全面切换为纯 API 模式，不再支持浏览器发送' });
         const acc = accountFromInput(input);
-        repos.setAccountSetting(acc.id, 'sendMode', mode);
-        repos.logEvent('send-mode', { account: acc.label, mode });
-        // scheduler children re-read their account config before each slot; no full restart
-        return send(res, 200, { ok: true, mode, account: acc.label, restarted: false });
+        repos.setAccountSetting(acc.id, 'sendMode', 'api');
+        repos.logEvent('send-mode', { account: acc.label, mode: 'api' });
+        return send(res, 200, { ok: true, mode: 'api', account: acc.label, restarted: false });
       }
       if (u.pathname === '/api/api-session/auto-refresh' && req.method === 'POST') {
         let body = '';
@@ -1047,8 +1565,6 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           case 'send_now': {
             const blocked = manualSendBlocked(acc, false);
             if (blocked) return send(res, blocked.status, { ok: false, error: blocked.error });
-            const browser = await service.browserStatus(acc.port);
-            if (browser.up) return send(res, 409, { ok: false, error: '浏览器窗口已被占用，稍后再试' });
             runSendJob({ accountLabel: acc.label }).catch(() => {});
             result = { started: true, jobId: sendJob.id };
             break;
@@ -1123,9 +1639,25 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const name = String(input.name || '').trim();
         const userid = String(input.userid || '').trim();
         if (!name) return send(res, 400, { ok: false, error: '好友昵称不能为空' });
-        repos.addFriend(acc.id, name, userid);
+        try {
+          if (userid) repos.upsertFriendByUid(acc.id, name, userid);
+          else repos.addFriend(acc.id, name);
+        } catch (e) {
+          return send(res, 409, { ok: false, error: e.message });
+        }
         repos.logEvent('friend-add', { account: acc.label, name, userid: userid || undefined });
         return send(res, 200, { ok: true, friends: repos.listFriends(acc.id) });
+      }
+      if (u.pathname === '/api/friends/batch' && req.method === 'POST') {
+        const acc = currentAccount();
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const list = Array.isArray(input.friends) ? input.friends : [];
+        if (!list.length) return send(res, 400, { ok: false, error: '没有可添加的好友' });
+        const out = repos.batchAddFriends(acc.id, list);
+        repos.logEvent('friend-batch-add', { account: acc.label, added: out.added, failed: out.failed });
+        return send(res, 200, { ok: true, ...out });
       }
       if (u.pathname === '/api/friends' && req.method === 'PATCH') {
         const acc = currentAccount();
@@ -1236,24 +1768,19 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const input = JSON.parse(body || '{}');
         const acc = input.label ? repos.getAccount(String(input.label)) : currentAccount();
         if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
-        const state = await service.browserStatus(acc.port);
-        if (!state.up) return send(res, 200, { ok: true, loggedIn: false, reason: '浏览器尚未启动' });
+        const session = apiSession.load(acc.label);
+        if (!session || !Array.isArray(session.cookies) || !session.cookies.length) {
+          return send(res, 200, { ok: true, loggedIn: false, reason: '没有可用的纯 API 会话，请先在「03 纯 API 连接」导入或刷新会话' });
+        }
         let profile = null;
         try {
-          const js = "fetch('/aweme/v1/web/user/profile/self/?device_platform=webapp&aid=6383&channel=channel_pc_web&publish_video_strategy_type=2&source=channel_pc_web',{credentials:'include',headers:{referer:location.href}}).then(r=>r.json()).then(j=>({status:j.status_code,nickname:j.user&&j.user.nickname,uid:j.user&&j.user.uid})).catch(e=>({error:e.message}))";
-          const r = await fetch(`http://127.0.0.1:${acc.port}/eval`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ js }),
-            signal: AbortSignal.timeout(8000),
-          });
-          const out = await r.json();
-          profile = out.out || null;
+          const j = await fetchDouyinWebJson(session, '/aweme/v1/web/user/profile/self/?device_platform=webapp&aid=6383&channel=channel_pc_web&publish_video_strategy_type=2&source=channel_pc_web', { timeoutMs: 8000 });
+          profile = { status: j.status_code, nickname: j.user && j.user.nickname, uid: j.user && j.user.uid, error: j.status_msg };
         } catch (e) {
-          return send(res, 200, { ok: true, loggedIn: false, reason: '读取登录状态失败：' + e.message.split('\n')[0] });
+          return send(res, 200, { ok: true, loggedIn: false, reason: '纯 API 读取登录状态失败：' + e.message.split('\n')[0] });
         }
         if (!profile || profile.status !== 0 || !profile.nickname) {
-          return send(res, 200, { ok: true, loggedIn: false, reason: profile && profile.error ? profile.error : '尚未登录' });
+          return send(res, 200, { ok: true, loggedIn: false, reason: profile && profile.error ? profile.error : '会话未登录或已过期' });
         }
         const auto = !acc.display_name || /^新账户/.test(acc.display_name) || acc.display_name === acc.label;
         let renamed = false;
@@ -1278,9 +1805,14 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
         const cache = readMutualCache(acc.label);
         const ageMs = cache && cache.fetchedAt ? Date.now() - Date.parse(cache.fetchedAt) : null;
+        const hours = mutualSyncHours();
+        const fresh = Number.isFinite(ageMs) && ageMs < hours * 60 * 60 * 1000;
         return send(res, 200, cache
-          ? { ok: true, cached: true, stale: !(Number.isFinite(ageMs) && ageMs < 6 * 60 * 60 * 1000), ...cache }
-          : { ok: true, cached: false, label: acc.label, mutual: [], errors: [] });
+          ? { ok: true, cached: true, stale: !fresh, syncHours: hours, autoSync: mutualSyncOn(), ...cache }
+          : {
+            ok: true, cached: false, label: acc.label, mutual: [], followingList: [], followerList: [],
+            errors: [], syncHours: hours, autoSync: mutualSyncOn(),
+          });
       }
       if (u.pathname === '/api/accounts/mutual-friends' && req.method === 'POST') {
         let body = '';
@@ -1288,13 +1820,20 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const input = JSON.parse(body || '{}');
         const acc = input.label ? repos.getAccount(String(input.label)) : currentAccount();
         if (!acc) return send(res, 404, { ok: false, error: '账户不存在' });
+        if (mutualSyncBusy) return send(res, 409, { ok: false, error: '互关同步正在进行中，稍后再试' });
+        mutualSyncBusy = true;
         try {
-          const out = await fetchMutualFriends(acc);
-          const cache = saveMutualCache(acc.label, out);
-          repos.logEvent('mutual-friends', { account: acc.label, mutual: out.mutual.length, following: out.following, followers: out.followers });
-          return send(res, 200, { ...cache, ok: true, cached: true, stale: false, errors: out.errors || [] });
+          const out = await syncMutualFriends(acc, { reason: 'manual' });
+          mutualSyncRetryAt = 0;
+          return send(res, 200, {
+            ...out, ok: true, cached: true, stale: false,
+            syncHours: mutualSyncHours(), autoSync: mutualSyncOn(),
+            errors: out.errors || [],
+          });
         } catch (e) {
           return send(res, 500, { ok: false, error: e.message.split('\n')[0] });
+        } finally {
+          mutualSyncBusy = false;
         }
       }
       if (u.pathname === '/api/accounts/switch' && req.method === 'POST') {
@@ -1311,19 +1850,24 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
       }
       if (u.pathname === '/api/accounts') {
         const rows = require('./db').open().prepare('SELECT * FROM accounts ORDER BY id').all();
-        const accounts = rows.map((a) => ({
-          id: a.id,
-          label: a.label,
-          name: a.display_name || a.label,
-          port: a.port,
-          friend: repos.listEnabledFriendNames(a.id)[0] || a.friend,
-          friends: repos.listEnabledFriendNames(a.id),
-          enabled: !!a.enabled,
-          profile: a.profile_dir,
-          points: scheduleConfig.fromAccount(a).pointCount,
-          dailyTotal: scheduleConfig.fromAccount(a).totalCount,
-          sends: repos.listSends({ accountId: a.id, limit: 100000 }).length,
-        }));
+        const sendCounts = repos.countSendsByAccount();
+        const accounts = rows.map((a) => {
+          const sched = scheduleConfig.fromAccount(a);
+          const enabledFriends = repos.listEnabledFriendNames(a.id);
+          return {
+            id: a.id,
+            label: a.label,
+            name: a.display_name || a.label,
+            port: a.port,
+            friend: enabledFriends[0] || a.friend,
+            friends: enabledFriends,
+            enabled: !!a.enabled,
+            profile: a.profile_dir,
+            points: sched.pointCount,
+            dailyTotal: sched.totalCount,
+            sends: sendCounts[a.id] || 0,
+          };
+        });
         return send(res, 200, { accounts, active: currentAccount().label });
       }
       if (u.pathname === '/api/events') {
@@ -1352,6 +1896,20 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         return send(res, 200, { ok: true, action, restarted });
       }
       if (u.pathname === '/api/config' && req.method === 'GET') return send(res, 200, configFromDb());
+      if (u.pathname === '/api/config/copy' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const fromLabel = String(input.fromAccount || '').trim();
+        if (!fromLabel) return send(res, 400, { ok: false, error: '请选择来源账户' });
+        const fromAcc = repos.getAccount(fromLabel);
+        if (!fromAcc) return send(res, 404, { ok: false, error: `来源账户不存在: ${fromLabel}` });
+        const toAcc = accountFromInput({ account: input.toAccount || input.account });
+        if (fromAcc.id === toAcc.id) return send(res, 400, { ok: false, error: '不能从当前账户复制到自己' });
+        const stats = repos.copyAccountConfig(fromAcc.id, toAcc.id);
+        repos.logEvent('config-copy', { from: fromAcc.label, to: toAcc.label, ...stats });
+        return send(res, 200, { ok: true, ...stats, config: configFromDb(toAcc) });
+      }
       if (u.pathname === '/api/config' && req.method === 'POST') {
         let body = '';
         for await (const c of req) body += c;
@@ -1391,12 +1949,18 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         for await (const c of req) body += c;
         const input = body ? JSON.parse(body) : {};
         const acc = accountFromInput(input);
+        if (slowMail.isLive(repos.getSlowMailState(acc.id))) {
+          return send(res, 409, { ok: false, error: '慢递进行中，先收束再重置今日计划' });
+        }
         const { forceNow, plan } = resetSchedule(acc);
         repos.logEvent('schedule-reset', { account: acc.label, reason: 'manual', forceNow, points: plan.pointCount });
         return send(res, 200, { ok: true, forceNow });
       }
       if (u.pathname === '/api/today/regenerate' && req.method === 'POST') {
         const acc = currentAccount();
+        if (slowMail.isLive(repos.getSlowMailState(acc.id))) {
+          return send(res, 409, { ok: false, error: '慢递进行中，先收束再重置今日计划' });
+        }
         return send(res, 200, { ok: true, ...regenerateToday(acc) });
       }
       if (u.pathname.startsWith('/shot/')) {
@@ -1415,9 +1979,13 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
   return new Promise((resolve) => {
     server.listen(port, host, () => {
       const actual = server.address().port;
+      startMutualSync();
       resolve({ server, url: `http://${host}:${actual}`, port: actual });
     });
   });
 }
 
-module.exports = { startServer, configFromDb, dataFromDb, persist, sanitize };
+module.exports = {
+  startServer, configFromDb, dataFromDb, persist, sanitize,
+  syncFriendNamesFromMutual, syncMutualFriends, runMutualSyncTick,
+};

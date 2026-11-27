@@ -229,7 +229,9 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ ok: true, rows }));
     }
     if (u.pathname === '/send' && req.method === 'POST') {
-      const { name, confirm } = JSON.parse(await readBody(req));
+      const { name, userid, confirm } = JSON.parse(await readBody(req));
+      const wantedUid = String(userid || '').trim();
+      const wantedName = String(name || '').trim();
       const p = await cur();
       let rows = [];
       for (let attempt = 0; attempt < 12; attempt++) {
@@ -247,18 +249,39 @@ const server = http.createServer(async (req, res) => {
         if (rows.length) break;
         await p.waitForTimeout(900);
       }
-      const exact = rows.filter((r) => r.name === name);
-      const partial = rows.filter((r) => r.name.includes(name));
-      const pool = exact.length ? exact : partial;
-      if (!pool.length) {
-        return res.end(JSON.stringify({ ok: false, error: 'friend not found', visible: rows.map((r) => r.name) }));
+      let target = null;
+      let match = '';
+      if (wantedUid) {
+        // UID is authoritative: never fall back to a nickname match, which could hit a
+        // different person after a rename or a recycled nickname.
+        const byUid = rows.filter((r) => String(r.userid || '').trim() === wantedUid);
+        if (!byUid.length) {
+          return res.end(JSON.stringify({
+            ok: false, error: 'friend uid not found', userid: wantedUid,
+            visible: rows.slice(0, 40).map((r) => ({ name: r.name, userid: r.userid })),
+          }));
+        }
+        if (byUid.length > 1) {
+          return res.end(JSON.stringify({ ok: false, error: 'ambiguous uid', candidates: byUid }));
+        }
+        target = byUid[0];
+        match = 'uid';
+      } else {
+        if (!wantedName) return res.end(JSON.stringify({ ok: false, error: 'friend name required' }));
+        const exact = rows.filter((r) => r.name === wantedName);
+        const partial = rows.filter((r) => r.name.includes(wantedName));
+        const pool = exact.length ? exact : partial;
+        if (!pool.length) {
+          return res.end(JSON.stringify({ ok: false, error: 'friend not found', visible: rows.map((r) => r.name) }));
+        }
+        if (pool.length > 1) {
+          return res.end(JSON.stringify({ ok: false, error: 'ambiguous name', candidates: pool }));
+        }
+        target = pool[0];
+        match = exact.length ? 'exact' : 'partial';
       }
-      if (pool.length > 1) {
-        return res.end(JSON.stringify({ ok: false, error: 'ambiguous name', candidates: pool }));
-      }
-      const target = pool[0];
       if (!confirm) {
-        return res.end(JSON.stringify({ ok: true, dryRun: true, target, match: exact.length ? 'exact' : 'partial' }));
+        return res.end(JSON.stringify({ ok: true, dryRun: true, target, match }));
       }
       await p.mouse.click(target.x, target.y);
       await p.waitForTimeout(2500);
@@ -266,7 +289,7 @@ const server = http.createServer(async (req, res) => {
       const toast = text.match(/(分享成功|已分享|发送成功|已发送)/);
       const file = path.join(SHOT_DIR, `sent-${TAG}-${Date.now()}.png`);
       await p.screenshot({ path: file });
-      return res.end(JSON.stringify({ ok: true, sent: true, target, toast: toast ? toast[1] : null, shot: file }));
+      return res.end(JSON.stringify({ ok: true, sent: true, target, match, toast: toast ? toast[1] : null, shot: file }));
     }
     if (u.pathname === '/screen') {
       const p = await cur();

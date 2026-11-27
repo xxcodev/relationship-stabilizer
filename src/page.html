@@ -92,7 +92,8 @@
   .acct-menu-more:hover{background:rgba(255,255,255,.055);color:var(--txt)}
 
   /* main */
-  .main{flex:1;min-width:0;padding:26px 32px 48px;max-width:1440px;margin:0 auto}
+  .main{flex:1;min-width:0;padding:0 32px 48px;max-width:none;margin:0}
+  .view,.alert,.footer-note{max-width:1440px;margin-left:auto;margin-right:auto}
   .topbar{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:22px}
   h1{font-size:24px;line-height:1.2;margin:0 0 5px;letter-spacing:.2px}
   .sub{color:var(--dim);font-size:13px}
@@ -125,6 +126,11 @@
   .top-actions .pill.ok::before{background:var(--ok);opacity:1}
   .top-actions .pill.warn::before{background:var(--warn);opacity:1}
   .top-actions .pill.bad::before{background:var(--bad);opacity:1}
+  @media (max-width:1100px){
+    .topbar{gap:12px}
+    .top-actions{gap:6px}
+    .top-actions .btn,.top-actions .pill{padding:0 10px;font-size:12.5px}
+  }
 
   /* cards / layout */
   .card{background:rgba(8,12,19,.28);
@@ -133,7 +139,7 @@
   .card.pad-sm{padding:14px 16px}
   .card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
   .eyebrow{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;color:var(--dim);font-weight:650}
-  .hero-grid{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:16px;margin-bottom:16px}
+  .hero-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;margin-bottom:16px}
   .hero-num{font-size:42px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.5px;margin-top:4px}
   .hero-den{font-size:17px;color:var(--dim);font-weight:500;margin-left:4px;letter-spacing:0}
   .progress{height:9px;border-radius:999px;background:#0a0e15;border:1px solid var(--line);overflow:hidden;margin:14px 0 12px}
@@ -858,12 +864,12 @@
       conic-gradient(from 215deg at 58% 8%,rgba(255,205,234,.16),rgba(198,202,255,.13),rgba(184,255,238,.11),rgba(255,205,234,.16));
     filter:blur(46px);opacity:.95}
 
-  /* pointer-following ambient wash */
+  /* pointer-following ambient wash (pure radial gradient, zero GPU blur filter) */
   .ambient-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.9;--ambient-hue:220}
-  .ambient-blob{position:absolute;left:0;top:0;width:min(820px,82vw);aspect-ratio:1;border-radius:50%;filter:blur(92px);will-change:transform;
+  .ambient-blob{position:absolute;left:0;top:0;width:min(900px,86vw);aspect-ratio:1;border-radius:50%;will-change:transform;
     transform:translate3d(-50%,-50%,0);opacity:.34;mix-blend-mode:screen}
-  .ambient-blob.a{background:radial-gradient(circle at 50% 50%,hsl(var(--ambient-hue) 90% 64% / .5),transparent 68%)}
-  .ambient-blob.b{background:radial-gradient(circle at 50% 50%,hsl(calc(var(--ambient-hue) + 52) 88% 66% / .36),transparent 70%);opacity:.22}
+  .ambient-blob.a{background:radial-gradient(circle at 50% 50%,hsl(var(--ambient-hue) 90% 64% / .44) 0%,hsl(var(--ambient-hue) 90% 64% / .16) 36%,transparent 70%)}
+  .ambient-blob.b{background:radial-gradient(circle at 50% 50%,hsl(calc(var(--ambient-hue) + 52) 88% 66% / .32) 0%,hsl(calc(var(--ambient-hue) + 52) 88% 66% / .11) 38%,transparent 72%);opacity:.22}
   html[data-theme="light"] .ambient-bg{opacity:.72}
   html[data-theme="light"] .ambient-blob{mix-blend-mode:normal}
   html[data-theme="light"] .ambient-blob.a{opacity:.22}
@@ -872,17 +878,15 @@
     .ambient-blob{transition:none!important}
   }
 
-  .topbar{position:sticky;top:0;z-index:20;width:100%;margin:-8px 0 18px;padding:14px 18px;
+  .topbar{position:sticky;top:0;z-index:20;width:calc(100% + 64px);margin:0 -32px 22px;padding:14px 32px;
     background:transparent;border:0;border-radius:0;box-shadow:none;isolation:isolate}
-  .topbar::before{content:"";position:absolute;top:0;bottom:0;
-    left:calc(0px - var(--head-extra,0px));right:calc(0px - var(--head-extra,0px));z-index:0;pointer-events:none;
-    background:rgba(20,27,40,.34);border:1px solid var(--line);border-radius:var(--head-radius,var(--r));
-    backdrop-filter:blur(22px) saturate(1.12);-webkit-backdrop-filter:blur(22px) saturate(1.12);
-    box-shadow:var(--shadow)}
+  .topbar::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+    background:rgba(20,27,40,.52);border-bottom:1px solid var(--line);border-radius:0;
+    backdrop-filter:blur(18px) saturate(1.12);-webkit-backdrop-filter:blur(18px) saturate(1.12);
+    box-shadow:0 8px 24px rgba(0,0,0,.22)}
   .topbar>*{position:relative;z-index:1}
   .topbar h1{transform-origin:left center;transform:scale(var(--head-title-scale,1))}
   .topbar .sub{opacity:var(--head-sub-opacity,1);transform:translateY(var(--head-sub-y,0px))}
-  .topbar.is-expanded::before{border-left-color:transparent;border-right-color:transparent}
   .topbar::after{display:none}
 
   .card{transition:border-color .22s ease,box-shadow .22s ease,transform .22s ease,background .22s ease;overflow:hidden}
@@ -943,8 +947,20 @@
   .tag:hover{border-color:rgba(91,140,255,.35);color:#cfdcf2}
 
   .table-wrap{background:transparent}
-  th{backdrop-filter:blur(10px)}
   tbody tr{transition:background .15s ease}
+
+  /* sticky unsaved config bar */
+  .cfg-dirty-bar{position:sticky;bottom:16px;z-index:35;max-width:1100px;margin:16px auto 0;padding:12px 16px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    border-radius:14px;border:1px solid rgba(91,140,255,.48);background:rgba(14,20,32,.96);
+    box-shadow:0 16px 40px rgba(0,0,0,.45);animation:in .18s ease-out}
+  .cfg-dirty-bar[hidden]{display:none!important}
+  .cfg-dirty-bar-text{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--txt);font-weight:500}
+  .cfg-dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 8px rgba(245,165,36,.7)}
+  .cfg-dirty-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cfg-quick-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .cfg-quick-tools select{padding:6px 10px;font-size:12px;border-radius:9px}
+  html[data-theme="light"] .cfg-dirty-bar{background:rgba(255,255,255,.97);border-color:rgba(47,107,255,.38);box-shadow:0 14px 34px rgba(31,53,89,.18)}
   tbody tr:hover td{background:rgba(91,140,255,.055)}
 
   details{transition:border-color .2s,background .2s}
@@ -1087,7 +1103,8 @@
     .side-acct,.side-link{display:none}
     .side-theme{width:auto;padding:8px 10px;white-space:nowrap}
     .friend-select-pop{top:calc(100% + 7px);bottom:auto}
-    .main{width:100%;max-width:100%;margin:0;padding:20px 16px 40px}
+    .main{width:100%;max-width:100%;margin:0;padding:0 16px 40px}
+    .topbar{width:calc(100% + 32px);margin:0 -16px 18px;padding:12px 16px}
     .hero-grid{grid-template-columns:1fr}
     .top-actions{width:100%}
     #sec-plan .sched-head{display:none}
@@ -1111,7 +1128,213 @@
     .nav{order:3;flex:1 1 100%;width:100%;justify-content:space-between;gap:4px;overflow:visible}
     .nav-item{flex:1 1 0;width:auto;justify-content:center;padding:8px 4px;font-size:12.5px;gap:6px}
   }
-</style></head>
+  /* ---------- 慢递 ---------- */
+  .slow-card{position:relative;display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:16px;
+    border-color:rgba(198,170,255,.22);overflow:hidden;
+    background:linear-gradient(100deg,rgba(91,140,255,.08),rgba(198,170,255,.05) 50%,rgba(184,255,238,.04))}
+  .slow-card::after{content:"";position:absolute;right:-40px;top:-70px;width:230px;height:230px;border-radius:50%;
+    background:radial-gradient(circle,rgba(198,170,255,.16),transparent 65%);pointer-events:none}
+  .slow-card.is-live{border-color:rgba(198,170,255,.38);box-shadow:0 18px 52px rgba(0,0,0,.3),0 0 0 1px rgba(198,170,255,.06)}
+  .slow-card-copy{min-width:0;flex:1 1 auto;position:relative;z-index:1}
+  .slow-card-title{font-size:20px;font-weight:700;letter-spacing:-.2px;margin-top:4px;line-height:1.35}
+  .slow-card-sub{color:var(--dim);font-size:13px;margin-top:5px;line-height:1.65}
+  .slow-card-meta{color:var(--dim2);font-size:12px;margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;line-height:1.6}
+  .slow-card-meta b{color:var(--txt);font-variant-numeric:tabular-nums}
+  .slow-card-warn{color:var(--warn);font-size:12px;margin-top:7px;line-height:1.6}
+  .slow-card-side{display:flex;align-items:center;gap:16px;flex:0 0 auto;position:relative;z-index:1}
+  .slow-live-box{text-align:right}
+  .slow-clock{font-size:25px;font-weight:700;letter-spacing:-.5px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .slow-clock.paused{color:var(--warn)}
+  .slow-count{color:var(--dim);font-size:12px;margin-top:4px;font-variant-numeric:tabular-nums}
+  .slow-card-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .slow-card-icon{width:46px;height:46px;border-radius:14px;flex:0 0 46px;display:flex;align-items:center;justify-content:center;
+    color:#d9ccff;font-size:25px;line-height:1;border:1px solid rgba(198,170,255,.28);
+    background:linear-gradient(145deg,rgba(198,170,255,.2),rgba(91,140,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.08);position:relative;z-index:1}
+  .slow-idle-side{display:flex;align-items:center}
+  .slow-idle-pill{color:#d9ccff;border-color:rgba(198,170,255,.32);background:rgba(198,170,255,.08)}
+  .btn.slow-top{background:linear-gradient(135deg,rgba(126,103,255,.2),rgba(198,170,255,.11));border-color:rgba(198,170,255,.42);color:#eee9ff}
+  .btn.slow-top:hover{background:linear-gradient(135deg,rgba(126,103,255,.3),rgba(198,170,255,.17));border-color:rgba(198,170,255,.62)}
+  .btn.slow-top.live{background:linear-gradient(135deg,rgba(55,214,122,.11),rgba(126,103,255,.16));border-color:rgba(127,226,207,.38);color:#dffcf4}
+  .btn.slow-top.paused{background:rgba(245,165,36,.1);border-color:rgba(245,165,36,.4);color:#ffd18a}
+  .slow-top-mark{width:7px;height:7px;border-radius:50%;background:#c6aaff;box-shadow:0 0 10px rgba(198,170,255,.7);flex:0 0 7px}
+  .btn.slow-top.live .slow-top-mark{background:#7fe2cf;box-shadow:0 0 10px rgba(127,226,207,.7);animation:slowPulse 1.8s infinite}
+  .btn.slow-top.paused .slow-top-mark{background:var(--warn);box-shadow:0 0 10px rgba(245,165,36,.55);animation:none}
+  @keyframes slowPulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .chip.deferred{color:var(--warn);border-color:rgba(240,180,80,.34);background:rgba(240,180,80,.08)}
+
+  .slow-backdrop{position:fixed;inset:0;z-index:79;background:rgba(3,7,14,.6);backdrop-filter:blur(4px);animation:pool-fade .18s ease-out}
+  .slow-panel{position:fixed;z-index:80;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:min(620px,calc(100vw - 28px));max-height:min(88vh,760px);display:flex;flex-direction:column;
+    background:rgba(13,18,28,.98);border:1px solid rgba(145,170,255,.34);border-radius:16px;
+    box-shadow:0 30px 80px rgba(0,0,0,.52);backdrop-filter:blur(24px);
+    animation:pool-pop .2s cubic-bezier(.2,.8,.25,1.08);overflow:hidden}
+  .slow-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 18px 12px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .slow-modal-body{padding:14px 18px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+  .slow-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-top:1px solid rgba(255,255,255,.08);flex-wrap:wrap}
+  .slow-field{display:flex;flex-direction:column;gap:8px}
+  .slow-label{font-size:12px;color:var(--dim);font-weight:600;letter-spacing:.02em}
+  .slow-field-row{display:grid;grid-template-columns:1fr 150px;gap:16px;align-items:end}
+  .slow-chip-row{display:flex;gap:8px;flex-wrap:wrap}
+  .slow-chip{border:1px solid var(--line2);background:rgba(255,255,255,.02);color:var(--dim);border-radius:999px;
+    padding:7px 12px;font-size:12.5px;cursor:pointer;transition:.15s;font-family:inherit}
+  .slow-chip:hover{border-color:rgba(91,140,255,.42);color:var(--txt)}
+  .slow-chip.active{color:#dce7ff;border-color:rgba(91,140,255,.55);background:rgba(91,140,255,.14)}
+  .slow-custom{display:flex;align-items:center;gap:8px;color:var(--dim2);font-size:12px;flex-wrap:wrap}
+  .slow-custom input{width:92px}
+  .slow-preview{border:1px dashed rgba(145,170,255,.26);border-radius:10px;padding:10px 12px;
+    color:var(--dim);font-size:12.5px;line-height:1.65;background:rgba(91,140,255,.04)}
+  .slow-preview b{color:var(--txt);font-variant-numeric:tabular-nums}
+  .slow-warning{border:1px solid rgba(240,180,80,.28);background:rgba(240,180,80,.06);color:var(--warn);
+    border-radius:10px;padding:9px 12px;font-size:12px;line-height:1.6}
+  .slow-friend-select{width:100%}
+  html[data-theme="light"] .slow-card{background:linear-gradient(100deg,rgba(47,107,255,.05),rgba(150,120,255,.05) 50%,rgba(120,220,200,.05))}
+  html[data-theme="light"] .slow-panel{background:rgba(255,255,255,.99);border-color:rgba(150,170,210,.46)}
+  html[data-theme="light"] .slow-backdrop{background:rgba(40,55,85,.3)}
+  html[data-theme="light"] .slow-chip{background:#fff}
+  html[data-theme="light"] .slow-chip.active{color:#22439a;border-color:rgba(47,107,255,.55);background:rgba(47,107,255,.12)}
+  html[data-theme="light"] .mutual-tab.active{color:#22439a;border-color:rgba(47,107,255,.55);background:rgba(47,107,255,.12)}
+  html[data-theme="light"] .slow-preview{background:rgba(47,107,255,.04)}
+  html[data-theme="light"] .slow-card-icon{color:#6a54c9;border-color:rgba(120,100,220,.2);
+    background:linear-gradient(145deg,rgba(126,103,255,.12),rgba(47,107,255,.05))}
+  html[data-theme="light"] .slow-idle-pill{color:#5b47b5;border-color:rgba(120,100,220,.3);background:rgba(126,103,255,.06)}
+  html[data-theme="light"] .btn.slow-top{color:#4d3a9f;border-color:rgba(120,100,220,.32);background:linear-gradient(135deg,rgba(126,103,255,.1),rgba(198,170,255,.08))}
+  html[data-theme="light"] .btn.slow-top:hover{background:linear-gradient(135deg,rgba(126,103,255,.16),rgba(198,170,255,.12));border-color:rgba(120,100,220,.46)}
+  html[data-theme="light"] .btn.slow-top.live{color:#1d6b52;border-color:rgba(30,150,105,.3);background:rgba(55,214,122,.08)}
+  html[data-theme="light"] .btn.slow-top.paused{color:#8a5a00;border-color:rgba(200,140,20,.36);background:rgba(245,165,36,.08)}
+  html[data-theme="light"] .slow-top-mark{background:#7a68ff;box-shadow:0 0 8px rgba(122,104,255,.45)}
+  html[data-theme="light"] .btn.slow-top.live .slow-top-mark{background:#1f9d76;box-shadow:0 0 8px rgba(31,157,118,.4)}
+  html[data-theme="light"] .btn.slow-top.paused .slow-top-mark{background:#c88c14;box-shadow:none}
+  @media (max-width:720px){
+    .slow-card{flex-direction:column;align-items:stretch}
+    .slow-card-side{justify-content:space-between;align-items:flex-end}
+    .slow-card-actions{justify-content:flex-end}
+    .slow-panel{left:0;right:0;top:auto;bottom:0;width:100%;max-width:none;max-height:88vh;border-radius:18px 18px 0 0;transform:none;animation:pool-slide .22s ease-out}
+    .slow-modal-head{padding:15px 16px 10px}
+    .slow-modal-body{padding:12px 16px}
+    .slow-modal-foot{padding:10px 16px calc(12px + env(safe-area-inset-bottom))}
+    .slow-field-row{grid-template-columns:1fr}
+    .slow-clock{font-size:21px}
+  }
+  /* mutual people tabs */
+  .mutual-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .mutual-tab{border:1px solid var(--line2);background:rgba(255,255,255,.02);color:var(--dim);border-radius:999px;
+    padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit;transition:.15s}
+  .mutual-tab:hover{border-color:rgba(91,140,255,.42);color:var(--txt)}
+  .mutual-tab.active{color:#dce7ff;border-color:rgba(91,140,255,.55);background:rgba(91,140,255,.14)}
+  .mutual-tab b{font-weight:600;margin-left:4px;font-variant-numeric:tabular-nums;color:var(--txt)}
+  .mutual-tools{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  .mutual-tools input{flex:1 1 220px;min-width:160px}
+  .mutual-people{display:flex;flex-direction:column;gap:2px;max-height:360px;overflow:auto;margin-top:10px;
+    border:1px solid var(--line2);border-radius:12px;padding:6px;background:rgba(0,0,0,.08)}
+  .mutual-person{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px}
+  .mutual-person:hover{background:rgba(255,255,255,.03)}
+  .mutual-person .mutual-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mutual-person .mutual-uid{color:var(--dim2);font-size:11px;font-variant-numeric:tabular-nums;flex:0 0 auto}
+  .mutual-people-more{padding:8px;color:var(--dim2);font-size:12px;text-align:center}
+  .mutual-analysis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+  .mutual-analysis .ma{border:1px solid var(--line2);border-radius:10px;padding:10px 12px;background:rgba(255,255,255,.02)}
+  .mutual-analysis .ma .k{color:var(--dim);font-size:11.5px}
+  .mutual-analysis .ma .v{font-size:21px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+  .mutual-analysis .ma .v small{font-size:11px;color:var(--dim2);font-weight:500;margin-left:3px}
+  html[data-theme="light"] .mutual-tab{background:#fff}
+  html[data-theme="light"] .mutual-people{background:rgba(255,255,255,.4)}
+  @media (max-width:720px){ .mutual-analysis{grid-template-columns:repeat(2,minmax(0,1fr))} }
+
+  @media (max-width:720px){
+    .slow-card{flex-wrap:wrap;align-items:flex-start;gap:12px}
+    .slow-card-icon{display:none}
+    .slow-card-copy{flex:1 1 100%}
+    .slow-card-side{width:100%;justify-content:space-between;gap:10px}
+    .slow-card-actions{margin-left:auto}
+    .slow-card-title{font-size:18px}
+  }
+</style>
+
+<style id="auto-read-style">
+.auto-read-card .card-head{align-items:center}
+.auto-read-friends-head{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--dim);margin:2px 0 8px}
+.auto-read-friends{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px 12px;margin-bottom:13px;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02)}
+.auto-read-friend{display:flex;align-items:center;gap:7px;min-width:0;font-size:12px;color:var(--txt);cursor:pointer;padding:3px 0}
+.auto-read-friend input{accent-color:var(--acc)}
+.auto-read-friend .uid{font-size:10.5px;color:var(--dim2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.auto-read-row{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.auto-read-row .f{display:flex;flex-direction:column;gap:6px;font-size:11.5px;color:var(--dim)}
+.auto-read-range{display:flex;align-items:center;gap:6px}
+.auto-read-range input{width:72px;padding:8px 9px;text-align:center}
+.auto-read-row .btn{align-self:flex-end}
+.auto-read-window{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:11px;font-size:11.5px;color:var(--dim)}
+.auto-read-check{display:flex;align-items:center;gap:6px;color:var(--txt);cursor:pointer}
+.auto-read-window-fields{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.auto-read-window-fields input[type="time"]{width:102px;padding:7px 8px}
+.auto-read-window-fields input[type="number"]{width:66px;padding:7px 8px;text-align:center}
+.auto-read-window-fields select{padding:7px 8px;min-width:102px}
+.auto-read-window-fields[hidden]{display:none!important}
+.auto-read-card .switch-control{gap:8px}
+.auto-read-status{font-size:11.5px;line-height:1.65;min-height:18px;margin-top:10px}
+.auto-read-status .ok{color:var(--ok)}
+.auto-read-status .bad{color:var(--bad)}
+.auto-read-note{font-size:11px;color:var(--dim2);margin-top:5px}
+@media (max-width:720px){
+  .auto-read-friends{grid-template-columns:1fr}
+  .auto-read-row{display:block}
+  .auto-read-row .f{margin-bottom:9px}
+  .auto-read-window{display:block}
+  .auto-read-window-fields{margin-top:8px}
+}
+</style>
+<style id="slow-panel-only">
+/* Focused slow-mail settings layout; uses the existing app palette. */
+.slow-panel{width:min(680px,calc(100vw - 28px));max-height:min(90vh,760px)}
+.slow-panel .slow-modal-head{padding:20px 22px 14px;border-bottom:1px solid var(--line);align-items:flex-start}
+.slow-panel .slow-panel-title{font-size:22px;font-weight:700;letter-spacing:-.2px;line-height:1.25;margin:4px 0 4px;color:var(--txt)}
+.slow-panel .slow-modal-head .eyebrow{color:var(--dim2)}
+.slow-panel .slow-modal-head .field-note{font-size:12px;line-height:1.6;max-width:520px}
+.slow-panel .slow-modal-body{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  grid-template-areas:"duration rhythm" "recipient recipient" "read notice" "preview preview" "warning warning";
+  gap:12px 16px;padding:16px 22px 6px;overflow:auto;min-height:0;flex:1 1 auto;
+}
+.slow-panel .slow-field{
+  display:flex;flex-direction:column;gap:8px;margin:0;min-width:0;
+  padding:12px 13px;border:1px solid var(--line);border-radius:12px;
+  background:rgba(255,255,255,.025);
+}
+.slow-panel .slow-field-duration{grid-area:duration}
+.slow-panel .slow-field-rhythm{grid-area:rhythm}
+.slow-panel .slow-field-recipient{grid-area:recipient;display:grid;grid-template-columns:minmax(0,1fr) 76px;gap:10px;align-items:end}
+.slow-panel .slow-field-read{grid-area:read;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}
+.slow-panel .slow-friend-note{grid-area:notice;align-self:center}
+.slow-panel .slow-preview{grid-area:preview;margin:0}
+.slow-panel .slow-warning{grid-area:warning}
+.slow-panel .slow-label{font-size:11.5px;color:var(--dim);font-weight:600;letter-spacing:.02em}
+.slow-panel .slow-chip-row{gap:7px}
+.slow-panel .slow-chip{padding:6px 11px;font-size:12px}
+.slow-panel .slow-custom{font-size:11.5px;color:var(--dim2);margin-top:2px}
+.slow-panel .slow-custom input{width:68px;padding:7px 8px;text-align:center}
+.slow-panel .slow-friend-note{
+  font-size:11px;line-height:1.6;color:var(--dim2);
+  padding:8px 10px;border:1px dashed var(--line2);border-radius:9px;background:rgba(255,255,255,.02);
+}
+.slow-panel .slow-friend-note b{color:var(--txt);font-weight:600}
+.slow-panel .slow-modal-foot{padding:12px 22px 16px;border-top:1px solid var(--line);background:transparent}
+.slow-panel .slow-modal-foot .field-note{font-size:11.5px}
+html[data-theme="light"] .slow-panel .slow-field{background:rgba(255,255,255,.55)}
+html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,255,.5)}
+@media (max-width:720px){
+  .slow-panel .slow-modal-head{padding:16px 16px 12px}
+  .slow-panel .slow-panel-title{font-size:19px}
+  .slow-panel .slow-modal-body{display:block;padding:12px 16px 4px}
+  .slow-panel .slow-field{margin-bottom:10px}
+  .slow-panel .slow-field-recipient{grid-template-columns:minmax(0,1fr) 72px}
+  .slow-panel .slow-field-read{display:flex;justify-content:space-between;align-items:center}
+  .slow-panel .slow-friend-note{margin:0 0 10px}
+  .slow-panel .slow-preview{margin-bottom:4px}
+  .slow-panel .slow-modal-foot{padding:10px 16px 14px}
+}
+</style>
+
+
+</head>
 <body>
 <div class="ambient-bg" id="ambientBg" aria-hidden="true"><span class="ambient-blob a"></span><span class="ambient-blob b"></span></div>
 <div class="app">
@@ -1126,7 +1349,7 @@
       <button class="nav-item" data-view="config"><span class="ico">⚙️</span>配置</button>
       <button class="nav-item" data-view="records"><span class="ico">📋</span>记录</button>
       <button class="nav-item" data-view="diagnostics"><span class="ico">🩺</span>排查</button>
-    </nav>
+</nav>
     <div class="side-foot">
       <button class="side-theme" id="themeToggle" type="button"><span id="themeIcon">🌙</span><span id="themeLabel">黑夜模式</span></button>
       <div class="side-acct" id="sideAcctWrap">
@@ -1144,7 +1367,7 @@
           <div class="acct-menu-foot"><button class="acct-menu-more" id="acctMenuManage" type="button" role="menuitem">管理账户<span aria-hidden="true">↗</span></button></div>
         </div>
       </div>
-      <a class="side-link" href="/viewer" target="_blank">打开抖音画面 ↗</a>
+
     </div>
   </aside>
 
@@ -1152,23 +1375,25 @@
     <header class="topbar">
       <div>
         <h1 id="pageTitle">首页</h1>
-        <div class="sub" id="pageSub">总览 · 今日排班 · 快速发送</div>
+        <div class="sub" id="pageSub">总览 · 今日排班 · 好友</div>
       </div>
       <div class="top-actions">
         <span class="pill" id="svcPill">检查中…</span>
         <button class="btn soft" id="btnPause">暂停</button>
         <button class="btn soft" id="btnResume">继续</button>
         <button class="btn soft" id="btnRestart">重启服务</button>
+        <button class="btn slow-top" id="btnSlowTop" type="button" aria-label="开始慢递">
+          <span class="slow-top-mark" aria-hidden="true"></span><span id="slowTopText">开始慢递</span>
+        </button>
         <button class="btn primary" id="btnSendNow">立即发送一次</button>
       </div>
       <nav class="config-tabs" id="configNav" hidden role="tablist" aria-label="配置分区">
         <button class="config-tab is-active" type="button" role="tab" data-config-tab="plan" aria-selected="true" aria-controls="sec-plan"><span class="n">01</span><span>发送计划</span></button>
         <button class="config-tab" type="button" role="tab" data-config-tab="video" aria-selected="false" aria-controls="sec-video"><span class="n">02</span><span>视频来源</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="friends" aria-selected="false" aria-controls="sec-friends"><span class="n">03</span><span>发送好友</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="connection" aria-selected="false" aria-controls="sec-connection"><span class="n">04</span><span>纯 API 连接</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="ai" aria-selected="false" aria-controls="sec-ai"><span class="n">05</span><span>AI</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="database" aria-selected="false" aria-controls="sec-database"><span class="n">06</span><span>数据库</span></button>
-        <button class="config-tab" type="button" role="tab" data-config-tab="advanced" aria-selected="false" aria-controls="sec-advanced"><span class="n">07</span><span>高级与维护</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="connection" aria-selected="false" aria-controls="sec-connection"><span class="n">03</span><span>纯 API 连接</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="ai" aria-selected="false" aria-controls="sec-ai"><span class="n">04</span><span>AI</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="database" aria-selected="false" aria-controls="sec-database"><span class="n">05</span><span>数据库</span></button>
+        <button class="config-tab" type="button" role="tab" data-config-tab="advanced" aria-selected="false" aria-controls="sec-advanced"><span class="n">06</span><span>高级与维护</span></button>
       </nav>
 
     </header>
@@ -1176,6 +1401,29 @@
 
     <!-- ================= 首页 ================= -->
     <section class="view" id="view-home" data-view-panel="home">
+      <div class="card slow-card" id="slowCard">
+        <div class="slow-card-icon" aria-hidden="true">☾</div>
+        <div class="slow-card-copy">
+          <div class="eyebrow">慢递 · 细水长流</div>
+          <div class="slow-card-title" id="slowTitle">把喜欢的，慢慢递给你</div>
+          <div class="slow-card-sub" id="slowSub">点「开始慢递」，选时长、节奏和收件人</div>
+          <div class="slow-card-meta" id="slowMeta"></div>
+          <div class="slow-card-warn" id="slowWarn" hidden></div>
+        </div>
+        <div class="slow-card-side">
+          <div class="slow-idle-side" id="slowIdleSide"><span class="pill slow-idle-pill" id="slowIdlePill">未开始</span></div>
+          <div class="slow-live-box" id="slowLiveBox" hidden>
+            <div class="slow-clock" id="slowClock">--:--:--</div>
+            <div class="slow-count" id="slowCount"></div>
+          </div>
+          <div class="slow-card-actions">
+            <button class="btn primary" id="btnSlowStart" type="button" hidden>开始慢递</button>
+            <button class="btn ghost" id="btnSlowStop" type="button" hidden>提前收束</button>
+            <button class="btn ghost sm" id="btnSlowSetup" type="button">设置</button>
+          </div>
+        </div>
+      </div>
+
       <div class="hero-grid">
         <div class="card hero-card">
           <div class="card-head">
@@ -1191,21 +1439,11 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-head"><div class="eyebrow">纯 API</div><span class="pill" id="homeApiPill">…</span></div>
-          <div class="kv"><span>发送模式</span><b id="homeApiMode">-</b></div>
-          <div class="kv"><span>会话</span><b id="homeApiSession">-</b></div>
+          <div class="card-head"><div class="eyebrow">纯 API 会话</div><span class="pill" id="homeApiPill">…</span></div>
+          <div class="kv"><span>运行模式</span><b id="homeApiMode">纯 API（零浏览器）</b></div>
+          <div class="kv"><span>会话状态</span><b id="homeApiSession">-</b></div>
           <div class="kv"><span>可选好友</span><b id="homeApiFriend">-</b></div>
           <div class="card-actions"><button class="btn ghost sm" data-goto="config">管理会话</button></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><div class="eyebrow">浏览器</div><span class="pill" id="homeBrowserPill">…</span></div>
-          <div class="kv"><span>运行</span><b id="homeBrowserState">-</b></div>
-          <div class="kv"><span>登录</span><b id="homeBrowserLogin">-</b></div>
-          <div class="kv"><span>验证</span><b id="homeBrowserChallenge">-</b></div>
-          <div class="card-actions">
-            <button class="btn ghost sm" id="homeScreenToggle">实时画面</button>
-            <button class="btn ghost sm" id="homeShowWin">移到台前</button>
-          </div>
         </div>
       </div>
 
@@ -1216,58 +1454,98 @@
         <div class="card stat"><div class="k">累计发送</div><div class="v" id="statTotal">-</div></div>
       </div>
 
-      <div class="two-col">
-        <div class="card">
+  <section class="card auto-read-card" id="autoReadCard" style="margin-bottom:16px">
+    <div class="card-head">
+      <div class="eyebrow">自动已读（独立）<span class="hint-tip" tabindex="0" role="button" aria-label="查看自动已读说明" data-tip="可多选好友。随机间隔在最小值–最大值之间随机取下一次检查时间；开启固定时段后，时段内按固定频率检查，时段外随机或暂停。纯 API，不依赖排班/慢递，账户暂停也会运行。好友端会显示「已读」。">?</span></div>
+      <div class="switch-control">
+        <span class="switch" id="autoReadSwitch" role="switch" aria-checked="false" tabindex="0" aria-label="开启独立自动已读"></span>
+        <span class="switch-state" id="autoReadSwitchState">关</span>
+      </div>
+    </div>
+    <div class="auto-read-friends-head"><span>好友（可多选）</span><span id="autoReadFriendCount">0 位</span></div>
+    <div class="auto-read-friends" id="autoReadFriends"></div>
+    <div class="auto-read-row">
+      <label class="f">随机间隔
+        <span class="auto-read-range">
+          <input id="autoReadMinMin" type="number" min="1" max="720" step="1" inputmode="numeric"> –
+          <input id="autoReadMaxMin" type="number" min="1" max="720" step="1" inputmode="numeric"> 分钟
+        </span>
+      </label>
+      <button class="btn ghost sm" id="autoReadNow" type="button">立即已读</button>
+    </div>
+    <div class="auto-read-window">
+      <label class="auto-read-check"><input type="checkbox" id="autoReadWindowEnabled"> 固定时段</label>
+      <div class="auto-read-window-fields" id="autoReadWindowFields">
+        <input id="autoReadWindowStart" type="time" aria-label="固定时段开始">
+        <span>–</span>
+        <input id="autoReadWindowEnd" type="time" aria-label="固定时段结束">
+        <span>每</span>
+        <input id="autoReadWindowIntervalMin" type="number" min="1" max="720" step="1" inputmode="numeric">
+        <span>分钟；时段外</span>
+        <select id="autoReadOutside">
+          <option value="random">随机</option>
+          <option value="pause">暂停到下个时段</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-note auto-read-status" id="autoReadStatus">至少选择一位好友。</div>
+    <div class="field-note auto-read-note">多好友共用同一检查时刻；每次到点标记所有已选好友的 1:1 会话。不读取消息内容；不依赖排班/慢递，账户暂停也会运行。</div>
+  </section>
+
+  <section class="card settings-card home-friends-card" id="sec-friends" style="margin-bottom:16px">
+        <header class="section-head">
+          <div class="section-title">
+            <span class="section-num">友</span>
+            <div>
+              <div class="eyebrow">发送好友</div>
+              <div class="section-sub">排班优先选当天成功次数最少的好友；纯 API 需要好友在会话捕获列表或有 userid。</div>
+            </div>
+          </div>
+          <span class="pill" id="friendCountPill">-</span>
+        </header>
+        <div class="section-body">
+          <div id="friendList"><span class="muted">加载中…</span></div>
+          <div class="inline-input">
+            <input id="friendNew" placeholder="好友昵称" style="min-width:160px">
+            <input id="friendNewUid" placeholder="UID（推荐，改名不失效）" style="min-width:170px">
+            <button class="btn ghost sm" id="friendAdd" type="button">添加好友</button>
+          </div>
+          <div class="field-note" style="margin-top:8px">好友以 UID 为稳定身份，昵称只做展示；互关定时同步会按 UID 更新昵称。没有 UID 的手动好友改名后会失效。<span class="hint-tip" tabindex="0" role="button" aria-label="查看自测说明" data-tip="纯 API 会按 userid 创建与你自己的会话；如果「拍拍」没有 userid，先重新导出会话或从互关导入。排班发送只选择启用好友。">?</span></div>
+        </div>
+      </section>
+
+      <details class="card mutual-card" id="mutualCard" style="margin-bottom:16px">
+        <summary class="card-head"><span class="eyebrow">好友关系</span><span class="field-note" id="mutualInfo"></span></summary>
+        <div class="details-body">
+          <div class="rowbtns" style="margin-top:0">
+            <button class="btn primary sm" id="btnMutual">同步关注 / 粉丝</button>
+            <span class="field-note" id="mutualMsg">通过抖音 web API 读取关注与粉丝列表，按 UID 计算互关。首次会自动拉起浏览器。</span>
+          </div>
+          <div class="mutual-tabs" id="mutualTabs" role="tablist" aria-label="好友关系分类">
+            <button class="mutual-tab active" type="button" data-mutual-tab="mutual" role="tab">互关 <b id="mutualTabMutual">-</b></button>
+            <button class="mutual-tab" type="button" data-mutual-tab="following" role="tab">关注 <b id="mutualTabFollowing">-</b></button>
+            <button class="mutual-tab" type="button" data-mutual-tab="followers" role="tab">粉丝 <b id="mutualTabFollowers">-</b></button>
+            <button class="mutual-tab" type="button" data-mutual-tab="analysis" role="tab">分析</button>
+          </div>
+          <div class="mutual-tools">
+            <input id="mutualSearch" placeholder="搜索昵称或 UID…" autocomplete="off">
+            <span class="field-note" id="mutualSyncHint"></span>
+          </div>
+          <div class="mutual-people" id="mutualList"><span class="muted">加载中…</span></div>
+          <div class="rowbtns" id="mutualActions" style="display:none">
+            <button class="btn ghost sm" id="mutualImportAll">添加当前列表新好友</button>
+          </div>
+        </div>
+      </details>
+
+      <div class="card" style="margin-bottom:16px">
           <div class="card-head"><div class="eyebrow">今天的时刻表</div></div>
           <div class="chips timeline-wrap" id="homeTimeline"><span class="muted">加载中…</span></div>
           <div class="eyebrow mt">分类分布</div>
           <div class="chips mt" id="homeBuckets"><span class="muted">加载中…</span></div>
-        </div>
-        <div class="card quick-card">
-          <div class="card-head"><div class="eyebrow">快速发送（纯 API）<span class="hint-tip" tabindex="0" role="button" aria-label="查看纯 API 快速发送说明" data-tip="互关好友来自账户页的互关列表。纯 HTTP 发送会按 userid 创建或复用会话，不会启动浏览器；列表为空时点「刷新互关」。只试选片不会发送。">?</span></div><span class="pill blue" id="quickPill">API</span></div>
-          <div class="eyebrow">发送给互关好友（可多选）</div>
-          <div class="friend-select" id="friendSelect">
-            <button class="friend-select-btn" id="friendSelectBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="friendSelectPop">
-              <span class="friend-select-summary" id="friendSelectSummary">选择互关好友</span>
-              <span class="friend-select-caret" aria-hidden="true">▾</span>
-            </button>
-            <div class="friend-select-pop" id="friendSelectPop" role="dialog" aria-label="选择互关好友" hidden>
-              <div class="friend-select-head">
-                <span class="eyebrow" style="margin:0">互关好友 <span class="field-note" id="mutualMeta"></span></span>
-                <button class="btn ghost sm" id="btnRefreshMutual" type="button">刷新互关</button>
-              </div>
-              <div class="friend-select-tools">
-                <input id="friendSearch" placeholder="搜索互关好友…" autocomplete="off">
-                <button class="btn ghost sm" id="friendSelectAll" type="button">全选</button>
-                <button class="btn ghost sm" id="friendSelectNone" type="button">清空</button>
-              </div>
-              <div class="friend-select-list" id="mutualFriendList">
-                <div class="friend-select-empty">正在加载互关好友…</div>
-              </div>
-              <div class="friend-select-foot">
-                <span class="field-note" id="friendsCount">可以勾选多个好友</span>
-                <button class="btn ghost sm" id="friendSelectDone" type="button">完成</button>
-              </div>
-            </div>
-          </div>
-          <div class="rowbtns" style="margin-top:12px">
-            <button class="btn ghost sm" id="btnApiDry">只试选片</button>
-            <button class="btn primary sm" id="btnApiSend">发送给所选好友</button>
-          </div>
-          <div class="field-note" id="homeSendMsg" style="margin-top:10px">纯 API · 不启动浏览器</div>
-        </div>
       </div>
 
-      <div class="card" id="homeScreenCard" style="display:none;margin-bottom:16px">
-        <div class="card-head"><div class="eyebrow">实时画面（扫码 / 验证 / 点击）</div>
-          <div class="card-actions" style="margin:0">
-            <button class="btn ghost sm" id="btnRefreshScreen">刷新画面</button>
-            <button class="btn ghost sm" id="btnHideWin">移到屏幕外</button>
-            <button class="btn ghost sm" id="screenClose">收起</button>
-          </div>
-        </div>
-        <div class="screen-wrap"><img id="screenImg" alt="浏览器画面"><div class="screen-tip">点画面 = 点击浏览器</div></div>
-      </div>
+
 
       <div class="card" style="margin-bottom:16px">
         <div class="card-head"><div class="eyebrow">最近发送</div><button class="btn ghost sm" data-goto="records">查看全部</button></div>
@@ -1294,13 +1572,12 @@
           <div class="kv-grid">
             <div class="kv"><span>好友（启用）</span><b id="acctFriend">-</b></div>
             <div class="kv"><span>浏览器端口</span><b id="acctPort">-</b></div>
-            <div class="kv"><span>时段数</span><b id="acctBands">-</b></div>
+            <div class="kv"><span>触发点数</span><b id="acctBands">-</b></div>
             <div class="kv"><span>累计发送</span><b id="acctSends">-</b></div>
           </div>
           <div class="account-actions">
-            <button class="btn soft sm" id="acctOpenScreen">实时画面</button>
-            <button class="btn ghost sm" id="acctDetectName">识别昵称</button>
-            <button class="btn ghost sm" id="acctOpenViewer">新窗口 ↗</button>
+            <button class="btn soft sm" id="acctDetectName">纯 API 识别昵称</button>
+            <button class="btn ghost sm" data-goto="config">管理纯 API 会话</button>
           </div>
           <details class="account-rename">
             <summary>重命名账户</summary>
@@ -1344,20 +1621,7 @@
         <div class="field-note" style="margin-top:8px">所有启用的账户各自按自己的时段同时发送；「切到面板」只影响查看，不会停止其他账户。</div>
       </div>
 
-      <details class="card mutual-card" id="mutualCard">
-        <summary class="card-head"><span class="eyebrow">互关好友</span><span class="field-note" id="mutualInfo"></span></summary>
-        <div class="details-body">
-          <div class="rowbtns" style="margin-top:0">
-            <button class="btn primary sm" id="btnMutual">获取互关好友</button>
-            <span class="field-note" id="mutualMsg">读取当前账户的关注与粉丝列表，取交集。需要登录浏览器（会自动拉起）。</span>
-          </div>
-          <div class="chips" id="mutualList" style="margin-top:12px"></div>
-          <div class="rowbtns" id="mutualActions" style="display:none">
-            <button class="btn primary sm" id="mutualImport">添加所选好友</button>
-            <button class="btn ghost sm" id="mutualImportAll">全部添加</button>
-          </div>
-        </div>
-      </details>
+
     </section>
 
     <!-- ================= 配置 ================= -->
@@ -1374,6 +1638,19 @@
             <span>每天 <b id="cfgHeroTotal">-</b> 条</span>
             <span>好友 <b id="cfgHeroFriends">-</b> 位</span>
             <span>推荐 feed <b id="cfgHeroFeed">-</b></span>
+          </div>
+        </div>
+        <div class="config-hero-actions">
+          <div class="cfg-quick-tools">
+            <select id="cfgPresetSelect" aria-label="选择配置预设">
+              <option value="">快捷预设…</option>
+              <option value="conservative">保守（3条/天 · 长间隔）</option>
+              <option value="balanced">均衡（6条/天 · 常规节奏）</option>
+              <option value="active">活跃（10条/天 · 多时段）</option>
+            </select>
+            <button class="btn ghost sm" id="cfgApplyPreset" type="button">应用预设</button>
+            <select id="cfgCopyFrom" aria-label="从其他账户复制配置" hidden></select>
+            <button class="btn ghost sm" id="cfgCopyBtn" type="button" hidden>复制配置</button>
           </div>
         </div>
       </div>
@@ -1398,6 +1675,17 @@
               </div>
               <div class="field-note" style="margin-top:6px">账户启停用页面顶部的「暂停 / 继续」控制，立即生效。</div>
               <div class="source-note" id="sourceNote">视频池搜索：按分类关键词挑选，内容更可控；<b>推荐源</b>：使用抖音推荐 tab，需要纯 API 会话中的 feed。</div>
+
+              <div class="switch-row" style="margin-top:14px">
+                <div>
+                  <b>排班发送后自动已读</b>
+                  <div class="field-note">纯 API 每次发送成功后，标记该收件人的 1:1 会话已读；浏览器发送不生效。</div>
+                </div>
+                <div class="switch-control">
+                  <span class="switch-state" id="c_daily_read_state">开启</span>
+                  <button class="switch on" id="c_daily_read_switch" type="button" role="switch" aria-checked="true" aria-label="排班发送后自动已读"></button>
+                </div>
+              </div>
 
               <div class="sub-head" style="margin-top:18px">
                 <div>
@@ -1501,7 +1789,7 @@
                 <div class="sub-head">
                   <div>
                     <div class="eyebrow">AI 参与视频筛选<span class="hint-tip" tabindex="0" role="button" aria-label="查看 AI 筛选说明" data-tip="关闭：只走规则筛选。安全过滤：AI 去掉广告、软色情、暴力、诈骗等风险内容，剩余随机选。过滤 + 排序：在安全过滤基础上，按当前账户启用的视频池兴趣排序。只对纯 API 选片生效，浏览器回退不经过 AI。">?</span></div>
-                    <div class="field-note" id="aiFilterHint">先在「05 AI」配置 Key，再选择筛选模式。</div>
+                    <div class="field-note" id="aiFilterHint">先在「04 AI」配置 Key，再选择筛选模式。</div>
                   </div>
                   <span class="pill" id="aiFilterPill">检查中…</span>
                 </div>
@@ -1521,6 +1809,7 @@
                   </div>
                   <div class="pool-tools"><span class="hint" id="poolCount">-</span></div>
                 </div>
+                <div class="field-note" id="poolSourceHint" hidden style="margin-bottom:9px">当前来源是「默认推荐」，视频分类只用于视频池搜索；切换来源后生效。</div>
                 <div class="pool-select" id="poolSelect">
                   <button class="pool-trigger" id="poolTrigger" type="button" aria-expanded="false">
                     <span class="pool-summary" id="poolSummary">选择分类…</span><span class="pool-caret">▾</span>
@@ -1558,33 +1847,14 @@
             </div>
           </section>
 
-          <section class="card settings-card" id="sec-friends" hidden>
-            <header class="section-head">
-              <div class="section-title">
-                <span class="section-num">03</span>
-                <div>
-                  <div class="eyebrow">发送好友</div>
-                  <div class="section-sub">排班优先选当天成功次数最少的好友；纯 API 需要好友在会话捕获列表或有 userid。</div>
-                </div>
-              </div>
-              <span class="pill" id="friendCountPill">-</span>
-            </header>
-            <div class="section-body">
-              <div id="friendList"><span class="muted">加载中…</span></div>
-              <div class="inline-input">
-                <input id="friendNew" placeholder="好友昵称" style="min-width:180px">
-                <button class="btn ghost sm" id="friendAdd" type="button">添加好友</button>
-              </div>
-              <div class="field-note" style="margin-top:8px">发给自己测试：启用「拍拍」并确认有 userid。<span class="hint-tip" tabindex="0" role="button" aria-label="查看自测说明" data-tip="纯 API 会按 userid 创建与你自己的会话；如果「拍拍」没有 userid，先重新导出会话或从互关导入。排班发送只选择启用好友。">?</span></div>
-            </div>
-          </section>
+
         </div>
 
         <aside class="config-col config-side">
           <section class="card settings-card" id="sec-connection" hidden>
             <header class="section-head">
               <div class="section-title">
-                <span class="section-num">04</span>
+                <span class="section-num">03</span>
                 <div>
                   <div class="eyebrow">纯 API 连接</div>
                   <div class="section-sub">发送通道、会话状态与推荐 feed 状态。</div>
@@ -1593,18 +1863,23 @@
               <span class="pill" id="apiBadge">检查中…</span>
             </header>
             <div class="section-body">
-              <div class="seg" id="apiModeSeg">
-                <button data-mode="auto" type="button">纯 API 优先</button>
-                <button data-mode="browser" type="button">仅浏览器</button>
-              </div>
+              <div class="inline-note">当前已全面启用 <b>纯 API 模式</b>：选片、定时转发、慢递、自动已读、互关同步与昵称识别均直接走 HTTP 接口，不再启动或回退到浏览器。</div>
               <div class="kv" style="margin-top:12px"><span>自动刷新</span>
                 <div style="display:flex;align-items:center;gap:10px"><span class="field-note" id="apiAutoText">-</span><span class="switch" id="apiAutoSwitch"></span></div>
               </div>
-              <div class="field-note" style="margin-top:-2px">到期前 2 小时自动刷新。导出需要独占 Chrome 配置，会先关闭正在运行的抖音画面，完成后按需重新打开。</div>
               <div class="card-actions">
-                <button class="btn ghost sm" id="btnApiRefresh" type="button">导出 / 刷新会话</button>
+                <button class="btn ghost sm" id="btnApiRefresh" type="button">刷新会话</button>
               </div>
-              <details style="margin-top:12px;margin-bottom:0">
+              <details style="margin-top:12px">
+                <summary>手动导入会话 JSON（零浏览器）</summary>
+                <div class="field-note" style="margin-bottom:8px">粘贴包含 <code>cookies</code>、<code>template</code> 等字段的会话 JSON 即可直接导入当前账户。</div>
+                <textarea id="apiImportJson" style="width:100%;min-height:90px;font-family:ui-monospace,monospace;font-size:11.5px" placeholder='{"cookies":[...],"template":{"bodyB64":"..."}}'></textarea>
+                <div class="card-actions" style="margin-top:8px">
+                  <button class="btn primary sm" id="btnApiImport" type="button">导入会话</button>
+                  <span class="field-note" id="apiImportMsg"></span>
+                </div>
+              </details>
+              <details style="margin-top:10px;margin-bottom:0">
                 <summary>会话详情</summary>
                 <div id="apiLine" class="hint" style="line-height:1.8">检查中…</div>
                 <div class="eyebrow" style="margin-top:12px">可选好友（来自会话）</div>
@@ -1617,7 +1892,7 @@
           <section class="card settings-card" id="sec-ai" hidden>
             <header class="section-head">
               <div class="section-title">
-                <span class="section-num">05</span>
+                <span class="section-num">04</span>
                 <div>
                   <div class="eyebrow">AI</div>
                   <div class="section-sub">推荐源筛选、只读问诊与自然语言改配置；默认关闭。</div>
@@ -1662,7 +1937,7 @@
           <section class="card settings-card" id="sec-database" hidden>
             <header class="section-head">
               <div class="section-title">
-                <span class="section-num">06</span>
+                <span class="section-num">05</span>
                 <div>
                   <div class="eyebrow">数据库</div>
                   <div class="section-sub">默认 SQLite；可选 MySQL / PostgreSQL，重启生效。</div>
@@ -1696,7 +1971,7 @@
           <section class="card settings-card" id="sec-advanced" hidden>
             <header class="section-head">
               <div class="section-title">
-                <span class="section-num">07</span>
+                <span class="section-num">06</span>
                 <div>
                   <div class="eyebrow">高级与维护</div>
                   <div class="section-sub">节奏、自然分享和排障；日常通常不用改。</div>
@@ -1725,6 +2000,13 @@
             <button class="btn ghost sm" type="button" data-goto="diagnostics" style="margin-top:8px">打开排查中心</button>
           </details>
         </aside>
+      </div>
+      <div class="cfg-dirty-bar" id="cfgDirtyBar" hidden>
+        <div class="cfg-dirty-bar-text"><span class="cfg-dirty-dot"></span><span>当前账户有未保存的配置更改（跨分区统一保存）</span></div>
+        <div class="cfg-dirty-actions">
+          <button class="btn ghost sm" id="cfgDirtyDiscard" type="button">放弃更改</button>
+          <button class="btn primary sm" id="cfgDirtySave" type="button">保存设置</button>
+        </div>
       </div>
     </section>
 
@@ -1845,6 +2127,68 @@
 </aside>
 <div class="hint-pop" id="hintPop" role="tooltip" hidden></div>
 <div class="toast" id="toast"></div>
+<div class="slow-backdrop" id="slowBackdrop" hidden></div>
+<div class="slow-panel" id="slowPanel" role="dialog" aria-modal="true" aria-labelledby="slowPanelTitle" hidden>
+  <div class="slow-modal-head">
+    <div>
+      <div class="eyebrow">慢递设置</div>
+      <div class="slow-panel-title" id="slowPanelTitle">安排这次慢递</div>
+      <div class="field-note">选时长、节奏和收件人；开始后日常计划会让路。</div>
+    </div>
+    <button class="ai-icon-btn" id="slowPanelClose" type="button" aria-label="关闭慢递设置">×</button>
+  </div>
+  <div class="slow-modal-body">
+    <div class="slow-field slow-field-duration">
+      <div class="slow-label">时长</div>
+      <div class="slow-chip-row" id="slowDurationChips">
+        <button class="slow-chip" type="button" data-slow-duration="30">30 分钟</button>
+        <button class="slow-chip" type="button" data-slow-duration="60">1 小时</button>
+        <button class="slow-chip" type="button" data-slow-duration="120">2 小时</button>
+        <button class="slow-chip" type="button" data-slow-duration="240">4 小时</button>
+      </div>
+      <div class="slow-custom">自定义 <input id="slowDuration" type="number" min="15" max="480" step="5"> 分钟</div>
+    </div>
+    <div class="slow-field slow-field-rhythm">
+      <div class="slow-label">节奏（随机间隔）</div>
+      <div class="slow-chip-row" id="slowRhythmChips">
+        <button class="slow-chip" type="button" data-slow-rhythm="300,900">5–15 分钟</button>
+        <button class="slow-chip" type="button" data-slow-rhythm="180,600">3–10 分钟</button>
+        <button class="slow-chip" type="button" data-slow-rhythm="60,180">1–3 分钟</button>
+      </div>
+      <div class="slow-custom">自定义 <input id="slowMinGap" type="number" min="10" max="3600" step="10"> – <input id="slowMaxGap" type="number" min="10" max="3600" step="10"> 秒</div>
+    </div>
+    <div class="slow-field slow-field-row slow-field-recipient">
+      <div>
+        <div class="slow-label">收件人</div>
+        <select id="slowFriend" class="slow-friend-select"></select>
+      </div>
+      <div>
+        <div class="slow-label">条数上限</div>
+        <input id="slowMaxSends" type="number" min="1" max="200" step="1">
+      </div>
+    </div>
+    <div class="slow-friend-note" id="slowFriendNote"></div>
+    <div class="slow-field slow-field-row slow-field-read">
+      <div>
+        <div class="slow-label">顺便已读</div>
+        <div class="field-note">纯 API，只标记本次收件人的会话</div>
+      </div>
+      <div class="switch-control">
+        <span class="switch" id="slowReadEnabled" role="switch" aria-checked="true" tabindex="0" aria-label="慢递期间自动已读"></span>
+        <span class="switch-state" id="slowReadState">开</span>
+      </div>
+    </div>
+    <div class="slow-preview" id="slowPreview"></div>
+    <div class="slow-warning" id="slowWarning" hidden></div>
+  </div>
+  <div class="slow-modal-foot">
+    <span class="field-note" id="slowPanelHint">不短于上条视频时长 +5 秒</span>
+    <div class="card-actions" style="margin:0">
+      <button class="btn ghost" id="slowPanelCancel" type="button">取消</button>
+      <button class="btn primary" id="slowPanelStart" type="button">开始慢递</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const $ = (s, el = document) => el.querySelector(s);
@@ -1853,6 +2197,53 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'
 const fmt = (n) => Number(n) >= 10000 ? (Number(n) / 10000).toFixed(1) + '万' : String(n || 0);
 const timeOf = (iso) => iso ? new Date(iso).toLocaleTimeString('zh-CN', { hour12: false }) : '-';
 const dateTimeOf = (iso) => iso ? new Date(iso).toLocaleString('zh-CN', { hour12: false }) : '-';
+
+/* 慢递 helpers */
+function slowPad2(n) { return String(Math.max(0, Math.floor(Number(n) || 0))).padStart(2, '0'); }
+function slowDurationText(ms) {
+  const total = Math.max(0, Math.round(Number(ms) || 0));
+  const s = Math.floor(total / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return h > 0 ? slowPad2(h) + ':' + slowPad2(m) + ':' + slowPad2(sec) : slowPad2(m) + ':' + slowPad2(sec);
+}
+function slowClockText(ms) {
+  const n = Number(ms);
+  if (!Number.isFinite(n) || n <= 0) return '—';
+  const d = new Date(n);
+  return slowPad2(d.getHours()) + ':' + slowPad2(d.getMinutes());
+}
+function slowMinutesText(min) {
+  const n = Number(min) || 0;
+  return n >= 60 && n % 60 === 0 ? (n / 60) + ' 小时' : n + ' 分钟';
+}
+function slowGapText(minSec, maxSec) {
+  const a = Math.max(1, Math.round(Number(minSec) || 0));
+  const b = Math.max(a, Math.round(Number(maxSec) || 0));
+  return a % 60 === 0 && b % 60 === 0 ? (a / 60) + '–' + (b / 60) + ' 分钟' : a + '–' + b + ' 秒';
+}
+function slowReasonText(reason) {
+  return ({
+    window: '窗口结束',
+    'max-sends': '到条数上限',
+    stopped: '提前收束',
+    blocked: '被拦下了',
+    exhausted: '候选发完',
+    expired: '已过期',
+    'paused-too-long': '暂停过久',
+  })[reason] || reason || '已结束';
+}
+function slowEstimateFor(d) {
+  const windowSec = Math.max(0, Number(d.durationMin) || 0) * 60;
+  const minGap = Math.max(1, Number(d.minGapSec) || 1);
+  const maxGap = Math.max(minGap, Number(d.maxGapSec) || minGap);
+  const cap = Math.max(1, Number(d.maxSends) || 1);
+  const low = Math.max(1, Math.floor(windowSec / maxGap));
+  const high = Math.max(1, Math.floor(windowSec / minGap));
+  const typical = Math.max(1, Math.round(windowSec / Math.max(1, (minGap + maxGap) / 2)));
+  return { min: Math.min(cap, low), max: Math.min(cap, high), typical: Math.min(cap, typical), capped: high > cap };
+}
 
 const POOLS = __POOL_NAMES__;
 const THEME_KEY = 'heartbeat-theme';
@@ -1873,9 +2264,11 @@ const state = {
   view: 'home', data: null, status: null, api: null, accounts: null, config: null,
   events: [], records: { search: '', bucket: '', result: '', page: 1, pageSize: 20 },
   sendJobPolling: false, screenTimer: null, apiTimer: null, homeTimer: null,
-  cfgLoaded: false, configDirty: false, selectedFriends: new Set(),
+  slowPanelOpen: false, slowDraft: null,
+  cfgLoaded: false, configDirty: false,
   acctMenuOpen: false, acctSwitching: false,
-  mutualCache: null, mutualLoading: false, mutualError: '', friendSelectOpen: false, friendSearch: '',
+  mutualCache: null, mutualLoading: false, mutualError: '', autoRead: null,
+  mutualTab: 'mutual', mutualSearch: '', friendRows: null,
 };
 
 function toast(msg, type = 'ok', ms = 4200) {
@@ -1897,14 +2290,26 @@ async function postJSON(url, body, method = 'POST') {
 
 /* ---------------- navigation ---------------- */
 const VIEW_META = {
-  home: ['首页', '总览 · 今日排班 · 快速发送'],
+  home: ['首页', '总览 · 今日排班 · 好友'],
   accounts: ['账户', '当前账户 · 多账户切换 · 登录状态'],
   config: ['配置', '计划 · 视频 · 好友 · 连接 · AI · 数据库'],
   records: ['记录', '发送历史 · 分类统计 · 事件日志'],
   diagnostics: ['排查', '运行事件 · 失败归因 · 原始数据'],
 };
+function setConfigDirty(dirty) {
+  state.configDirty = !!dirty;
+  const bar = $('#cfgDirtyBar');
+  if (bar) bar.hidden = !state.configDirty;
+}
+function confirmLeaveDirtyConfig() {
+  if (!state.configDirty) return true;
+  if (!window.confirm('当前配置有未保存的更改，确定放弃并离开？')) return false;
+  setConfigDirty(false);
+  return true;
+}
 function navigate(view) {
   if (!VIEW_META[view]) view = 'home';
+  if (state.view === 'config' && view !== 'config' && !confirmLeaveDirtyConfig()) return;
   state.view = view;
   document.body.classList.toggle('diag-view', view === 'diagnostics');
   document.body.classList.toggle('records-view', view === 'records');
@@ -2112,6 +2517,7 @@ async function quickSwitchAccount(label) {
   if (!label || state.acctSwitching) return;
   const acc = state.accounts || {};
   if (label === acc.active) { closeAcctMenu(); return; }
+  if (state.view === 'config' && !confirmLeaveDirtyConfig()) { closeAcctMenu(); return; }
   state.acctSwitching = true;
   if (state.acctMenuOpen) renderAcctMenu();
   const target = (state.accounts && state.accounts.accounts || []).find((a) => a.label === label);
@@ -2120,7 +2526,7 @@ async function quickSwitchAccount(label) {
     state.acctSwitching = false;
     if (state.accounts) state.accounts.active = r.active || label;
     closeAcctMenu();
-    resetMutualSelection();
+    resetMutualView();
     toast('已切换到 ' + (target && (target.name || target.label) || r.active || label), 'ok');
     state.config = null; state.cfgLoaded = false;
     const [next] = await Promise.all([getJSON('/api/accounts').catch(() => null), loadHome()]);
@@ -2183,191 +2589,387 @@ function renderTopbar() {
     alert.className = 'alert';
   }
 }
-function currentMutualCache() {
-  const label = state.data && state.data.account;
-  return label && state.mutualCache && state.mutualCache.label === label ? state.mutualCache : null;
+const MUTUAL_UI_TTL_MS = 10 * 60 * 1000;
+
+/* ---------------- 慢递 ---------------- */
+function slowCardWarning(slow) {
+  if (!slow) return '';
+  if (!slow.accountEnabled) return '账户已暂停，先点顶部「继续」';
+  if (!slow.schedulerUp) return '后台调度未运行，慢递不会开始';
+  if (!slow.friends || !slow.friends.length) return '先在账户页添加一位好友';
+  if (slow.videoSource === 'recommend' && slow.sendMode === 'browser') return '推荐源需要把发送模式切到「纯 API 优先」';
+  if (slow.videoSource === 'recommend' && (!slow.api || !slow.api.valid)) return '默认推荐需要可用的纯 API 会话';
+  return '';
 }
-function mutualSynced(cache) {
-  return !!(cache && cache.cached !== false);
+
+function slowLiveSub(st, paused) {
+  if (paused) return '已发 ' + (st.sent || 0) + ' 条 · 点顶部「继续」后接着跑';
+  if (st.status === 'pending') return '已下单，等调度器接手（通常几秒）';
+  const next = Number(st.nextAt) || 0;
+  if (!next) return '已发 ' + (st.sent || 0) + ' 条 · 等待下一条';
+  const left = next - Date.now();
+  let when;
+  if (left <= 0) when = (Date.now() - next > 120000 ? '等待调度器…' : '马上');
+  else if (left < 60000) when = '约 ' + Math.max(1, Math.round(left / 1000)) + ' 秒后';
+  else when = '约 ' + Math.round(left / 60000) + ' 分钟后';
+  return '已发 ' + (st.sent || 0) + ' / 上限 ' + (st.maxSends || 0) + ' 条 · 下一条 ' + slowClockText(next) + '（' + when + '）';
 }
-function mutualNames() {
-  const cache = currentMutualCache();
-  return mutualSynced(cache) ? (cache.mutual || []).map((u) => u.name) : [];
-}
-function renderMutualMeta() {
-  const el = $('#mutualMeta');
-  if (!el) return;
-  const cache = currentMutualCache();
-  if (!mutualSynced(cache)) { el.textContent = '未同步'; return; }
-  const n = (cache.mutual || []).length;
-  const at = cache.fetchedAt ? timeOf(cache.fetchedAt) : '';
-  el.textContent = n + ' 位' + (at ? ' · ' + at + ' 更新' : '') + (cache.stale ? ' · 已过期' : '');
-}
-function renderMutualFriendOptions() {
-  const list = $('#mutualFriendList');
-  if (!list) return;
-  const cache = currentMutualCache();
-  if (!mutualSynced(cache)) {
-    const body = state.mutualLoading
-      ? '正在加载互关好友…'
-      : state.mutualError
-        ? '加载失败：' + esc(state.mutualError) + '<br><button class="btn ghost sm" type="button" data-refresh-mutual>重试</button>'
-        : '还没有同步互关好友。<br>首次获取需要 10-30 秒，会拉起一次浏览器。<br><button class="btn primary sm" type="button" data-refresh-mutual>获取互关好友</button>';
-    list.innerHTML = '<div class="friend-select-empty">' + body + '</div>';
-    return;
-  }
-  const mutuals = cache.mutual || [];
-  if (!mutuals.length) {
-    list.innerHTML = '<div class="friend-select-empty">没有互关好友。<br><button class="btn ghost sm" type="button" data-refresh-mutual>重新获取</button></div>';
-    return;
-  }
-  const q = String(state.friendSearch || '').trim().toLowerCase();
-  const filtered = mutuals.filter((u) => !q || String(u.name || '').toLowerCase().includes(q));
-  list.innerHTML = filtered.length ? filtered.map((u) => {
-    const name = String(u.name || '');
-    return '<label class="friend-option" title="' + esc(name) + '">'
-      + '<input type="checkbox" data-mutual-friend="' + esc(name) + '"' + (state.selectedFriends.has(name) ? ' checked' : '') + '>'
-      + '<span class="avatar" aria-hidden="true">' + esc(accountInitial(name)) + '</span>'
-      + '<span class="friend-name">' + esc(name) + '</span></label>';
-  }).join('') : '<div class="friend-select-empty">没有匹配「' + esc(q) + '」的好友</div>';
-  $$('#mutualFriendList input[data-mutual-friend]').forEach((el) => el.addEventListener('change', () => {
-    if (el.checked) state.selectedFriends.add(el.dataset.mutualFriend);
-    else state.selectedFriends.delete(el.dataset.mutualFriend);
-    updateFriendsCount();
-  }));
-}
-function renderHomeFriendPicker() {
-  const cache = currentMutualCache();
-  const names = mutualNames();
-  state.selectedFriends = new Set([...state.selectedFriends].filter((n) => names.includes(n)));
-  renderMutualMeta();
-  renderMutualFriendOptions();
-  updateFriendsCount();
-  const refresh = $('#btnRefreshMutual');
-  if (refresh) {
-    refresh.disabled = state.mutualLoading;
-    refresh.textContent = state.mutualLoading ? '获取中…' : '刷新互关';
-  }
-  if (state.api && state.api.present) {
-    const count = mutualSynced(cache) ? (cache.mutual || []).length : '—';
-    $('#homeApiFriend').textContent = count + ' 位互关好友 / ' + (state.api.friendCount || 0) + ' 个会话好友';
-  }
-}
-function updateFriendsCount() {
-  const n = state.selectedFriends.size;
-  const el = $('#friendsCount');
-  if (el) el.textContent = n ? ('已选 ' + n + ' 位') : '可以勾选多个好友';
-  const summary = $('#friendSelectSummary');
-  if (!summary) return;
-  if (n) {
-    const names = [...state.selectedFriends];
-    summary.textContent = '已选 ' + n + ' 位：' + names.slice(0, 2).join('、') + (n > 2 ? '…' : '');
+
+function renderSlow() {
+  const slow = state.data && state.data.slow;
+  const card = $('#slowCard');
+  if (!slow || !card) return;
+  const st = slow.state || null;
+  const live = !!slow.live;
+  const cfg = slow.config || {};
+  const title = $('#slowTitle');
+  const sub = $('#slowSub');
+  const meta = $('#slowMeta');
+  const warn = $('#slowWarn');
+  card.classList.toggle('is-live', live);
+  $('#slowLiveBox').hidden = !live;
+  let titleText = '把喜欢的，慢慢递给你';
+  let subText = '';
+  let metaHtml = '';
+  let warning = '';
+
+  if (live && st) {
+    const paused = st.status === 'paused';
+    const remaining = paused && st.pausedAt
+      ? Math.max(0, Number(st.endsAt) - Number(st.pausedAt))
+      : Math.max(0, Number(st.endsAt) - Date.now());
+    titleText = st.status === 'pending'
+      ? '慢递准备中…'
+      : (paused
+        ? '慢递已暂停 · 倒计时冻结在 ' + slowDurationText(remaining)
+        : '慢递中 · 还剩 ' + slowDurationText(remaining));
+    $('#slowClock').textContent = slowDurationText(remaining);
+    $('#slowClock').classList.toggle('paused', paused);
+    $('#slowCount').textContent = '已发 ' + (st.sent || 0) + ' / 上限 ' + (st.maxSends || 0);
+    subText = slowLiveSub(st, paused);
+    metaHtml = '发给 <b>' + esc(st.friend || '—') + '</b>'
+      + (st.friendUid ? ' <span class="muted">UID ' + esc(st.friendUid) + '</span>' : '');
+    if (st.lastTitle) metaHtml += ' · 上一条 <b>' + slowDurationText(st.lastDurationMs) + '</b>《' + esc(String(st.lastTitle).slice(0, 26)) + '》';
+    metaHtml += ' · 已读 <b>' + (st.readEnabled === false ? '关' : (st.lastReadOk === false ? '失败' : '开')) + '</b>';
+    if (!slow.schedulerUp) warning = '后台调度未运行，慢递可能停住了';
+  } else if (st) {
+    titleText = ({
+      done: '慢递已收束', stopped: '慢递已提前结束', blocked: '慢递停住了',
+      exhausted: '候选发完了', expired: '慢递已过期',
+    })[st.status] || '慢递已结束';
+    const updatedAt = Date.parse(st.updatedAt || '');
+    const at = st.lastAt || st.stoppedAt
+      || (st.status === 'done' ? st.endsAt : (Number.isFinite(updatedAt) ? updatedAt : st.endsAt));
+    subText = '共发 ' + (st.sent || 0) + ' 条 · ' + slowReasonText(st.doneReason || st.status) + (at ? ' · ' + slowClockText(at) : '');
+    if (st.lastError && st.status !== 'done' && st.status !== 'stopped') subText += '：' + String(st.lastError).slice(0, 90);
+    metaHtml = '上次发给 <b>' + esc(st.friend || '—') + '</b>'
+      + (st.friendUid ? ' <span class="muted">UID ' + esc(st.friendUid) + '</span>' : '');
+    warning = slowCardWarning(slow);
   } else {
-    const cache = currentMutualCache();
-    summary.textContent = mutualSynced(cache)
-      ? ('选择互关好友（' + (cache.mutual || []).length + ' 位）')
-      : '选择互关好友';
+    const est = slow.estimate || slowEstimateFor(cfg);
+    const friendBit = cfg.friend ? '，隔几分钟发一条给 ' + cfg.friend : '';
+    subText = '接下来 ' + slowMinutesText(cfg.durationMin) + friendBit + ' · 预计 ' + est.min + '–' + est.max + ' 条';
+    metaHtml = '间隔 ' + slowGapText(cfg.minGapSec, cfg.maxGapSec) + ' · 不短于上条视频 +5 秒 · 上限 ' + (cfg.maxSends || 0) + ' 条';
+    warning = slowCardWarning(slow);
   }
+  const topBtn = $('#btnSlowTop');
+  const topText = $('#slowTopText');
+  if (topBtn && topText) {
+    topBtn.classList.toggle('live', live);
+    topBtn.classList.toggle('paused', !!(live && st && st.status === 'paused'));
+    topText.textContent = live
+      ? (st.status === 'paused' ? '慢递已暂停' : (st.status === 'pending' ? '慢递准备中' : '慢递中'))
+      : (st ? '再来一次' : '开始慢递');
+    topBtn.setAttribute('aria-label', live ? '查看慢递进度' : (st ? '再来一次慢递' : '开始慢递'));
+  }
+  const idleSide = $('#slowIdleSide');
+  if (idleSide) idleSide.hidden = live;
+  const idlePill = $('#slowIdlePill');
+  if (idlePill) idlePill.textContent = st ? '已结束' : '未开始';
+  title.textContent = titleText;
+  sub.textContent = subText;
+  meta.innerHTML = metaHtml;
+  if (warn) { warn.textContent = warning; warn.hidden = !warning; }
+  // The card is now a status banner; the primary entry lives in the top bar.
+  $('#btnSlowStart').hidden = true;
+  $('#btnSlowStop').hidden = !live;
+  $('#btnSlowSetup').hidden = live;
+  syncSendButtons();
 }
-function selectAllFriends(checked) {
-  if (!checked) state.selectedFriends.clear();
-  else $$('#mutualFriendList input[data-mutual-friend]').forEach((el) => {
-    el.checked = true;
-    state.selectedFriends.add(el.dataset.mutualFriend);
+
+function tickSlow() {
+  if (document.hidden || state.view !== 'home') return;
+  const slow = state.data && state.data.slow;
+  if (!slow || !slow.live || !slow.state) return;
+  const st = slow.state;
+  if (st.status === 'paused' || st.status === 'pending') return;
+  const remaining = Math.max(0, Number(st.endsAt) - Date.now());
+  const text = slowDurationText(remaining);
+  const clock = $('#slowClock');
+  if (clock) clock.textContent = text;
+  const title = $('#slowTitle');
+  if (title) title.textContent = '慢递中 · 还剩 ' + text;
+  const sub = $('#slowSub');
+  if (sub) sub.textContent = slowLiveSub(st, false);
+  if (remaining <= 0) renderSlow();
+}
+
+function syncSendButtons(forceDisabled = null) {
+  const live = !!(state.data && state.data.slow && state.data.slow.live);
+  const busy = forceDisabled == null ? !!state.sendJobPolling : !!forceDisabled;
+  const sendNow = $('#btnSendNow');
+  if (sendNow) sendNow.disabled = live || busy;
+}
+
+function slowFriendKey(f) {
+  return f && (String(f.uid || f.userid || '') || ('name:' + f.name));
+}
+
+function slowFriendFromKey(friends, key) {
+  const list = Array.isArray(friends) ? friends : [];
+  const wanted = String(key || '');
+  if (!wanted) return null;
+  return list.find((f) => slowFriendKey(f) === wanted) || null;
+}
+
+function slowDraftFromConfig(cfg, friends) {
+  const list = Array.isArray(friends) ? friends : [];
+  const c = cfg || {};
+  const wantedUid = String(c.friendUid || '').trim();
+  const byUid = wantedUid ? list.find((f) => String(f.uid || f.userid || '') === wantedUid) : null;
+  const byName = c.friend ? list.find((f) => f.name === c.friend) : null;
+  const friend = byUid || byName || list[0] || null;
+  return {
+    durationMin: Number(c.durationMin) || 120,
+    minGapSec: Number(c.minGapSec) || 180,
+    maxGapSec: Number(c.maxGapSec) || 600,
+    maxSends: Number(c.maxSends) || 60,
+    readEnabled: c.readEnabled !== false,
+    bufferSec: c.bufferSec == null ? 5 : Number(c.bufferSec),
+    fallbackSec: c.fallbackSec == null ? 30 : Number(c.fallbackSec),
+    friend: friend ? friend.name : '',
+    friendUid: friend ? String(friend.uid || friend.userid || '') : '',
+  };
+}
+
+function slowDraftFromInputs() {
+  const prev = state.slowDraft || {};
+  const num = (sel, fallback) => {
+    const el = $(sel);
+    if (!el || el.value === '') return fallback;
+    const n = Number(el.value);
+    return Number.isFinite(n) ? Math.round(n) : fallback;
+  };
+  const select = $('#slowFriend');
+  const friend = select ? slowFriendFromKey(state.data && state.data.slow && state.data.slow.friends, select.value) : null;
+  return {
+    ...prev,
+    durationMin: num('#slowDuration', prev.durationMin),
+    minGapSec: num('#slowMinGap', prev.minGapSec),
+    maxGapSec: num('#slowMaxGap', prev.maxGapSec),
+    maxSends: num('#slowMaxSends', prev.maxSends),
+    readEnabled: (() => {
+      const el = $('#slowReadEnabled');
+      return el ? el.classList.contains('on') : prev.readEnabled !== false;
+    })(),
+    friend: friend ? friend.name : prev.friend,
+    friendUid: friend ? String(friend.uid || friend.userid || '') : prev.friendUid,
+  };
+}
+
+function slowPanelWarning(slow, d) {
+  if (!slow) return '慢递数据还没加载好';
+  if (slow.live) return '已经有一条慢递在跑';
+  if (!slow.accountEnabled) return '账户已暂停，先点顶部「继续」';
+  if (!slow.schedulerUp) return '后台调度未运行，慢递不会开始';
+  const hasFriend = (slow.friends || []).some((f) => (d.friendUid
+    ? String(f.uid || f.userid || '') === d.friendUid
+    : f.name === d.friend));
+  if (!hasFriend) return '选一位收件人';
+  if (!(d.durationMin >= 15 && d.durationMin <= 480)) return '时长需要在 15–480 分钟';
+  if (!(d.minGapSec >= 10 && d.minGapSec <= 3600)) return '间隔下限需要在 10–3600 秒';
+  if (!(d.maxGapSec >= 10 && d.maxGapSec <= 3600)) return '间隔上限需要在 10–3600 秒';
+  if (d.maxGapSec < d.minGapSec) return '间隔上限不能小于下限';
+  if (!(d.maxSends >= 1 && d.maxSends <= 200)) return '条数上限需要在 1–200';
+  if (d.readEnabled !== false && slow.sendMode === 'browser') return '已读只支持纯 API 发送；先切到「纯 API 优先」或关闭顺便已读';
+  if (slow.videoSource === 'recommend' && slow.sendMode === 'browser') return '推荐源需要把发送模式切到「纯 API 优先」';
+  if (slow.videoSource === 'recommend' && (!slow.api || !slow.api.valid)) return '默认推荐需要可用的纯 API 会话';
+  return '';
+}
+
+function updateSlowPanel(slow) {
+  if (!state.slowPanelOpen) return;
+  const d = slowDraftFromInputs();
+  state.slowDraft = d;
+  $$('#slowDurationChips [data-slow-duration]').forEach((b) => b.classList.toggle('active', Number(b.dataset.slowDuration) === d.durationMin));
+  $$('#slowRhythmChips [data-slow-rhythm]').forEach((b) => {
+    const parts = String(b.dataset.slowRhythm || '').split(',').map(Number);
+    b.classList.toggle('active', parts[0] === d.minGapSec && parts[1] === d.maxGapSec);
   });
-  updateFriendsCount();
-}
-function selectedHomeFriends() {
-  const names = new Set(mutualNames());
-  return [...state.selectedFriends].filter((n) => names.has(n));
+  const warning = slowPanelWarning(slow || (state.data && state.data.slow), d);
+  const warn = $('#slowWarning');
+  if (warn) { warn.textContent = warning; warn.hidden = !warning; }
+  const preview = $('#slowPreview');
+  if (preview) {
+    if (d.maxGapSec < d.minGapSec) {
+      preview.textContent = '间隔上限需要大于下限';
+    } else {
+      const est = slowEstimateFor(d);
+      const friend = (slow && slow.friends || []).find((f) => (d.friendUid
+        ? String(f.uid || f.userid || '') === d.friendUid
+        : f.name === d.friend));
+      preview.innerHTML = '预计 <b>' + est.min + '–' + est.max + '</b> 条，通常约 <b>' + est.typical + '</b> 条；'
+        + '间隔 ' + slowGapText(d.minGapSec, d.maxGapSec) + '；不短于上条视频 +5 秒。'
+        + (est.capped ? ' 受上限 <b>' + d.maxSends + '</b> 条约束。' : '')
+        + ' 已读：<b>' + (d.readEnabled !== false ? '开' : '关') + '</b>。'
+        + (friend && !friend.uid && !friend.userid ? ' <span class="bad">该好友没有 UID，改名后会失效；建议先刷新互关。</span>' : '');
+    }
+  }
+  const hint = $('#slowPanelHint');
+  if (hint) hint.textContent = '开始后日常计划会让路 · 上限 ' + d.maxSends + ' 条';
+  const start = $('#slowPanelStart');
+  if (start) start.disabled = !!warning;
 }
 
-async function loadMutualFriendsCache() {
-  if (currentMutualCache() || state.mutualLoading) return;
-  const label = state.data && state.data.account;
-  if (!label) return;
-  state.mutualLoading = true;
-  state.mutualError = '';
-  renderHomeFriendPicker();
-  try {
-    const d = await getJSON('/api/accounts/mutual-friends');
-    if (state.data && state.data.account === label) {
-      state.mutualCache = d;
-      renderHomeFriendPicker();
-    }
-  } catch (e) {
-    if (state.data && state.data.account === label) {
-      state.mutualError = e.message;
-      renderHomeFriendPicker();
-    }
-  } finally {
-    state.mutualLoading = false;
-    renderHomeFriendPicker();
+function renderSlowPanel(slow, { reset = false } = {}) {
+  if (!slow) return;
+  if (reset || !state.slowDraft) state.slowDraft = slowDraftFromConfig(slow.config, slow.friends);
+  const d = state.slowDraft;
+  const friends = Array.isArray(slow.friends) ? slow.friends : [];
+  const keys = friends.map((f) => slowFriendKey(f));
+  let selectedKey = d.friendUid ? String(d.friendUid) : ('name:' + d.friend);
+  if (!keys.includes(selectedKey)) {
+    const byUid = d.friendUid ? friends.find((f) => String(f.uid || f.userid || '') === d.friendUid) : null;
+    const byName = friends.find((f) => f.name === d.friend);
+    const chosen = byUid || byName || friends[0] || null;
+    d.friend = chosen ? chosen.name : '';
+    d.friendUid = chosen ? String(chosen.uid || chosen.userid || '') : '';
+    selectedKey = chosen ? slowFriendKey(chosen) : '';
+  }
+  const select = $('#slowFriend');
+  if (select) {
+    const option = (f) => '<option value="' + esc(slowFriendKey(f)) + '">'
+      + esc(f.name) + (f.uid || f.userid ? ' · UID ' + esc(f.uid || f.userid) : ' · 无 UID')
+      + (f.source === 'mutual' ? ' · 互关' : '')
+      + (f.apiCapable ? ' · 纯 API' : '') + '</option>';
+    const enabled = friends.filter((f) => f.source !== 'mutual');
+    const mutuals = friends.filter((f) => f.source === 'mutual');
+    select.innerHTML = friends.length
+      ? (enabled.length ? '<optgroup label="发送好友">' + enabled.map(option).join('') + '</optgroup>' : '')
+        + (mutuals.length ? '<optgroup label="互关（开始后加入发送好友）">' + mutuals.map(option).join('') + '</optgroup>' : '')
+      : '<option value="">没有可用好友</option>';
+    select.value = selectedKey;
+    select.disabled = !friends.length;
+  }
+  $('#slowDuration').value = d.durationMin;
+  $('#slowMinGap').value = d.minGapSec;
+  $('#slowMaxGap').value = d.maxGapSec;
+  $('#slowMaxSends').value = d.maxSends;
+  const readEl = $('#slowReadEnabled');
+  if (readEl) {
+    const on = d.readEnabled !== false;
+    readEl.classList.toggle('on', on);
+    readEl.setAttribute('aria-checked', String(on));
+  }
+  const readState = $('#slowReadState');
+  if (readState) readState.textContent = d.readEnabled !== false ? '开' : '关';
+  const note = $('#slowFriendNote');
+  if (note) {
+    const counts = slow.counts || {};
+    const total = friends.length;
+    const extra = Number(counts.extra) || 0;
+    const bits = ['共 <b>' + total + '</b> 位可选', '发送好友 <b>' + (Number(counts.enabled) || 0) + '</b> 位'];
+    if (counts.mutual) bits.push('互关 <b>' + (Number(counts.mutual) || 0) + '</b> 位');
+    if (extra) bits.push('其中 <b>' + extra + '</b> 位开始后自动加入发送好友');
+    if (counts.disabled) bits.push((Number(counts.disabled) || 0) + ' 位已停用');
+    note.innerHTML = bits.join(' · ');
+  }
+  updateSlowPanel(slow);
+}
+
+function slowTopAction() {
+  const slow = state.data && state.data.slow;
+  if (slow && slow.live) {
+    if (state.view !== 'home') navigate('home');
+    setTimeout(() => {
+      const card = $('#slowCard');
+      if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    return;
+  }
+  openSlowPanel();
+}
+
+function openSlowPanel() {
+  const slow = state.data && state.data.slow;
+  if (!slow) { toast('慢递数据还没加载好，稍后再试', 'warn'); return; }
+  state.slowDraft = slowDraftFromConfig(slow.config, slow.friends);
+  state.slowPanelOpen = true;
+  $('#slowPanel').hidden = false;
+  $('#slowBackdrop').hidden = false;
+  document.body.style.overflow = 'hidden';
+  renderSlowPanel(slow, { reset: true });
+  setTimeout(() => { const el = $('#slowDuration'); if (el) el.focus(); }, 30);
+  getJSON('/api/slow').then((d) => {
+    if (!state.slowPanelOpen || !d || !d.config) return;
+    state.data.slow = d;
+    renderSlowPanel(d);
+  }).catch(() => {});
+}
+
+function closeSlowPanel() {
+  if (!state.slowPanelOpen && $('#slowPanel').hidden) return;
+  state.slowPanelOpen = false;
+  $('#slowPanel').hidden = true;
+  $('#slowBackdrop').hidden = true;
+  document.body.style.overflow = '';
+}
+
+async function pollSlowStart() {
+  for (let i = 0; i < 8; i++) {
+    await new Promise((r) => setTimeout(r, 2000));
+    await loadHome();
+    const s = state.data && state.data.slow;
+    if (!s) return;
+    if (!s.live) return;
+    if (s.state && (Number(s.state.sent) > 0 || s.state.status !== 'pending')) return;
   }
 }
 
-async function refreshMutualFriends() {
-  if (state.mutualLoading) return;
-  const label = state.data && state.data.account;
-  state.mutualLoading = true;
-  state.mutualError = '';
-  renderHomeFriendPicker();
+async function startSlow() {
+  const slow = state.data && state.data.slow;
+  const d = slowDraftFromInputs();
+  state.slowDraft = d;
+  const warning = slowPanelWarning(slow, d);
+  if (warning) { toast(warning, 'warn'); return; }
+  const btn = $('#slowPanelStart');
+  const old = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '开始中…';
   try {
-    const d = await postJSON('/api/accounts/mutual-friends', {});
-    if (state.data && state.data.account !== label) return;
-    state.mutualCache = d;
-    renderHomeFriendPicker();
-    toast('互关好友已更新：' + ((d.mutual || []).length) + ' 位', 'ok');
+    await postJSON('/api/slow/start', { account: state.data.account, ...d });
+    closeSlowPanel();
+    toast('慢递已开始，等第一条…', 'ok');
+    await loadHome();
+    pollSlowStart().catch(() => {});
   } catch (e) {
-    state.mutualError = e.message;
-    renderHomeFriendPicker();
-    toast('获取互关好友失败：' + e.message, 'bad');
-  } finally {
-    state.mutualLoading = false;
-    renderHomeFriendPicker();
+    toast('开始失败：' + e.message, 'bad');
+    btn.disabled = false;
+    btn.textContent = old;
   }
 }
 
-function onFriendSelectPointerDown(e) {
-  const box = $('#friendSelect');
-  if (!box || !box.contains(e.target)) closeFriendSelect();
+async function stopSlow() {
+  if (!window.confirm('提前收束这次慢递？当前这条发完就停。')) return;
+  try {
+    await postJSON('/api/slow/stop', { account: state.data.account });
+    toast('已收束慢递', 'ok');
+    await loadHome();
+  } catch (e) {
+    toast('收束失败：' + e.message, 'bad');
+  }
 }
-function onFriendSelectKeyDown(e) {
-  if (e.key === 'Escape') { e.preventDefault(); closeFriendSelect(true); }
-}
-function openFriendSelect() {
-  const pop = $('#friendSelectPop');
-  if (!pop || state.friendSelectOpen) return;
-  state.friendSelectOpen = true;
-  pop.hidden = false;
-  $('#friendSelectBtn').setAttribute('aria-expanded', 'true');
-  renderHomeFriendPicker();
-  document.addEventListener('pointerdown', onFriendSelectPointerDown, true);
-  document.addEventListener('keydown', onFriendSelectKeyDown, true);
-  if (!currentMutualCache()) loadMutualFriendsCache();
-  setTimeout(() => { const search = $('#friendSearch'); if (search) search.focus(); }, 30);
-}
-function closeFriendSelect(refocus = false) {
-  if (!state.friendSelectOpen) return;
-  state.friendSelectOpen = false;
-  const pop = $('#friendSelectPop');
-  if (pop) pop.hidden = true;
-  $('#friendSelectBtn').setAttribute('aria-expanded', 'false');
-  document.removeEventListener('pointerdown', onFriendSelectPointerDown, true);
-  document.removeEventListener('keydown', onFriendSelectKeyDown, true);
-  if (refocus) $('#friendSelectBtn').focus();
-}
-function resetMutualSelection() {
-  state.mutualCache = null;
-  state.mutualLoading = false;
-  state.mutualError = '';
-  state.friendSearch = '';
-  state.selectedFriends = new Set();
-  closeFriendSelect();
-  const search = $('#friendSearch');
-  if (search) search.value = '';
-  renderHomeFriendPicker();
-}
+
 function renderHome() {
   const d = state.data || {};
   const st = state.status || {};
@@ -2379,8 +2981,9 @@ function renderHome() {
   $('#homeDone').textContent = done;
   $('#homePlan').textContent = plan;
   const sends = d.sends || [];
-  const okCount = sends.filter((s) => s.ok).length;
-  $('#statRate').textContent = sends.length ? Math.round((okCount / sends.length) * 100) + '%' : '-';
+  const rateDen = d.totalSends != null ? Number(d.totalSends) : sends.length;
+  const rateNum = d.totalOkSends != null ? Number(d.totalOkSends) : sends.filter((s) => s.ok).length;
+  $('#statRate').textContent = rateDen ? Math.round((rateNum / rateDen) * 100) + '%' : '-';
   $('#statFail').textContent = (d.todayTimeline || []).filter((t) => t.status === 'failed').length;
   const topBucket = Object.entries(d.bucketStats || {}).sort((a, b) => b[1] - a[1])[0];
   $('#statTop').textContent = topBucket ? topBucket[0] : '-';
@@ -2394,24 +2997,22 @@ function renderHome() {
 
   if (api.present) {
     setPill($('#homeApiPill'), api.valid ? '会话可用' : '会话过期', api.valid ? 'ok' : 'bad');
-    $('#homeApiMode').textContent = api.sendMode === 'auto' ? '纯 API 优先' : '仅浏览器';
+    $('#homeApiMode').textContent = '纯 API（零浏览器）';
     $('#homeApiSession').textContent = api.valid ? ('可用 · ' + (api.ageHours ?? '-') + 'h 前') : (api.reason || '不可用');
     $('#homeApiFriend').textContent = (d.friends || []).length + ' 位账户好友 / ' + (api.friendCount || 0) + ' 个会话好友';
   } else {
-    setPill($('#homeApiPill'), '未导出', 'warn');
-    $('#homeApiMode').textContent = api.sendMode === 'browser' ? '仅浏览器' : '-';
-    $('#homeApiSession').textContent = '未导出';
-    $('#homeApiFriend').textContent = '-';
+    setPill($('#homeApiPill'), '未配置会话', 'warn');
+    $('#homeApiMode').textContent = '纯 API（零浏览器）';
+    $('#homeApiSession').textContent = '未导入 / 未刷新';
+    $('#homeApiFriend').textContent = (d.friends || []).length + ' 位账户好友';
   }
-  const browser = st.browser || {};
-  setPill($('#homeBrowserPill'), browser.up ? '已启动' : '未启动', browser.up ? 'blue' : '');
-  $('#homeBrowserState').textContent = browser.up ? '运行中' : '未启动';
-  $('#homeBrowserLogin').textContent = browser.loggedIn == null ? '-' : (browser.loggedIn ? '已登录' : '未登录');
-  $('#homeBrowserChallenge').textContent = browser.challenge ? '需要人机验证' : '正常';
-  renderHomeFriendPicker();
+  renderSlow();
 
   $('#homeTimeline').innerHTML = d.todayTimeline && d.todayTimeline.length
-    ? d.todayTimeline.map((t) => '<span class="chip ' + t.status + '">' + t.time + (t.status === 'done' ? ' ✓' : (t.status === 'failed' ? ' ✗' : '')) + '</span>').join('')
+    ? d.todayTimeline.map((t) => {
+      const mark = t.status === 'done' ? ' ✓' : (t.status === 'failed' ? ' ✗' : (t.status === 'deferred' ? ' 让路' : ''));
+      return '<span class="chip ' + t.status + '" title="' + esc(t.reason || '') + '">' + esc(t.time) + mark + '</span>';
+    }).join('')
     : '<span class="muted">今天还没有触发计划（暂停中或未配置）</span>';
   const buckets = Object.entries(d.bucketStats || {}).sort((a, b) => b[1] - a[1]);
   $('#homeBuckets').innerHTML = buckets.length ? buckets.map(([k, v]) => '<span class="chip">' + esc(k) + ' · ' + v + '</span>').join('') : '<span class="muted">暂无记录</span>';
@@ -2431,6 +3032,147 @@ function renderHome() {
   renderTopbar();
   $('#footTime').textContent = '最近刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
 }
+function renderAutoRead() {
+  const d = state.autoRead;
+  if (!d || !$('#autoReadCard')) return;
+  const cfg = d.config || {};
+  const options = Array.isArray(d.friends) ? d.friends : [];
+  const selected = new Set((cfg.friends || []).map((f) => String(f.uid || '')).filter(Boolean));
+  const seen = new Set();
+  const friends = [];
+  for (const f of options) {
+    const uid = String(f.uid || f.userid || '');
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    friends.push({ uid, name: f.name || uid, source: f.source || '' });
+  }
+  for (const f of cfg.friends || []) {
+    const uid = String(f.uid || '');
+    if (!uid || seen.has(uid)) continue;
+    seen.add(uid);
+    friends.push({ uid, name: f.name || uid, source: 'configured' });
+  }
+  const box = $('#autoReadFriends');
+  box.innerHTML = friends.length
+    ? friends.map((f) => '<label class="auto-read-friend" title="' + esc(f.name) + ' · UID ' + esc(f.uid) + '">'
+      + '<input type="checkbox" data-auto-read-friend="' + esc(f.uid) + '" data-name="' + esc(f.name) + '"'
+      + (selected.has(f.uid) ? ' checked' : '') + '>'
+      + '<span>' + esc(f.name) + '</span><span class="uid">UID ' + esc(f.uid) + '</span></label>').join('')
+    : '<span class="muted" style="font-size:11.5px">暂无可选好友</span>';
+  $('#autoReadFriendCount').textContent = selected.size + ' 位';
+
+  $('#autoReadMinMin').value = cfg.minMin ?? 10;
+  $('#autoReadMaxMin').value = cfg.maxMin ?? 60;
+  $('#autoReadWindowEnabled').checked = !!cfg.windowEnabled;
+  $('#autoReadWindowFields').hidden = !cfg.windowEnabled;
+  $('#autoReadWindowStart').value = cfg.windowStart || '09:00';
+  $('#autoReadWindowEnd').value = cfg.windowEnd || '23:00';
+  $('#autoReadWindowIntervalMin').value = cfg.windowIntervalMin ?? 15;
+  $('#autoReadOutside').value = cfg.outside === 'pause' ? 'pause' : 'random';
+
+  const sw = $('#autoReadSwitch');
+  sw.classList.toggle('on', !!cfg.enabled);
+  sw.setAttribute('aria-checked', String(!!cfg.enabled));
+  const label = $('#autoReadSwitchState');
+  label.textContent = cfg.enabled ? '开' : '关';
+  label.style.color = cfg.enabled ? 'var(--ok)' : 'var(--dim2)';
+  const now = $('#autoReadNow');
+  if (now) now.disabled = !selected.size;
+
+  const st = d.state || {};
+  const results = Array.isArray(st.friends) ? st.friends : [];
+  const okCount = results.filter((f) => f.ok).length;
+  const bits = [];
+  if (!friends.length) {
+    bits.push('暂无可选好友，先在下方好友关系里同步。');
+  } else if (!selected.size) {
+    bits.push('至少勾选一位好友，再开启自动已读。');
+  } else {
+    if (!cfg.enabled) bits.push('已关闭');
+    if (st.lastCheckAt) bits.push('上次检查 ' + dateTimeOf(st.lastCheckAt));
+    if (results.length) bits.push('已读 ' + okCount + '/' + results.length + ' 位');
+    if (st.lastError) bits.push('<span class="bad">部分失败：' + esc(st.lastError) + '</span>');
+    if (st.nextAt) bits.push('下次 ' + dateTimeOf(st.nextAt));
+    else if (!st.lastCheckAt) bits.push('等待后台排期…');
+    if (cfg.windowEnabled) {
+      bits.push('固定 ' + esc(cfg.windowStart) + '–' + esc(cfg.windowEnd) + ' 每 ' + esc(cfg.windowIntervalMin) + ' 分钟'
+        + (cfg.outside === 'pause' ? '；时段外暂停' : '；时段外随机'));
+    } else {
+      bits.push('随机 ' + esc(cfg.minMin) + '–' + esc(cfg.maxMin) + ' 分钟');
+    }
+  }
+  $('#autoReadStatus').innerHTML = bits.join(' · ');
+}
+async function loadAutoRead() {
+  try {
+    const d = await getJSON('/api/auto-read');
+    state.autoRead = d;
+    renderAutoRead();
+  } catch (e) { /* keep the last card state */ }
+}
+async function saveAutoRead(notify = false) {
+  const d = state.autoRead;
+  if (!d) return;
+  const cfg = d.config || {};
+  const box = $('#autoReadFriends');
+  const checked = [...box.querySelectorAll('[data-auto-read-friend]:checked')].map((el) => ({
+    uid: el.dataset.autoReadFriend,
+    name: el.dataset.name || el.dataset.autoReadFriend,
+  }));
+  const minMin = Number($('#autoReadMinMin').value) || cfg.minMin || 10;
+  const maxMin = Number($('#autoReadMaxMin').value) || cfg.maxMin || 60;
+  const windowEnabled = $('#autoReadWindowEnabled').checked;
+  const windowStart = $('#autoReadWindowStart').value || '09:00';
+  const windowEnd = $('#autoReadWindowEnd').value || '23:00';
+  const windowIntervalMin = Number($('#autoReadWindowIntervalMin').value) || 15;
+  const outside = $('#autoReadOutside').value === 'pause' ? 'pause' : 'random';
+  const enabled = $('#autoReadSwitch').classList.contains('on');
+  if (enabled && !checked.length) {
+    toast('先勾选至少一位好友，再开启自动已读', 'warn');
+    renderAutoRead();
+    return;
+  }
+  if (minMin < 1 || maxMin < minMin) {
+    toast('随机间隔需要满足 1 ≤ 最小值 ≤ 最大值', 'warn');
+    renderAutoRead();
+    return;
+  }
+  try {
+    const r = await postJSON('/api/auto-read', {
+      enabled,
+      friends: checked,
+      minMin,
+      maxMin,
+      windowEnabled,
+      windowStart,
+      windowEnd,
+      windowIntervalMin,
+      outside,
+    });
+    state.autoRead = r;
+    renderAutoRead();
+    if (notify) toast(enabled ? '自动已读已开启' : '自动已读已关闭', 'ok');
+  } catch (e) {
+    toast('保存自动已读失败：' + e.message, 'bad');
+    await loadAutoRead();
+  }
+}
+async function autoReadNow() {
+  const d = state.autoRead;
+  const selected = d && d.config && Array.isArray(d.config.friends) ? d.config.friends.length : 0;
+  if (!selected) { toast('先选择好友并保存，再测试已读', 'warn'); return; }
+  const status = $('#autoReadStatus');
+  if (status) status.innerHTML = '正在标记已读…';
+  try {
+    const r = await postJSON('/api/auto-read/now', {});
+    state.autoRead = r;
+    renderAutoRead();
+    toast(r.ok ? '已读请求成功；好友端会显示已读' : ('已读失败：' + (r.error || '未知错误')), r.ok ? 'ok' : 'bad');
+  } catch (e) {
+    toast('已读请求失败：' + e.message, 'bad');
+    await loadAutoRead();
+  }
+}
 async function loadHome() {
   try {
     const [data, status, api] = await Promise.all([
@@ -2438,10 +3180,12 @@ async function loadHome() {
     ]);
     const previousAccount = state.data && state.data.account;
     state.data = data; state.status = status; state.api = api;
-    if (previousAccount && data.account !== previousAccount) resetMutualSelection();
+    if (previousAccount && data.account !== previousAccount) resetMutualView();
     renderHome();
     loadHomeEvents();
-    loadMutualFriendsCache();
+    loadFriends().catch(() => {});
+    loadMutualCacheOnly().catch(() => {});
+    loadAutoRead().catch(() => {});
   } catch (e) {
     toast('首页加载失败：' + e.message, 'bad');
   }
@@ -2481,6 +3225,30 @@ const DIAG_TITLES = {
   'ai-rank': 'AI 排序',
   'ai-fallback': 'AI 回退',
   'dedup-exhausted': '候选已发完',
+  'slow-request': '慢递下单',
+  'slow-start': '慢递开始',
+  'slow-send': '慢递发送',
+  'slow-read': '慢递 · 会话已读',
+  'slow-read-fail': '慢递 · 已读失败',
+  'daily-read': '排班 · 会话已读',
+  'daily-read-fail': '排班 · 已读失败',
+  'auto-read': '自动已读 · 已读请求',
+  'auto-read-fail': '自动已读 · 失败',
+  'auto-read-config': '自动已读 · 配置',
+  'slow-retry': '慢递重试',
+  'slow-fail': '慢递失败',
+  'slow-preempt': '慢递让路',
+  'slow-done': '慢递收束',
+  'slow-stop': '慢递提前结束',
+  'slow-stop-request': '慢递收束请求',
+  'slow-paused': '慢递暂停',
+  'slow-resumed': '慢递继续',
+  'slow-blocked': '慢递被拦下',
+  'slow-exhausted': '慢递候选发完',
+  'slow-expired': '慢递过期',
+  'slow-skip': '慢递跳过迟到的发送',
+  'mutual-sync': '互关同步',
+  'mutual-sync-error': '互关同步失败',
 };
 function diagTime(ts, full = false) {
   if (!ts) return '-';
@@ -2494,14 +3262,14 @@ function diagCategory(event, tone) {
   const e = String(event || '').toLowerCase();
   if (tone === 'error') return 'error';
   if (/(send|sent|manual-send|slot-missed|retry|natural-)/.test(e)) return 'send';
-  if (/(pool|plan|replan|humanize|account|friend|ban|schedule|ai|config)/.test(e)) return 'config';
+  if (/(pool|plan|replan|humanize|account|friend|ban|schedule|ai|config|slow|mutual)/.test(e)) return 'config';
   if (/(session|feed|browser|server|connect)/.test(e)) return 'connection';
   return 'system';
 }
 function diagTone(event) {
   const e = String(event || '').toLowerCase();
   if (/(fail|error|invalid|blocked|captcha|rejected|missing|denied|超时)/.test(e)) return 'error';
-  if (/(retry|missed|paused|fallback|warn)/.test(e)) return 'warn';
+  if (/(retry|missed|paused|fallback|warn|exhausted)/.test(e)) return 'warn';
   if (/(sent|captured|ready|resumed|ok|done|added|success)/.test(e)) return 'ok';
   return 'info';
 }
@@ -2586,6 +3354,58 @@ function diagInfo(e) {
     if (data.mode) summary += ' · 模式 ' + data.mode;
   } else if (event === 'dedup-exhausted') {
     summary = '候选都已发送过，已停止重复发送' + (data.pool ? ' · ' + data.pool : '') + (data.source === 'recommend' ? ' · 默认推荐' : '');
+  } else if (event.startsWith('slow-')) {
+    const d = data || {};
+    const reason = d.reason ? slowReasonText(d.reason) : '';
+    if (event === 'slow-request') {
+      summary = (d.friend ? '发给 ' + d.friend + ' · ' : '') + d.durationMin + ' 分钟 · 间隔 ' + d.minGapSec + '–' + d.maxGapSec + ' 秒 · 上限 ' + d.maxSends + ' 条'
+        + ' · 已读 ' + (d.readEnabled === false ? '关' : '开');
+    } else if (event === 'slow-start') {
+      summary = (d.friend ? '发给 ' + d.friend + ' · ' : '') + d.durationMin + ' 分钟 · 到 ' + diagTime(d.endsAt, true) + ' 结束'
+        + ' · 已读 ' + (d.readEnabled === false ? '关' : '开');
+    } else if (event === 'slow-send') {
+      summary = '第 ' + (d.n ?? '-') + '/' + (d.maxSends ?? '-') + ' 条'
+        + (d.title ? ' · ' + String(d.title).slice(0, 50) : '')
+        + ' · 上条 ' + slowDurationText(d.durationMs)
+        + ' · 间隔 ' + slowDurationText(d.gapMs)
+        + (d.floored ? '（按视频时长+5s 让路）' : '');
+    } else if (event === 'slow-read') {
+      summary = '已读目标会话' + (d.conversationId ? ' · ' + String(d.conversationId).slice(0, 46) : '');
+    } else if (event === 'slow-read-fail') {
+      summary = d.error || '已读失败（不影响发送）';
+    } else if (event === 'daily-read') {
+      summary = '排班发送后已读' + (d.friend ? ' · ' + d.friend : '') + (d.conversationId ? ' · ' + String(d.conversationId).slice(0, 40) : '');
+    } else if (event === 'daily-read-fail') {
+      summary = d.error || '排班已读失败（不影响发送）';
+    } else if (event === 'auto-read') {
+      summary = '自动已读' + (d.friend ? ' · ' + d.friend : '') + (d.friendUid ? ' · UID ' + d.friendUid : '');
+    } else if (event === 'auto-read-fail') {
+      summary = d.error || '自动已读失败';
+    } else if (event === 'auto-read-config') {
+      summary = (d.enabled ? '开启' : '关闭') + (d.friend ? ' · ' + d.friend : '') + (d.friendUid ? ' · UID ' + d.friendUid : '');
+    } else if (event === 'slow-retry' || event === 'slow-fail') {
+      summary = '第 ' + (d.n ?? '-') + ' 条 · ' + (d.kind || '发送失败') + (d.error ? ' · ' + d.error : '');
+    } else if (event === 'slow-preempt') {
+      summary = (d.count ?? 0) + ' 个日常触发点让路' + (Array.isArray(d.points) && d.points.length ? '：' + d.points.slice(0, 6).join('、') : '');
+    } else if (event === 'slow-skip') {
+      summary = '迟到 ' + (d.lateMin ?? '-') + ' 分钟，重新抽间隔，不补发';
+    } else if (event === 'slow-paused' || event === 'slow-resumed') {
+      summary = '已发 ' + (d.sent ?? 0) + ' 条 · ' + (event === 'slow-paused' ? '倒计时冻结' : '继续');
+    } else if (event === 'slow-stop-request') {
+      summary = '面板点了提前收束';
+    } else if (event === 'slow-done' || event === 'slow-stop' || event === 'slow-blocked' || event === 'slow-exhausted' || event === 'slow-expired') {
+      summary = '已发 ' + (d.sent ?? 0) + ' 条 · ' + (reason || event) + (d.error ? ' · ' + d.error : '');
+    } else {
+      summary = JSON.stringify(d).slice(0, 220);
+    }
+  } else if (event === 'mutual-sync') {
+    summary = '关注 ' + (data.following ?? '-') + ' · 粉丝 ' + (data.followers ?? '-') + ' · 互关 ' + (data.mutual ?? '-')
+      + ' · 更新 ' + (data.renamed ?? 0) + ' 个昵称'
+      + (data.linked ? '、补 ' + data.linked + ' 个 UID' : '')
+      + (data.conflicts ? ' · ' + data.conflicts + ' 个冲突' : '')
+      + (Array.isArray(data.errors) && data.errors.length ? ' · ' + data.errors.join('；') : '');
+  } else if (event === 'mutual-sync-error') {
+    summary = data.error || '自动同步失败';
   } else if (event === 'config-update' || event === 'ai-action') {
     summary = data.summary || data.action || '配置已更新';
   } else {
@@ -2659,34 +3479,10 @@ function bindDiagnosticsActions() {
 }
 
 /* quick API send */
-async function apiSendFriend(dry) {
-  const friends = selectedHomeFriends();
-  const msg = $('#homeSendMsg');
-  if (!friends.length) { toast('先在「选择互关好友」里勾选要发送的好友', 'warn'); return; }
-  if (!dry && !window.confirm('确认通过纯 API 发送一条视频给：' + friends.join('、') + '？')) return;
-  msg.textContent = dry ? '选片中…' : ('发送中…（' + friends.length + ' 位好友）');
-  try {
-    const r = await postJSON('/api/api-session/send', { friends, dry });
-    if (r.ok && r.dry) {
-      msg.textContent = '选中：' + (r.picked && r.picked.title || '');
-      toast('已选片（未发送）', 'ok');
-    } else if (r.ok) {
-      const okList = (r.results || []).filter((x) => x.ok).map((x) => x.friend);
-      const badList = (r.results || []).filter((x) => !x.ok).map((x) => x.friend + '：' + (x.error || '失败'));
-      msg.textContent = '已发送 ' + okList.length + '/' + friends.length + (badList.length ? '；失败：' + badList.join('，') : '');
-      toast('已发送给 ' + okList.join('、'), 'ok');
-      loadHome();
-    } else {
-      msg.textContent = '失败：' + (r.error || (r.results || []).map((x) => x.friend + ' ' + x.error).join('；') || '未知错误');
-      toast('部分/全部失败，见下方信息', 'bad');
-      loadHome();
-    }
-  } catch (e) { msg.textContent = '请求失败：' + e.message; toast('请求失败：' + e.message, 'bad'); }
-}
 
 /* send now */
 function setSendButtonsDisabled(disabled) {
-  ['#btnSendNow'].forEach((sel) => { const b = $(sel); if (b) b.disabled = disabled; });
+  syncSendButtons(disabled);
 }
 async function triggerSendNow() {
   if (state.sendJobPolling) return;
@@ -2732,6 +3528,7 @@ async function loadAccounts() {
     renderAccounts();
     if (state.acctMenuOpen) renderAcctMenu();
     renderTopbar(); renderSidebar();
+    loadMutualCacheOnly().catch(() => {});
   } catch (e) { toast('账户加载失败：' + e.message, 'bad'); }
 }
 function renderAccounts() {
@@ -2742,7 +3539,7 @@ function renderAccounts() {
     $('#acctLabelSub').textContent = (active.friends || []).length + ' 位好友 · ' + active.port + ' 端口 · ' + (active.enabled ? '运行中' : '已暂停');
     $('#acctFriend').textContent = (active.friends || []).join('、') || '未配置';
     $('#acctPort').textContent = active.port;
-    $('#acctBands').textContent = active.bands + ' 个';
+    $('#acctBands').textContent = (active.points ?? 0) + ' 个';
     $('#acctSends').textContent = active.sends + ' 条';
     $('#acctProfile').textContent = active.profile || '-';
     $('#acctRename').value = active.name || active.label;
@@ -2774,14 +3571,179 @@ async function setAccountEnabled(label, enabled) {
 }
 
 let mutualCache = null;
+function resetMutualView() {
+  mutualCache = null;
+  state.mutualCache = null;
+  state.mutualLoading = false;
+  state.mutualError = '';
+  state.mutualTab = 'mutual';
+  state.mutualSearch = '';
+  const search = document.getElementById('mutualSearch');
+  if (search) search.value = '';
+}
+
+const MUTUAL_TABS = [
+  ['mutual', '互关'],
+  ['following', '关注'],
+  ['followers', '粉丝'],
+  ['analysis', '分析'],
+];
+
+function mutualActiveList(cache = mutualCache) {
+  if (!cache) return [];
+  if (state.mutualTab === 'following') return Array.isArray(cache.followingList) ? cache.followingList : [];
+  if (state.mutualTab === 'followers') return Array.isArray(cache.followerList) ? cache.followerList : [];
+  if (state.mutualTab === 'analysis') return [];
+  return Array.isArray(cache.mutual) ? cache.mutual : [];
+}
+
+async function loadFriendRows() {
+  try {
+    const d = await getJSON('/api/friends');
+    state.friendRows = Array.isArray(d.friends) ? d.friends : [];
+  } catch (e) {
+    state.friendRows = Array.isArray(state.friendRows) ? state.friendRows : [];
+  }
+  return state.friendRows;
+}
+
+function mutualExistingSets() {
+  const rows = state.friendRows || [];
+  return {
+    uids: new Set(rows.filter((r) => String(r.userid || '').trim()).map((r) => String(r.userid))),
+    names: new Set(rows.map((r) => r.name)),
+  };
+}
+
+function renderMutualInfo(r) {
+  const info = document.getElementById('mutualInfo');
+  if (!info) return;
+  if (!r) { info.textContent = ''; return; }
+  const scanned = (n, total) => (total && total > n ? '（已扫描 ' + n + '）' : '');
+  info.textContent = (r.self && r.self.nickname ? ('账户 ' + r.self.nickname + ' · ') : '')
+    + '关注 ' + (r.followingTotal ?? r.following ?? '-') + scanned(r.following, r.followingTotal)
+    + ' · 粉丝 ' + (r.followersTotal ?? r.followers ?? '-') + scanned(r.followers, r.followersTotal)
+    + ' · 互关 ' + ((r.mutual || []).length);
+}
+
+async function loadMutualCacheOnly() {
+  const label = state.data && state.data.account;
+  const fetched = mutualCache && mutualCache.fetchedAt ? Date.parse(mutualCache.fetchedAt) : 0;
+  const fresh = Number.isFinite(fetched) && fetched > 0 && (Date.now() - fetched) < MUTUAL_UI_TTL_MS;
+  if (mutualCache && mutualCache.label === label && fresh) {
+    await loadFriendRows();
+    renderMutualInfo(mutualCache);
+    renderMutualAccounts(mutualCache);
+    return;
+  }
+  try {
+    const d = await getJSON('/api/accounts/mutual-friends');
+    if (d && d.cached !== false) {
+      mutualCache = d;
+      state.mutualCache = d;
+      state.mutualError = '';
+      await loadFriendRows();
+      renderMutualInfo(d);
+      renderMutualAccounts(d);
+    } else {
+      mutualCache = null;
+      renderMutualInfo(null);
+      renderMutualAccounts(null);
+    }
+  } catch (e) { /* the explicit sync button surfaces errors */ }
+}
+
+function renderMutualAccounts(cache = mutualCache) {
+  const box = document.getElementById('mutualList');
+  const actions = document.getElementById('mutualActions');
+  const hint = document.getElementById('mutualSyncHint');
+  if (!box) return;
+  if (hint) {
+    hint.textContent = cache && cache.fetchedAt
+      ? ('自动每 ' + (cache.syncHours || 6) + ' 小时同步 · ' + timeOf(cache.fetchedAt) + ' 更新' + (cache.stale ? ' · 已过期' : ''))
+      : '还没有同步过';
+  }
+  $$('#mutualTabs [data-mutual-tab]').forEach((b) => b.classList.toggle('active', b.dataset.mutualTab === state.mutualTab));
+  if (cache) {
+    if (document.getElementById('mutualTabMutual')) document.getElementById('mutualTabMutual').textContent = (cache.mutual || []).length;
+    if (document.getElementById('mutualTabFollowing')) document.getElementById('mutualTabFollowing').textContent = cache.followingTotal ?? cache.following ?? '-';
+    if (document.getElementById('mutualTabFollowers')) document.getElementById('mutualTabFollowers').textContent = cache.followersTotal ?? cache.followers ?? '-';
+  } else {
+    ['mutualTabMutual', 'mutualTabFollowing', 'mutualTabFollowers'].forEach((id) => {
+      if (document.getElementById(id)) document.getElementById(id).textContent = '-';
+    });
+  }
+  if (actions) actions.style.display = 'none';
+  if (state.mutualTab === 'analysis') {
+    if (!cache) { box.innerHTML = '<span class="muted">先点「同步关注 / 粉丝」</span>'; return; }
+    const a = cache.analysis || {};
+    const stat = (k, v, unit) => '<div class="ma"><div class="k">' + k + '</div><div class="v">' + (v == null ? '-' : v) + (unit ? '<small>' + unit + '</small>' : '') + '</div></div>';
+    box.innerHTML = '<div class="mutual-analysis">'
+      + stat('关注', a.following ?? cache.following, '人')
+      + stat('粉丝', a.followers ?? cache.followers, '人')
+      + stat('互关', a.mutual ?? (cache.mutual || []).length, '人')
+      + stat('互关率', a.mutualRate, '%')
+      + stat('关注未回关', a.followingOnly, '人')
+      + stat('粉丝未关注', a.followerOnly, '人')
+      + stat('关注总数', cache.followingTotal, '人')
+      + stat('粉丝总数', cache.followersTotal, '人')
+      + '</div>'
+      + '<div class="field-note" style="margin-top:10px">'
+      + '互关按 UID 计算（followings ∩ followers）；「关注未回关 / 粉丝未关注」基于本次扫描到的列表。'
+      + (cache.complete && cache.complete.followers === false ? ' 粉丝列表未读全，相关数字偏小。' : '')
+      + (cache.errors && cache.errors.length ? ' 部分警告：' + esc(cache.errors.join('；')) : '')
+      + '</div>';
+    return;
+  }
+  if (!cache) {
+    box.innerHTML = '<div class="friend-select-empty">还没有同步。<br>点「同步关注 / 粉丝」会通过抖音 web API 读取列表（首次 10-30 秒，会自动拉起浏览器）。</div>';
+    return;
+  }
+  const all = mutualActiveList(cache);
+  const q = String(state.mutualSearch || '').trim().toLowerCase();
+  const filtered = all.filter((u) => !q
+    || String(u.name || '').toLowerCase().includes(q)
+    || String(u.uid || '').includes(q));
+  if (!filtered.length) {
+    box.innerHTML = '<div class="friend-select-empty">' + (all.length ? '没有匹配「' + esc(q) + '」的人' : '这个分类还没有数据；先同步一次。') + '</div>';
+    return;
+  }
+  const existing = mutualExistingSets();
+  const isExisting = (u) => (u.uid ? existing.uids.has(String(u.uid)) : existing.names.has(String(u.name || '')));
+  const newCount = all.filter((u) => u.name && !isExisting(u)).length;
+  const shown = filtered.slice(0, 300);
+  box.innerHTML = shown.map((u) => {
+    const name = String(u.name || '（无昵称）');
+    const uid = String(u.uid || '');
+    const already = isExisting(u);
+    return '<div class="mutual-person">'
+      + '<span class="mutual-name" title="' + esc(name) + '">' + esc(name) + '</span>'
+      + '<span class="mutual-uid">' + (uid ? 'UID ' + esc(uid) : '无 UID') + '</span>'
+      + (already
+        ? '<span class="tag">已有</span>'
+        : '<button class="btn ghost sm" type="button" data-mutual-add-uid="' + esc(uid) + '" data-mutual-add-name="' + esc(name) + '">添加</button>')
+      + '</div>';
+  }).join('') + (filtered.length > shown.length
+    ? '<div class="mutual-people-more">只显示前 ' + shown.length + ' 条，共 ' + filtered.length + ' 条；用搜索缩小范围。</div>'
+    : '');
+  if (actions) {
+    actions.style.display = all.length ? 'flex' : 'none';
+    const btn = document.getElementById('mutualImportAll');
+    if (btn) {
+      btn.textContent = '添加当前列表新好友（' + newCount + '）';
+      btn.disabled = !newCount;
+    }
+  }
+}
+
 async function loadMutualFriends() {
   const btn = document.getElementById('btnMutual');
   const msg = document.getElementById('mutualMsg');
   const info = document.getElementById('mutualInfo');
   btn.disabled = true;
-  msg.textContent = '正在启动/读取浏览器并获取互关列表（可能需要 10-30 秒）…';
+  msg.textContent = '正在通过 API 读取关注 / 粉丝列表（可能需要 10-30 秒）…';
   info.textContent = '';
-  document.getElementById('mutualList').innerHTML = '';
+  document.getElementById('mutualList').innerHTML = '<span class="muted">读取中…</span>';
   document.getElementById('mutualActions').style.display = 'none';
   try {
     const r = await postJSON('/api/accounts/mutual-friends', {});
@@ -2789,43 +3751,57 @@ async function loadMutualFriends() {
     mutualCache = r;
     state.mutualCache = r;
     state.mutualError = '';
-    state.selectedFriends = new Set([...state.selectedFriends].filter((name) => (r.mutual || []).some((u) => u.name === name)));
-    if (state.friendSelectOpen) renderHomeFriendPicker();
-    const existing = new Set(((state.accounts && state.accounts.accounts) || []).find((a) => a.label === r.label)?.friends || []);
-    info.textContent = (r.self && r.self.nickname ? ('账户 ' + r.self.nickname + ' · ') : '') + '关注 ' + (r.followingTotal ?? r.following) + ' · 粉丝 ' + (r.followers ?? '-') + ' · 互关 ' + r.mutual.length + (r.followingTotal > r.following ? '（已扫描 ' + r.following + '）' : '');
-    document.getElementById('mutualList').innerHTML = r.mutual.length
-      ? r.mutual.map((u, i) => '<label class="friend-check"><input type="checkbox" data-mutual="' + i + '"' + (existing.has(u.name) ? '' : ' checked') + '> ' + esc(u.name) + (existing.has(u.name) ? ' <span class="muted">已有</span>' : '') + '</label>').join('')
-      : '<span class="muted">没有互关好友（或对方列表不可见）</span>';
-    document.getElementById('mutualActions').style.display = r.mutual.length ? 'flex' : 'none';
-    msg.textContent = r.errors && r.errors.length ? ('部分警告：' + r.errors.join('；')) : '选择要添加为发送好友的人，然后点「添加所选好友」。';
+    await loadFriendRows();
+    renderMutualInfo(r);
+    renderMutualAccounts(r);
+    msg.textContent = r.errors && r.errors.length
+      ? ('部分警告：' + r.errors.join('；'))
+      : '列表已按 UID 去重；点某人右侧「添加」或「添加当前列表新好友」。';
   } catch (e) {
     msg.textContent = '获取失败：' + e.message;
-    toast('获取互关好友失败：' + e.message, 'bad');
+    toast('获取关注 / 粉丝失败：' + e.message, 'bad');
   } finally {
     btn.disabled = false;
   }
 }
 
-async function importMutualFriends(all) {
-  if (!mutualCache || !mutualCache.mutual.length) return;
-  const selected = all
-    ? mutualCache.mutual
-    : [...document.querySelectorAll('#mutualList input[data-mutual]:checked')].map((el) => mutualCache.mutual[Number(el.dataset.mutual)]).filter(Boolean);
-  if (!selected.length) { toast('先勾选要添加的互关好友', 'warn'); return; }
-  const msg = document.getElementById('mutualMsg');
-  msg.textContent = '正在添加到当前账户…';
-  let added = 0;
-  for (const u of selected) {
-    try {
-      await postJSON('/api/friends', { name: u.name, userid: u.uid });
-      added++;
-    } catch (e) { /* ignore single failure */ }
+async function addMutualFriend(uid, name) {
+  try {
+    await postJSON('/api/friends', { name, userid: uid });
+    await loadFriendRows();
+    renderMutualAccounts();
+    await loadAccounts();
+    await loadHome();
+    toast('已添加 / 更新好友：' + name, 'ok');
+  } catch (e) {
+    toast('添加失败：' + e.message, 'bad');
   }
-  msg.textContent = '已添加 ' + added + '/' + selected.length + ' 位好友';
-  toast('已添加 ' + added + ' 位互关好友', 'ok');
-  await loadAccounts();
-  await loadHome();
-  await loadMutualFriends();
+}
+
+async function importMutualFriends(all) {
+  const list = mutualActiveList();
+  if (!list.length) { toast('当前分类没有可添加的人', 'warn'); return; }
+  const existing = mutualExistingSets();
+  const targets = list.filter((u) => u.name && !(u.uid ? existing.uids.has(String(u.uid)) : existing.names.has(String(u.name))));
+  if (!targets.length) { toast('当前列表都已经是好友了', 'warn'); return; }
+  const label = (MUTUAL_TABS.find((t) => t[0] === state.mutualTab) || ['', state.mutualTab])[1];
+  if (!window.confirm('把「' + label + '」列表里的 ' + targets.length + ' 位新好友全部添加？')) return;
+  const msg = document.getElementById('mutualMsg');
+  msg.textContent = '正在批量添加到当前账户…';
+  try {
+    const res = await postJSON('/api/friends/batch', {
+      friends: targets.map((u) => ({ name: String(u.name || '').trim(), userid: String(u.uid || '') })),
+    });
+    const added = res.added || 0;
+    const failed = res.failed || 0;
+    msg.textContent = '已添加 ' + added + ' 位' + (failed ? '，失败 ' + failed + ' 位' : '');
+    toast('已添加 ' + added + ' 位好友' + (failed ? '（' + failed + ' 位失败）' : ''), failed ? 'warn' : 'ok');
+    await Promise.all([loadFriendRows(), loadAccounts(), loadHome()]);
+    renderMutualAccounts();
+  } catch (e) {
+    msg.textContent = '批量添加失败：' + e.message;
+    toast('批量添加失败：' + e.message, 'bad');
+  }
 }
 
 let loginPollTimer = null;
@@ -2912,12 +3888,13 @@ async function qrAddAccount() {
 }
 
 async function switchAccount(label) {
+  if (state.view === 'config' && !confirmLeaveDirtyConfig()) return;
   if (!window.confirm('把面板切换到账户「' + label + '」查看？其他账户会继续按各自排班发送。')) return;
   try {
     const r = await postJSON('/api/accounts/switch', { label });
     toast('已切换到 ' + r.active, 'ok');
     state.config = null; state.cfgLoaded = false;
-    resetMutualSelection();
+    resetMutualView();
     await loadAccounts(); await loadHome();
   } catch (e) { toast('切换失败：' + e.message, 'bad'); }
 }
@@ -3238,12 +4215,16 @@ function updateSourceUI() {
     pill.textContent = isRec ? '默认推荐' : '视频池';
     pill.className = 'pill ' + (isRec ? 'blue' : '');
   }
-  $$('.pool-only').forEach((el) => { el.hidden = isRec; });
+  $$('.pool-only').forEach((el) => { if (el.id !== 'poolBlock') el.hidden = isRec; });
   $$('.recommend-only').forEach((el) => { el.hidden = !isRec; });
+  const poolBlock = $('#poolBlock');
+  if (poolBlock) poolBlock.hidden = false;
+  const poolHint = $('#poolSourceHint');
+  if (poolHint) poolHint.hidden = !isRec;
   const note = $('#sourceNote');
   if (note) {
     note.innerHTML = isRec
-      ? '抖音默认推荐：使用「推荐」tab 的个性化内容，只走纯 API；需要会话里已捕获 feed。AI 过滤默认关闭。'
+      ? '抖音默认推荐：使用「推荐」tab 的个性化内容，只走纯 API；需要会话里已捕获 feed。视频池分类仍可查看/编辑，切换来源后生效。'
       : '视频池搜索：按分类关键词挑选，内容更可控；每个池会轮换基础关键词和同类变体。';
   }
   const account = state.config && (state.config.accountName || state.config.account);
@@ -3286,13 +4267,14 @@ function collectConfig() {
     poolDelayMs: Number($('#c_pdelay').value),
     naturalShare: $('#c_natural').value === 'true',
     naturalText: $('#c_natural_text_switch') ? $('#c_natural_text_switch').classList.contains('on') : true,
+    dailyReadEnabled: $('#c_daily_read_switch') ? $('#c_daily_read_switch').classList.contains('on') : true,
     maxVideoAgeDays: Number($('#c_vmax').value),
     recommendMaxAgeDays: Number($('#c_rmax').value),
     pools,
     banWords: $('#c_ban').value.split('\n').map((s) => s.trim()).filter(Boolean),
   };
 }
-const CONFIG_TABS = ['plan', 'video', 'friends', 'connection', 'ai', 'database', 'advanced'];
+const CONFIG_TABS = ['plan', 'video', 'connection', 'ai', 'database', 'advanced'];
 function setNaturalTextSwitch(on) {
   const el = $('#c_natural_text_switch');
   if (!el) return;
@@ -3300,6 +4282,14 @@ function setNaturalTextSwitch(on) {
   el.setAttribute('aria-checked', String(!!on));
   el.title = on ? '关闭后自然分享只发视频' : '开启后在视频后发送 AI 文字附言';
   const state = $('#c_natural_text_state');
+  if (state) { state.textContent = on ? '开启' : '关闭'; state.style.color = on ? 'var(--ok)' : 'var(--dim2)'; }
+}
+function setDailyReadSwitch(on) {
+  const el = $('#c_daily_read_switch');
+  if (!el) return;
+  el.classList.toggle('on', !!on);
+  el.setAttribute('aria-checked', String(!!on));
+  const state = $('#c_daily_read_state');
   if (state) { state.textContent = on ? '开启' : '关闭'; state.style.color = on ? 'var(--ok)' : 'var(--dim2)'; }
 }
 function activateConfigTab(tab, { scroll = false } = {}) {
@@ -3329,9 +4319,82 @@ function activateConfigTab(tab, { scroll = false } = {}) {
     }
   }
 }
+const CONFIG_PRESETS = {
+  conservative: {
+    label: '保守（3条/天）',
+    schedulePoints: [
+      { mode: 'random', from: '12:00', to: '13:30', count: 1 },
+      { mode: 'random', from: '20:30', to: '22:30', count: 2 },
+    ],
+    burstMinSec: 30, burstMaxSec: 90, burstDurationFloor: true, burstFallbackSec: 25, poolDelayMs: 3500,
+  },
+  balanced: {
+    label: '均衡（6条/天）',
+    schedulePoints: [
+      { mode: 'random', from: '09:30', to: '11:30', count: 2 },
+      { mode: 'random', from: '14:30', to: '17:00', count: 2 },
+      { mode: 'random', from: '20:30', to: '22:30', count: 2 },
+    ],
+    burstMinSec: 15, burstMaxSec: 50, burstDurationFloor: true, burstFallbackSec: 15, poolDelayMs: 2500,
+  },
+  active: {
+    label: '活跃（10条/天）',
+    schedulePoints: [
+      { mode: 'fixed', time: '09:30', count: 2 },
+      { mode: 'random', from: '12:00', to: '13:30', count: 2 },
+      { mode: 'random', from: '16:00', to: '18:00', count: 3 },
+      { mode: 'random', from: '20:30', to: '22:30', count: 3 },
+    ],
+    burstMinSec: 12, burstMaxSec: 40, burstDurationFloor: true, burstFallbackSec: 15, poolDelayMs: 2000,
+  },
+};
+function applyConfigPreset(key) {
+  const p = CONFIG_PRESETS[key];
+  if (!p) { toast('先选择一个预设模板', 'warn'); return; }
+  renderSchedule(p.schedulePoints);
+  $('#c_min_sec').value = p.burstMinSec;
+  $('#c_max_sec').value = p.burstMaxSec;
+  $('#c_floor').value = p.burstDurationFloor ? 'true' : 'false';
+  $('#c_fallback').value = p.burstFallbackSec;
+  $('#c_pdelay').value = p.poolDelayMs;
+  updateScheduleHint();
+  setConfigDirty(true);
+  toast('已填充「' + p.label + '」预设，点击「保存设置」生效', 'ok');
+}
+function renderCopyAccountOptions() {
+  const sel = $('#cfgCopyFrom');
+  const btn = $('#cfgCopyBtn');
+  if (!sel || !btn) return;
+  const cur = (state.config && state.config.account) || (state.accounts && state.accounts.active);
+  const others = ((state.accounts && state.accounts.accounts) || []).filter((a) => a.label !== cur);
+  if (!others.length) {
+    sel.hidden = true; btn.hidden = true; return;
+  }
+  sel.hidden = false; btn.hidden = false;
+  sel.innerHTML = '<option value="">从其他账户复制…</option>' + others.map((a) => '<option value="' + esc(a.label) + '">' + esc(a.name || a.label) + '</option>').join('');
+}
+async function copyConfigFromAccount() {
+  const from = $('#cfgCopyFrom') ? $('#cfgCopyFrom').value : '';
+  if (!from) { toast('请先选择来源账户', 'warn'); return; }
+  const fromName = ($('#cfgCopyFrom').selectedOptions[0] && $('#cfgCopyFrom').selectedOptions[0].textContent) || from;
+  if (!window.confirm('将「' + fromName + '」的计划、筛选条件、屏蔽词和视频池复制到当前账户？当前配置会被覆盖。')) return;
+  try {
+    const res = await postJSON('/api/config/copy', {
+      fromAccount: from,
+      toAccount: state.config && state.config.account,
+    });
+    toast('已复制 ' + (res.copiedSettings || 0) + ' 项配置与 ' + (res.copiedPools || 0) + ' 个分类', 'ok');
+    setConfigDirty(false);
+    await Promise.all([loadConfigPage(), loadHome()]);
+  } catch (e) { toast('复制失败：' + e.message, 'bad'); }
+}
 async function loadConfigPage() {
   try {
-    const cfg = await getJSON('/api/config');
+    const [cfg, accData] = await Promise.all([
+      getJSON('/api/config'),
+      state.accounts ? Promise.resolve(state.accounts) : getJSON('/api/accounts').catch(() => null),
+    ]);
+    if (accData) state.accounts = accData;
     state.config = cfg; state.cfgLoaded = true;
     $('#configAccount').textContent = cfg.accountName || cfg.account || '-';
     renderSchedule(cfg.schedulePoints);
@@ -3347,6 +4410,7 @@ async function loadConfigPage() {
     $('#c_pdelay').value = cfg.poolDelayMs ?? 2500;
     $('#c_natural').value = cfg.naturalShare === true ? 'true' : 'false';
     setNaturalTextSwitch(cfg.naturalText !== false);
+    setDailyReadSwitch(cfg.dailyReadEnabled !== false);
     $('#c_vmax').value = cfg.maxVideoAgeDays ?? 7;
     $('#c_rmax').value = cfg.recommendMaxAgeDays ?? 30;
     setFilterSwitch('age', cfg.filterAgeEnabled !== false);
@@ -3356,16 +4420,21 @@ async function loadConfigPage() {
     setFilterSwitch('shares', cfg.filterSharesEnabled === true);
     setEnabledState(cfg.enabled !== false);
     $('#c_ban').value = (cfg.banWords || []).join('\n');
-    await loadPools();
+    renderCopyAccountOptions();
     updateScheduleHint();
     updateSourceUI();
-    await loadApiSession();
-    updateSourceUI();
-    await loadAIStatus();
-    await loadDatabase();
-    await loadFriends();
-    loadCfgEvents();
     activateConfigTab(state.configTab || 'plan');
+    setConfigDirty(false);
+    await Promise.all([
+      loadPools(),
+      loadApiSession(),
+      loadAIStatus(),
+      loadDatabase(),
+      loadFriends(),
+      loadCfgEvents(),
+    ]);
+    updateSourceUI();
+    setConfigDirty(false);
   } catch (e) { toast('配置加载失败：' + e.message, 'bad'); }
 }
 async function updateApiMode(mode) {
@@ -3379,16 +4448,26 @@ async function loadFriends() {
   try {
     const d = await getJSON('/api/friends');
     const friends = d.friends || [];
-    const captured = new Set(((state.api && state.api.friends) || []).map((x) => x.name));
+    const capturedUids = new Set(((state.api && state.api.friends) || []).map((x) => String(x.userid || '')).filter(Boolean));
+    const capturedNames = new Set(((state.api && state.api.friends) || []).map((x) => x.name));
     const enabledFriends = friends.filter((f) => f.enabled).length;
     $('#friendCountPill').textContent = enabledFriends + ' / ' + friends.length + ' 启用';
     if ($('#cfgHeroFriends')) $('#cfgHeroFriends').textContent = enabledFriends;
-    $('#friendList').innerHTML = friends.map((f) => '<div class="friend-row">'
-      + '<label class="friend-check" style="padding:3px 8px"><input type="checkbox" data-friend-toggle="' + f.id + '"' + (f.enabled ? ' checked' : '') + '> ' + (f.enabled ? '启用' : '停用') + '</label>'
-      + '<span class="name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>'
-      + '<span class="tag" style="font-size:10.5px" title="' + ((captured.has(f.name) || f.userid) ? '可用纯 API 发送' : '不在会话捕获列表且没有 userid，重新导出会话或从互关导入后才能用纯 API 发送') + '">' + ((captured.has(f.name) || f.userid) ? '纯 API 可用' : '未捕获') + '</span>'
-      + '<button class="btn ghost sm" data-friend-del="' + f.id + '">删除</button>'
-      + '</div>').join('') || '<div class="empty">还没有好友，添加一个</div>';
+    $('#friendList').innerHTML = friends.map((f) => {
+      const uid = String(f.userid || '');
+      const apiCapable = !!uid || capturedNames.has(f.name);
+      const apiTitle = apiCapable
+        ? (uid ? '按 UID 纯 API 发送；改名不影响' : '在会话捕获列表里；建议补 UID')
+        : '不在会话捕获列表且没有 userid，重新导出会话或从互关导入后才能用纯 API 发送';
+      return '<div class="friend-row">'
+        + '<label class="friend-check" style="padding:3px 8px"><input type="checkbox" data-friend-toggle="' + f.id + '"' + (f.enabled ? ' checked' : '') + '> ' + (f.enabled ? '启用' : '停用') + '</label>'
+        + '<span class="name" title="' + esc(f.name) + '">' + esc(f.name)
+        + (uid ? ' <span class="muted" style="font-size:10.5px">UID ' + esc(uid) + '</span>' : ' <span class="bad" style="font-size:10.5px">无 UID</span>')
+        + '</span>'
+        + '<span class="tag" style="font-size:10.5px" title="' + apiTitle + '">' + (apiCapable ? '纯 API 可用' : '未捕获') + '</span>'
+        + '<button class="btn ghost sm" data-friend-del="' + f.id + '">删除</button>'
+        + '</div>';
+    }).join('') || '<div class="empty">还没有好友，添加一个</div>';
     $$('[data-friend-toggle]').forEach((el) => el.addEventListener('change', async () => {
       try { await postJSON('/api/friends', { id: Number(el.dataset.friendToggle), enabled: el.checked }, 'PATCH'); await loadFriends(); loadHome(); }
       catch (e) { toast('修改失败：' + e.message, 'bad'); }
@@ -3408,10 +4487,9 @@ async function loadApiSession() {
     const badge = $('#apiBadge');
     badge.textContent = d.valid ? '会话可用' : (d.present ? '会话不可用' : '未导出');
     badge.className = 'pill ' + (d.valid ? 'ok' : (d.present ? 'bad' : 'warn'));
-    $$('#apiModeSeg button').forEach((b) => b.classList.toggle('on', b.dataset.mode === d.sendMode));
     $('#apiAutoText').textContent = d.autoRefresh ? '开' : '关';
     $('#apiAutoSwitch').classList.toggle('on', !!d.autoRefresh);
-    const modeText = d.sendMode === 'auto' ? '纯 API 优先（失败回退浏览器）' : '仅浏览器';
+    const modeText = '纯 API 模式（已移除浏览器）';
     const lines = ['发送模式：' + modeText, '自动刷新：' + (d.autoRefresh ? '开' : '关')];
     if (d.present) {
       lines.push('状态：' + (d.valid ? '可用' : '不可用（' + (d.reason || '') + '）'));
@@ -3429,9 +4507,6 @@ async function loadApiSession() {
     $('#apiFriends').innerHTML = (d.friends || []).length
       ? d.friends.map((f) => '<span class="chip">' + esc(f.name) + '</span>').join('')
       : '<span class="muted">暂无好友列表</span>';
-    $('#quickPill').textContent = d.sendMode === 'auto'
-      ? (d.videoSource === 'recommend' ? 'API · 推荐' : 'API')
-      : '浏览器';
     if ($('#cfgHeroFeed')) {
       $('#cfgHeroFeed').textContent = d.hasFeedUrl ? '已捕获' : '未捕获';
       $('#cfgHeroFeed').className = d.hasFeedUrl ? 'ok' : 'warn';
@@ -3465,7 +4540,7 @@ async function loadAIStatus() {
       filterHint.textContent = mode === 'off'
         ? '关闭时使用规则筛选（去重、屏蔽词、时效、广告/直播过滤）；可在下方开启 AI。'
         : (!enabled
-          ? 'AI 总开关未开启；到「05 AI → 连接设置」开启并保存后，筛选才会真正调用模型。'
+          ? 'AI 总开关未开启；到「04 AI → 连接设置」开启并保存后，筛选才会真正调用模型。'
           : (hasKey
             ? (mode === 'moderate' ? '安全过滤：AI 去掉广告/不安全内容，保留候选随机选。' : '过滤 + 排序：AI 去广告/不安全，并按账户兴趣排序。')
             : 'AI 模式已选择，但缺少 API Key；当前会自动回退规则筛选。'));
@@ -4141,32 +5216,29 @@ async function loadCfgEvents() {
 }
 
 /* ---------------- records ---------------- */
-function recordsFiltered() {
-  const d = state.data || {};
+function recordsQueryParams() {
   const f = state.records;
-  const q = f.search.trim().toLowerCase();
-  return (d.sends || []).filter((s) => {
-    if (f.bucket && s.bucket !== f.bucket) return false;
-    if (f.result === 'ok' && !s.ok) return false;
-    if (f.result === 'failed' && s.ok) return false;
-    if (q && !((s.title || '') + ' ' + (s.author || '') + ' ' + (s.friend || '')).toLowerCase().includes(q)) return false;
-    return true;
-  });
+  const params = new URLSearchParams();
+  params.set('page', String(f.page || 1));
+  params.set('pageSize', String(f.pageSize || 20));
+  if (f.search.trim()) params.set('q', f.search.trim());
+  if (f.bucket) params.set('bucket', f.bucket);
+  if (f.result) params.set('result', f.result);
+  return params.toString();
 }
 function renderRecords() {
-  const d = state.data || {};
-  const all = d.sends || [];
-  const filtered = recordsFiltered();
+  const r = state.recordsPage || {};
+  const rows = Array.isArray(r.items) ? r.items : [];
   const f = state.records;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / f.pageSize));
-  f.page = Math.min(f.page, totalPages);
-  const start = (f.page - 1) * f.pageSize;
-  const rows = filtered.slice(start, start + f.pageSize);
-  $('#recTotal').textContent = '全部 ' + all.length + ' 条';
-  $('#recOk').textContent = '成功 ' + all.filter((s) => s.ok).length;
-  $('#recFail').textContent = '失败 ' + all.filter((s) => !s.ok).length;
-  $('#recToday').textContent = '今日 ' + (d.todayDone ?? 0) + ' 条';
-  const buckets = [...new Set(all.map((s) => s.bucket).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh'));
+  const totalPages = Math.max(1, Number(r.totalPages) || 1);
+  f.page = Math.min(Math.max(1, Number(r.page) || f.page), totalPages);
+  const allTotal = Number(r.allTotal) || 0;
+  const filteredTotal = Number(r.total) || 0;
+  $('#recTotal').textContent = '全部 ' + allTotal + ' 条';
+  $('#recOk').textContent = '成功 ' + (Number(r.okCount) || 0);
+  $('#recFail').textContent = '失败 ' + (Number(r.failCount) || 0);
+  $('#recToday').textContent = '今日 ' + (Number(r.todayDone) || 0) + ' 条';
+  const buckets = (Array.isArray(r.buckets) ? r.buckets : []).slice().sort((a, b) => a.localeCompare(b, 'zh'));
   const curBucket = f.bucket;
   $('#recBucket').innerHTML = '<option value="">全部分类</option>' + buckets.map((b) => '<option value="' + esc(b) + '"' + (b === curBucket ? ' selected' : '') + '>' + esc(b) + '</option>').join('');
   $('#recRows').innerHTML = rows.map((s) => {
@@ -4182,18 +5254,20 @@ function renderRecords() {
       + '<td class="' + (s.ok ? 'ok' : 'bad') + '" title="' + esc(full) + '">' + esc(result) + '</td>'
       + '<td>' + (s.shot ? '<a href="/shot/' + encodeURIComponent(s.shot) + '" target="_blank">查看</a>' : '<span class="muted">-</span>') + '</td>'
       + '</tr>';
-  }).join('') || '<tr><td colspan="8" class="empty">' + (all.length ? '没有符合筛选的记录' : '还没有发送记录') + '</td></tr>';
-  $('#recPagerInfo').textContent = '第 ' + f.page + ' / ' + totalPages + ' 页 · ' + filtered.length + ' 条';
+  }).join('') || '<tr><td colspan="8" class="empty">' + (allTotal ? '没有符合筛选的记录' : '还没有发送记录') + '</td></tr>';
+  $('#recPagerInfo').textContent = '第 ' + f.page + ' / ' + totalPages + ' 页 · ' + filteredTotal + ' 条';
   $('#recPrev').disabled = f.page <= 1;
   $('#recNext').disabled = f.page >= totalPages;
   return rows;
 }
 async function loadRecords() {
   try {
-    const d = await getJSON('/api/data');
-    state.data = d;
+    const [rec] = await Promise.all([
+      getJSON('/api/records?' + recordsQueryParams()),
+      loadRecEvents(),
+    ]);
+    state.recordsPage = rec;
     renderRecords();
-    await loadRecEvents();
     renderSidebar();
   } catch (e) { toast('记录加载失败：' + e.message, 'bad'); }
 }
@@ -4205,21 +5279,16 @@ async function loadRecEvents() {
   } catch (e) { /* ignore */ }
 }
 function exportCsv() {
-  const rows = recordsFiltered();
-  const head = ['时间', '分类', '标题', '作者', '好友', '赞', '结果', '截图'];
-  const body = rows.map((s) => [s.local, s.bucket, s.title, s.author, s.friend || '', s.likes, s.ok ? (s.toast || '成功') : (s.toast || '失败'), s.shot || '']);
-  const csv = [head, ...body].map((r) => r.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = '/api/records/export.csv?' + recordsQueryParams();
   a.download = 'heartbeat-sends-' + new Date().toISOString().slice(0, 10) + '.csv';
   a.click();
-  URL.revokeObjectURL(a.href);
-  toast('已导出 ' + rows.length + ' 条记录', 'ok');
+  toast('正在导出全部匹配记录…', 'ok');
 }
 
 /* ---------------- screen viewer ---------------- */
 function screenRefresh() {
+  if (document.hidden) return;
   const img = $('#screenImg');
   if (img && img.offsetParent !== null) img.src = '/api/screen?t=' + Date.now();
 }
@@ -4342,19 +5411,48 @@ function bindConfigActions() {
     const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length];
     if (next) { e.preventDefault(); next.focus(); activateConfigTab(next.dataset.configTab, { scroll: true }); }
   });
-  $('#c_natural_text_switch').onclick = () => setNaturalTextSwitch(!$('#c_natural_text_switch').classList.contains('on'));
-  $('#save').onclick = async () => {
+  const markDirty = () => { if (state.cfgLoaded) setConfigDirty(true); };
+  ['#sec-plan', '#sec-video', '#sec-advanced'].forEach((sel) => {
+    const sec = $(sel);
+    if (!sec) return;
+    sec.addEventListener('input', markDirty);
+    sec.addEventListener('change', markDirty);
+  });
+  ['#scheduleAdd', '#poolAll', '#poolNone'].forEach((sel) => {
+    if ($(sel)) $(sel).addEventListener('click', markDirty);
+  });
+  $('#schedulePoints').addEventListener('click', (e) => {
+    if (e.target.closest('[data-delpoint]')) markDirty();
+  });
+  FILTER_SWITCHES.forEach((name) => {
+    const sw = $('#sw_' + name);
+    if (sw) sw.addEventListener('click', markDirty);
+  });
+  $('#c_natural_text_switch').onclick = () => { setNaturalTextSwitch(!$('#c_natural_text_switch').classList.contains('on')); markDirty(); };
+  $('#c_daily_read_switch').onclick = () => { setDailyReadSwitch(!$('#c_daily_read_switch').classList.contains('on')); markDirty(); };
+  const saveConfig = async () => {
     const msg = $('#msg');
     const conflict = scheduleConflict();
     if (conflict) { msg.textContent = conflict; toast(conflict, 'bad'); return; }
     msg.textContent = '保存中…';
     try {
       const saved = await postJSON('/api/config', collectConfig());
+      setConfigDirty(false);
       msg.textContent = '已保存到 ' + ((saved.config && saved.config.accountName) || '当前账户');
       toast('设置已保存；调度器会在下一轮读取新计划', 'ok');
-      await loadConfigPage(); await loadHome();
+      await Promise.all([loadConfigPage(), loadHome()]);
     } catch (e) { msg.textContent = '保存失败：' + e.message; toast('保存失败：' + e.message, 'bad'); }
   };
+  $('#save').onclick = saveConfig;
+  if ($('#cfgDirtySave')) $('#cfgDirtySave').onclick = saveConfig;
+  if ($('#cfgDirtyDiscard')) $('#cfgDirtyDiscard').onclick = () => { setConfigDirty(false); loadConfigPage(); toast('已放弃未保存的更改', 'warn'); };
+  if ($('#cfgApplyPreset')) $('#cfgApplyPreset').onclick = () => applyConfigPreset($('#cfgPresetSelect') ? $('#cfgPresetSelect').value : '');
+  if ($('#cfgCopyBtn')) $('#cfgCopyBtn').onclick = copyConfigFromAccount;
+  window.addEventListener('beforeunload', (e) => {
+    if (!state.configDirty) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
   $('#preview').onclick = async () => {
     const box = $('#previewBox');
     box.innerHTML = '<div class="field-note">生成中…</div>';
@@ -4375,10 +5473,12 @@ function bindConfigActions() {
   };
   $('#friendAdd').onclick = async () => {
     const name = $('#friendNew').value.trim();
+    const userid = $('#friendNewUid') ? $('#friendNewUid').value.trim() : '';
     if (!name) return;
     try {
-      await postJSON('/api/friends', { name });
+      await postJSON('/api/friends', { name, userid });
       $('#friendNew').value = '';
+      if ($('#friendNewUid')) $('#friendNewUid').value = '';
       await loadFriends(); loadHome();
       toast('已添加好友 ' + name, 'ok');
     } catch (e) { toast('添加失败：' + e.message, 'bad'); }
@@ -4395,7 +5495,21 @@ function bindConfigActions() {
     const d = await getJSON('/api/api-session').catch(() => ({}));
     try { await postJSON('/api/api-session/auto-refresh', { enabled: !d.autoRefresh }); await loadApiSession(); } catch (e) { toast(e.message, 'bad'); }
   };
-  $$('#apiModeSeg button').forEach((b) => b.onclick = () => updateApiMode(b.dataset.mode));
+  if ($('#btnApiImport')) $('#btnApiImport').onclick = async () => {
+    const raw = $('#apiImportJson') ? $('#apiImportJson').value.trim() : '';
+    const msg = $('#apiImportMsg');
+    if (!raw) { toast('请先粘贴会话 JSON', 'warn'); return; }
+    if (msg) msg.textContent = '导入中…';
+    try {
+      const res = await postJSON('/api/api-session/import', { raw, account: state.config && state.config.account });
+      if (msg) msg.textContent = res.valid ? ('导入成功（' + res.cookies + ' 条 cookies）') : ('已导入，但会话尚不完整：' + (res.reason || ''));
+      toast('纯 API 会话已导入', res.valid ? 'ok' : 'warn');
+      await Promise.all([loadApiSession(), loadHome()]);
+    } catch (e) {
+      if (msg) msg.textContent = '导入失败：' + e.message;
+      toast('导入失败：' + e.message, 'bad');
+    }
+  };
   $('#ai_test').onclick = testAI;
   $('#ai_ask').onclick = askAI;
   $('#ai_draft').onclick = draftAI;
@@ -4419,27 +5533,82 @@ function bindHomeActions() {
   $('#btnResume').onclick = () => control('resume');
   $('#btnRestart').onclick = () => control('restart');
   $('#btnSendNow').onclick = triggerSendNow;
-  $('#homeScreenToggle').onclick = () => showScreen($('#homeScreenCard').style.display === 'none');
-  $('#screenClose').onclick = () => showScreen(false);
-  $('#homeShowWin').onclick = () => windowAction(true);
-  $('#btnRefreshScreen').onclick = screenRefresh;
-  $('#btnHideWin').onclick = () => windowAction(false);
-  $('#screenImg').onclick = clickScreen;
-  $('#friendSelectBtn').onclick = () => { if (state.friendSelectOpen) closeFriendSelect(); else openFriendSelect(); };
-  $('#friendSelectDone').onclick = () => closeFriendSelect(true);
-  $('#friendSelectAll').onclick = () => selectAllFriends(true);
-  $('#friendSelectNone').onclick = () => selectAllFriends(false);
-  $('#btnRefreshMutual').onclick = refreshMutualFriends;
-  $('#friendSearch').addEventListener('input', (e) => {
-    state.friendSearch = e.target.value;
-    renderMutualFriendOptions();
+  $('#btnSlowStart').onclick = openSlowPanel;
+  $('#btnSlowSetup').onclick = openSlowPanel;
+  $('#btnSlowTop').onclick = slowTopAction;
+  $('#btnSlowStop').onclick = stopSlow;
+  $('#slowPanelClose').onclick = closeSlowPanel;
+  $('#slowPanelCancel').onclick = closeSlowPanel;
+  $('#slowPanelStart').onclick = startSlow;
+  $('#slowBackdrop').addEventListener('pointerdown', closeSlowPanel);
+  $('#slowDurationChips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-slow-duration]');
+    if (!b) return;
+    state.slowDraft = { ...(state.slowDraft || {}), durationMin: Number(b.dataset.slowDuration) };
+    $('#slowDuration').value = state.slowDraft.durationMin;
+    updateSlowPanel(state.data.slow);
   });
-  $('#mutualFriendList').addEventListener('click', (e) => {
-    if (e.target.closest('[data-refresh-mutual]')) refreshMutualFriends();
+  $('#slowRhythmChips').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-slow-rhythm]');
+    if (!b) return;
+    const parts = String(b.dataset.slowRhythm || '').split(',').map(Number);
+    state.slowDraft = { ...(state.slowDraft || {}), minGapSec: parts[0], maxGapSec: parts[1] };
+    $('#slowMinGap').value = parts[0];
+    $('#slowMaxGap').value = parts[1];
+    updateSlowPanel(state.data.slow);
   });
-  $('#btnApiDry').onclick = () => apiSendFriend(true);
-  $('#btnApiSend').onclick = () => apiSendFriend(false);
+  ['#slowDuration', '#slowMinGap', '#slowMaxGap', '#slowMaxSends'].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.addEventListener('input', () => updateSlowPanel(state.data.slow));
+  });
+  $('#slowFriend').addEventListener('change', () => updateSlowPanel(state.data.slow));
+  const readToggle = $('#slowReadEnabled');
+  if (readToggle) {
+    const flip = () => {
+      readToggle.classList.toggle('on');
+      readToggle.setAttribute('aria-checked', String(readToggle.classList.contains('on')));
+      const label = $('#slowReadState');
+      if (label) label.textContent = readToggle.classList.contains('on') ? '开' : '关';
+      updateSlowPanel(state.data.slow);
+    };
+    readToggle.onclick = flip;
+    readToggle.onkeydown = (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        flip();
+      }
+    };
+  }
   $('#homeEventsRefresh').onclick = loadHomeEvents;
+  const autoReadSwitch = $('#autoReadSwitch');
+  if (autoReadSwitch) {
+    const flip = () => {
+      const next = !autoReadSwitch.classList.contains('on');
+      if (next && !document.querySelectorAll('#autoReadFriends [data-auto-read-friend]:checked').length) {
+        toast('先勾选至少一位好友，再开启自动已读', 'warn');
+        return;
+      }
+      autoReadSwitch.classList.toggle('on', next);
+      autoReadSwitch.setAttribute('aria-checked', String(next));
+      saveAutoRead(true);
+    };
+    autoReadSwitch.addEventListener('click', flip);
+    autoReadSwitch.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); flip(); }
+    });
+  }
+  if ($('#autoReadFriends')) $('#autoReadFriends').addEventListener('change', () => saveAutoRead(false));
+  ['#autoReadMinMin', '#autoReadMaxMin', '#autoReadWindowStart', '#autoReadWindowEnd', '#autoReadWindowIntervalMin', '#autoReadOutside'].forEach((sel) => {
+    const el = $(sel);
+    if (el) el.addEventListener('change', () => saveAutoRead(false));
+  });
+  if ($('#autoReadWindowEnabled')) {
+    $('#autoReadWindowEnabled').addEventListener('change', () => {
+      $('#autoReadWindowFields').hidden = !$('#autoReadWindowEnabled').checked;
+      saveAutoRead(false);
+    });
+  }
+  if ($('#autoReadNow')) $('#autoReadNow').addEventListener('click', autoReadNow);
   $('#footTime').textContent = '最近刷新 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
   $('#acctRefresh').onclick = loadAccounts;
   $('#acctRenameBtn').onclick = async () => {
@@ -4449,8 +5618,24 @@ function bindHomeActions() {
     catch (e) { $('#acctRenameMsg').textContent = '保存失败：' + e.message; }
   };
   $('#btnMutual').onclick = loadMutualFriends;
-  $('#mutualImport').onclick = () => importMutualFriends(false);
   $('#mutualImportAll').onclick = () => importMutualFriends(true);
+  $('#mutualTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mutual-tab]');
+    if (!b) return;
+    state.mutualTab = b.dataset.mutualTab || 'mutual';
+    state.mutualSearch = '';
+    if ($('#mutualSearch')) $('#mutualSearch').value = '';
+    renderMutualAccounts();
+  });
+  $('#mutualSearch').addEventListener('input', (e) => {
+    state.mutualSearch = e.target.value;
+    renderMutualAccounts();
+  });
+  $('#mutualList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-mutual-add-uid],[data-mutual-add-name]');
+    if (!b) return;
+    addMutualFriend(b.dataset.mutualAddUid || '', b.dataset.mutualAddName || '');
+  });
   $('#newAcctQr').onclick = qrAddAccount;
   $('#acctDetectName').onclick = async () => {
     const active = state.accounts && state.accounts.active;
@@ -4472,16 +5657,21 @@ function bindHomeActions() {
       await loadAccounts(); await loadHome();
     } catch (e) { msg.textContent = '添加失败：' + e.message; }
   };
-  $('#acctOpenScreen').onclick = () => { navigate('home'); setTimeout(() => showScreen(true), 300); };
-  $('#acctOpenViewer').onclick = () => { navigate('home'); setTimeout(() => { showScreen(true); windowAction(true); }, 300); };
+
 }
 
 function bindRecordsActions() {
-  $('#recSearch').addEventListener('input', (e) => { state.records.search = e.target.value; state.records.page = 1; renderRecords(); });
-  $('#recBucket').addEventListener('change', (e) => { state.records.bucket = e.target.value; state.records.page = 1; renderRecords(); });
-  $('#recResult').addEventListener('change', (e) => { state.records.result = e.target.value; state.records.page = 1; renderRecords(); });
-  $('#recPrev').onclick = () => { state.records.page = Math.max(1, state.records.page - 1); renderRecords(); };
-  $('#recNext').onclick = () => { state.records.page += 1; renderRecords(); };
+  let searchTimer = null;
+  $('#recSearch').addEventListener('input', (e) => {
+    state.records.search = e.target.value;
+    state.records.page = 1;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(loadRecords, 220);
+  });
+  $('#recBucket').addEventListener('change', (e) => { state.records.bucket = e.target.value; state.records.page = 1; loadRecords(); });
+  $('#recResult').addEventListener('change', (e) => { state.records.result = e.target.value; state.records.page = 1; loadRecords(); });
+  $('#recPrev').onclick = () => { state.records.page = Math.max(1, state.records.page - 1); loadRecords(); };
+  $('#recNext').onclick = () => { state.records.page += 1; loadRecords(); };
   $('#recRefresh').onclick = loadRecords;
   $('#recEventsRefresh').onclick = loadRecEvents;
   $('#recCsv').onclick = exportCsv;
@@ -4489,28 +5679,18 @@ function bindRecordsActions() {
 
 function bindHeaderExpand() {
   const bar = document.querySelector('.topbar');
-  const main = document.querySelector('.main');
-  if (!bar || !main) return;
-  let pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
+  if (!bar) return;
   let frame = 0;
   const apply = () => {
     frame = 0;
     const raw = Math.max(0, Math.min(1, window.scrollY / 140));
     const p = raw * raw * (3 - 2 * raw);
-    const extra = pad * p;
-    bar.style.setProperty('--head-extra', extra.toFixed(2) + 'px');
-    bar.style.setProperty('--head-radius', (14 * (1 - p)).toFixed(2) + 'px');
     bar.style.setProperty('--head-title-scale', (1 - 0.05 * p).toFixed(3));
     bar.style.setProperty('--head-sub-opacity', (1 - 0.7 * p).toFixed(3));
     bar.style.setProperty('--head-sub-y', (-2 * p).toFixed(2) + 'px');
-    bar.classList.toggle('is-expanded', raw >= 0.995);
   };
   const onScroll = () => { if (!frame) frame = requestAnimationFrame(apply); };
   window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', () => {
-    pad = parseFloat(getComputedStyle(main).paddingLeft) || 0;
-    onScroll();
-  });
   apply();
 }
 
@@ -4520,15 +5700,6 @@ function bindAmbientBackground() {
   const blobs = $$('.ambient-blob', layer);
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const pointerFine = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
-  const setStatic = () => {
-    layer.style.setProperty('--ambient-hue', '224');
-    const w = window.innerWidth || 1200;
-    const h = window.innerHeight || 800;
-    const size = blobs[0] ? blobs[0].offsetWidth || 700 : 700;
-    if (blobs[0]) blobs[0].style.transform = `translate3d(${w * 0.72 - size / 2}px, ${h * 0.26 - size / 2}px, 0)`;
-    if (blobs[1]) blobs[1].style.transform = `translate3d(${w * 0.22 - size / 2}px, ${h * 0.82 - size / 2}px, 0)`;
-  };
-  if (reduce || !pointerFine) { setStatic(); return; }
   let targetX = 0.5;
   let targetY = 0.36;
   let x = targetX;
@@ -4536,43 +5707,49 @@ function bindAmbientBackground() {
   let hue = 224;
   let raf = 0;
   let last = performance.now();
+  const paint = () => {
+    const w = window.innerWidth || 1200;
+    const h = window.innerHeight || 800;
+    const size = blobs[0] ? blobs[0].offsetWidth || 700 : 700;
+    if (blobs[0]) blobs[0].style.transform = `translate3d(${x * w - size / 2}px, ${y * h - size / 2}px, 0)`;
+    if (blobs[1]) blobs[1].style.transform = `translate3d(${(1 - x) * w - size / 2}px, ${(1 - y) * h - size / 2}px, 0)`;
+    layer.style.setProperty('--ambient-hue', hue.toFixed(1));
+  };
+  if (reduce || !pointerFine) { x = 0.72; y = 0.26; hue = 224; paint(); return; }
+  const schedule = () => {
+    if (document.hidden || raf) return;
+    last = performance.now();
+    raf = requestAnimationFrame(tick);
+  };
   const updateTarget = (e) => {
     const w = window.innerWidth || 1;
     const h = window.innerHeight || 1;
     targetX = Math.max(0, Math.min(1, e.clientX / w));
     targetY = Math.max(0, Math.min(1, e.clientY / h));
+    schedule();
   };
   const tick = (now) => {
+    raf = 0;
     const dt = Math.min(48, now - last || 16);
     last = now;
-    const ease = 1 - Math.pow(0.001, dt / 1000); // ~natural exponential follow
+    const ease = 1 - Math.pow(0.001, dt / 1000);
     x += (targetX - x) * ease;
     y += (targetY - y) * ease;
-    const w = window.innerWidth || 1;
-    const h = window.innerHeight || 1;
-    const size = blobs[0] ? blobs[0].offsetWidth || 700 : 700;
-    const driftX = Math.sin(now / 5400) * 16;
-    const driftY = Math.cos(now / 6800) * 12;
-    const ax = x * w + driftX;
-    const ay = y * h + driftY;
-    const bx = (1 - x) * w - driftX;
-    const by = (1 - y) * h - driftY;
-    if (blobs[0]) blobs[0].style.transform = `translate3d(${ax - size / 2}px, ${ay - size / 2}px, 0)`;
-    if (blobs[1]) blobs[1].style.transform = `translate3d(${bx - size / 2}px, ${by - size / 2}px, 0)`;
     const targetHue = 205 + x * 65 + (1 - y) * 16;
     hue += (targetHue - hue) * Math.min(1, dt / 280);
-    layer.style.setProperty('--ambient-hue', hue.toFixed(1));
-    raf = requestAnimationFrame(tick);
+    paint();
+    if (Math.abs(targetX - x) > 0.0015 || Math.abs(targetY - y) > 0.0015 || Math.abs(targetHue - hue) > 0.25) {
+      raf = requestAnimationFrame(tick);
+    }
   };
+  paint();
   window.addEventListener('pointermove', updateTarget, { passive: true });
-  document.addEventListener('pointerleave', () => { targetX = 0.5; targetY = 0.36; });
-  window.addEventListener('blur', () => { targetX = 0.5; targetY = 0.36; });
-  window.addEventListener('resize', () => { if (!raf) setStatic(); });
+  document.addEventListener('pointerleave', () => { targetX = 0.5; targetY = 0.36; schedule(); });
+  window.addEventListener('blur', () => { targetX = 0.5; targetY = 0.36; schedule(); });
+  window.addEventListener('resize', () => { if (!raf) paint(); });
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { cancelAnimationFrame(raf); raf = 0; }
-    else if (!raf) { last = performance.now(); raf = requestAnimationFrame(tick); }
+    if (document.hidden && raf) { cancelAnimationFrame(raf); raf = 0; }
   });
-  raf = requestAnimationFrame(tick);
 }
 
 async function init() {
@@ -4582,11 +5759,22 @@ async function init() {
   applyTheme(document.documentElement.dataset.theme || 'dark', false);
   $('#themeToggle').onclick = toggleTheme;
   navigate('home');
-  setInterval(() => {
+  let lastAutoRefreshAt = Date.now();
+  const refreshActiveView = () => {
+    if (document.hidden) return;
+    lastAutoRefreshAt = Date.now();
     if (state.view === 'home') loadHome();
     else if (state.view === 'records') loadRecords();
     else if (state.view === 'accounts') loadAccounts();
-  }, 15000);
+  };
+  setInterval(refreshActiveView, 15000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() - lastAutoRefreshAt >= 15000) refreshActiveView();
+  });
+  setInterval(() => { if (!document.hidden && state.view === 'home') tickSlow(); }, 1000);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state.slowPanelOpen) closeSlowPanel();
+  });
 }
 init();
 </script>

@@ -12,6 +12,7 @@ process.env.DB_FILE = path.join(tmp, 'app.db');
 const repos = require('../src/repos');
 const apiSession = require('../src/api-session');
 const apiSender = require('../src/api-sender');
+const apiRead = require('../src/api-read');
 const scheduler = require('../src/scheduler');
 const { POOLS } = require('../src/pools');
 
@@ -376,5 +377,34 @@ test('already-sent candidates are filtered before AI ranking, never re-sent', as
     aiRanker.rankCandidates = originalRank;
     repos.setAccountSetting(acc.id, 'videoSource', 'recommend');
     repos.setAccountSetting(acc.id, 'aiMode', 'off');
+  }
+});
+
+test('a scheduled API send marks the recipient conversation read', async () => {
+  setBurst([{ time: hhmm(), count: 1 }], { dailyReadEnabled: '1' });
+  const originalFetch = global.fetch;
+  const originalSend = apiSender.sendVideo;
+  const originalRead = apiRead.markConversationRead;
+  const reads = [];
+  global.fetch = mockFeed();
+  apiSender.sendVideo = async () => ({
+    ok: true, api: true, serverMessageId: 'server-read-1', friend: 'Hime',
+    conversationId: '0:1:1:2', conversationShortId: '1234567890123456789', durationMs: DURATION_MS,
+  });
+  apiRead.markConversationRead = async (session, opts) => {
+    reads.push(opts);
+    return { ok: true, status: 200 };
+  };
+  try {
+    const res = await scheduler.runSchedule(scheduler.runtimeConfig('B1'), today());
+    assert.equal(res.done, true);
+    assert.equal(reads.length, 1);
+    assert.equal(reads[0].conversationId, '0:1:1:2');
+    assert.equal(reads[0].conversationShortId, '1234567890123456789');
+    assert.ok(repos.listEvents(200).some((e) => e.event === 'daily-read'));
+  } finally {
+    global.fetch = originalFetch;
+    apiSender.sendVideo = originalSend;
+    apiRead.markConversationRead = originalRead;
   }
 });
