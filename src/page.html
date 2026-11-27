@@ -616,6 +616,7 @@
     border:1px solid transparent;cursor:pointer;transition:.15s;min-width:0;user-select:none}
   .pool-parent-toggle:hover{background:rgba(255,255,255,.05)}
   .pool-parent-toggle.is-checked{background:rgba(91,140,255,.12);border-color:rgba(91,140,255,.32)}
+  .pool-parent-toggle.is-partial{background:rgba(91,140,255,.07);border-color:rgba(91,140,255,.22)}
   .pool-parent-name{font-size:13.5px;font-weight:650;color:var(--txt);white-space:nowrap}
   .pool-kw-tag{font-size:10.5px;color:var(--dim2);padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.04);border:1px solid var(--line);white-space:nowrap}
   .pool-group-stat{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--dim2);
@@ -662,11 +663,15 @@
     padding:0;margin:0;border:1.5px solid var(--line2);border-radius:5px;background:rgba(0,0,0,.22);
     display:inline-block;flex:0 0 16px;cursor:pointer;transition:background .14s,border-color .14s,box-shadow .14s}
   .pool-parent-toggle input:hover,.pool-child input:hover,.pool-tile-main input:hover{border-color:rgba(91,140,255,.65)}
-  .pool-parent-toggle input:checked,.pool-child input:checked,.pool-tile-main input:checked{
+  .pool-parent-toggle input:checked,.pool-child input:checked,.pool-tile-main input:checked,
+  .pool-parent-toggle input:indeterminate{
     background:var(--acc);border-color:var(--acc);box-shadow:0 2px 7px rgba(63,111,232,.3)}
   .pool-parent-toggle input:checked::after,.pool-child input:checked::after,.pool-tile-main input:checked::after{
     content:"";position:absolute;left:50%;top:46%;width:8px;height:4.5px;
     border-left:2px solid #fff;border-bottom:2px solid #fff;transform:translate(-50%,-50%) rotate(-45deg)}
+  .pool-parent-toggle input:indeterminate::after{
+    content:"";position:absolute;left:50%;top:50%;width:8px;height:2px;
+    border:0;border-radius:1px;background:#fff;transform:translate(-50%,-50%)}
 
   .pool-empty{padding:36px 16px;text-align:center;color:var(--dim2);font-size:13px;display:flex;flex-direction:column;align-items:center;gap:10px;
     border:1px dashed var(--line);border-radius:12px}
@@ -712,6 +717,7 @@
   html[data-theme="light"] .pool-expand:hover{background:rgba(23,32,51,.06)}
   html[data-theme="light"] .pool-parent-toggle:hover{background:rgba(23,32,51,.04)}
   html[data-theme="light"] .pool-parent-toggle.is-checked{background:rgba(47,107,255,.08);border-color:rgba(47,107,255,.26)}
+  html[data-theme="light"] .pool-parent-toggle.is-partial{background:rgba(47,107,255,.045);border-color:rgba(47,107,255,.18)}
   html[data-theme="light"] .pool-kw-tag{background:#fff;border-color:var(--line)}
   html[data-theme="light"] .pool-group-stat{background:#fff;border-color:var(--line)}
   html[data-theme="light"] .pool-group-stat.is-all{color:#1f49b8;border-color:rgba(47,107,255,.32);background:rgba(47,107,255,.08)}
@@ -728,7 +734,8 @@
   html[data-theme="light"] .pool-tile-ai{color:#5b47b5}
   html[data-theme="light"] .pool-tile:hover .pool-tile-ai{background:rgba(126,103,255,.1);border-color:rgba(120,100,220,.28)}
   html[data-theme="light"] .pool-parent-toggle input,html[data-theme="light"] .pool-child input,html[data-theme="light"] .pool-tile-main input{background:#fff;border-color:#c6d1e2}
-  html[data-theme="light"] .pool-parent-toggle input:checked,html[data-theme="light"] .pool-child input:checked,html[data-theme="light"] .pool-tile-main input:checked{background:var(--acc);border-color:var(--acc)}
+  html[data-theme="light"] .pool-parent-toggle input:checked,html[data-theme="light"] .pool-child input:checked,html[data-theme="light"] .pool-tile-main input:checked,
+  html[data-theme="light"] .pool-parent-toggle input:indeterminate{background:var(--acc);border-color:var(--acc)}
   html[data-theme="light"] .pool-panelfoot{border-top-color:var(--line);background:#f9fbff}
 
   @media (hover:none){
@@ -2335,7 +2342,7 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
         <h3 class="pool-modal-title" id="poolModalTitle">选择视频分类</h3>
         <span class="pill blue" id="poolModalCount">已选 0 / 0</span>
       </div>
-      <div class="field-note">勾选想要投递的视频方向；每个分类都是独立搜索词，点 ✨ 让 AI 生成更多细分子分类。</div>
+      <div class="field-note">勾选想要投递的视频方向；父分类支持联动全选与半选，点 ✨ 可让 AI 生成更多细分子分类。</div>
     </div>
     <button class="ai-icon-btn pool-modal-close" id="poolPanelClose" type="button" aria-label="关闭分类选择">×</button>
   </header>
@@ -2355,7 +2362,7 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
       <div class="pool-bulk-actions">
         <button class="btn ghost sm" id="poolExpandAll" type="button" hidden>收起分组</button>
         <button class="btn soft sm" id="poolAll" type="button">全选</button>
-        <button class="btn ghost sm" id="poolNone" type="button">清空</button>
+        <button class="btn ghost sm" id="poolNone" type="button">取消全选</button>
       </div>
     </div>
     <div class="pool-ai-bar" id="poolAiBar">
@@ -4295,6 +4302,33 @@ function updatePoolCount() {
     }
   }
 }
+function poolBulkTargets() {
+  const query = ($('#poolSearch') ? $('#poolSearch').value : '').trim();
+  const filter = state.poolFilter || 'all';
+  if (!query && filter === 'all') return $$('#poolList [data-pool]');
+  const targets = [];
+  $$('#poolList .pool-tile:not([hidden]) [data-pool]').forEach((c) => targets.push(c));
+  $$('#poolList .pool-group-card:not([hidden])').forEach((card) => {
+    const parentInp = card.querySelector('.pool-parent-toggle [data-pool]');
+    const qLower = query.toLowerCase();
+    const parentName = String(card.dataset.poolName || '').toLowerCase();
+    const parentKw = String(card.dataset.poolKw || '').toLowerCase();
+    const parentMatchesQ = !qLower || parentName.includes(qLower) || parentKw.includes(qLower);
+    if (parentInp && parentMatchesQ && (filter === 'all' || (filter === 'selected' ? parentInp.checked : !parentInp.checked))) {
+      targets.push(parentInp);
+    }
+    $$('.pool-child:not([hidden]) [data-pool]', card).forEach((c) => targets.push(c));
+  });
+  return targets;
+}
+function updatePoolBulkButtons() {
+  const allBtn = $('#poolAll');
+  const noneBtn = $('#poolNone');
+  if (!allBtn || !noneBtn) return;
+  const targets = poolBulkTargets();
+  allBtn.disabled = !targets.length || targets.every((c) => c.checked);
+  noneBtn.disabled = !targets.length || targets.every((c) => !c.checked);
+}
 function syncPoolItemVisuals() {
   $$('#poolList .pool-tile').forEach((tile) => {
     const inp = tile.querySelector('[data-pool]');
@@ -4307,19 +4341,37 @@ function syncPoolItemVisuals() {
   $$('#poolList .pool-group-card').forEach((card) => {
     const parentToggle = card.querySelector('.pool-parent-toggle');
     const parentInput = parentToggle ? parentToggle.querySelector('[data-pool]') : null;
-    if (parentToggle) parentToggle.classList.toggle('is-checked', !!(parentInput && parentInput.checked));
+    const childInputs = $$('.pool-child [data-pool]', card);
+    const checkedChildren = childInputs.filter((c) => c.checked).length;
+    let tri = 'none';
+    if (parentInput) {
+      if (childInputs.length > 0) {
+        if (checkedChildren === childInputs.length && parentInput.checked) tri = 'all';
+        else if (checkedChildren === 0 && !parentInput.checked) tri = 'none';
+        else tri = 'part';
+      } else {
+        tri = parentInput.checked ? 'all' : 'none';
+      }
+      parentInput.indeterminate = tri === 'part';
+      parentInput.dataset.tri = tri;
+    }
+    if (parentToggle) {
+      parentToggle.classList.toggle('is-checked', tri === 'all');
+      parentToggle.classList.toggle('is-partial', tri === 'part');
+    }
     const inputs = $$('[data-pool]', card);
     const onCount = inputs.filter((c) => c.checked).length;
     const totalCount = inputs.length;
     const stat = card.querySelector('.pool-group-stat');
     if (stat) {
       stat.textContent = onCount + ' / ' + totalCount;
-      stat.classList.toggle('is-all', totalCount > 0 && onCount === totalCount);
-      stat.classList.toggle('is-part', onCount > 0 && onCount < totalCount);
+      stat.classList.toggle('is-all', tri === 'all');
+      stat.classList.toggle('is-part', tri === 'part');
     }
     const bulkBtn = card.querySelector('[data-pool-group-toggle]');
-    if (bulkBtn) bulkBtn.textContent = (totalCount > 0 && onCount === totalCount) ? '取消本组' : '全选本组';
+    if (bulkBtn) bulkBtn.textContent = tri === 'all' ? '取消本组' : '全选本组';
   });
+  updatePoolBulkButtons();
 }
 function updatePoolExpandAllBtn() {
   const btn = $('#poolExpandAll');
@@ -4392,7 +4444,8 @@ function applyPoolFilters() {
   const empty = $('#poolEmptyState');
   if (empty) empty.hidden = (visibleGroups + visibleTiles) > 0;
   if ($('#poolAll')) $('#poolAll').textContent = filtered ? '全选当前' : '全选';
-  if ($('#poolNone')) $('#poolNone').textContent = filtered ? '清空当前' : '清空';
+  if ($('#poolNone')) $('#poolNone').textContent = filtered ? '取消当前' : '取消全选';
+  updatePoolBulkButtons();
   updatePoolExpandAllBtn();
 }
 function setPoolFilter(next) {
@@ -5881,27 +5934,8 @@ function bindConfigActions() {
       applyPoolFilters();
     };
   }
-  const bulkTargetInputs = () => {
-    const query = ($('#poolSearch') ? $('#poolSearch').value : '').trim();
-    const filter = state.poolFilter || 'all';
-    if (!query && filter === 'all') return $$('#poolList [data-pool]');
-    const targets = [];
-    $$('#poolList .pool-tile:not([hidden]) [data-pool]').forEach((c) => targets.push(c));
-    $$('#poolList .pool-group-card:not([hidden])').forEach((card) => {
-      const parentInp = card.querySelector('.pool-parent-toggle [data-pool]');
-      const qLower = query.toLowerCase();
-      const parentName = String(card.dataset.poolName || '').toLowerCase();
-      const parentKw = String(card.dataset.poolKw || '').toLowerCase();
-      const parentMatchesQ = !qLower || parentName.includes(qLower) || parentKw.includes(qLower);
-      if (parentInp && parentMatchesQ && (filter === 'all' || (filter === 'selected' ? parentInp.checked : !parentInp.checked))) {
-        targets.push(parentInp);
-      }
-      $$('.pool-child:not([hidden]) [data-pool]', card).forEach((c) => targets.push(c));
-    });
-    return targets;
-  };
   $('#poolAll').onclick = () => {
-    const targets = bulkTargetInputs();
+    const targets = poolBulkTargets();
     if (!targets.length) return;
     targets.forEach((c) => { c.checked = true; });
     syncPoolItemVisuals();
@@ -5909,7 +5943,7 @@ function bindConfigActions() {
     markDirty();
   };
   $('#poolNone').onclick = () => {
-    const targets = bulkTargetInputs();
+    const targets = poolBulkTargets();
     if (!targets.length) return;
     targets.forEach((c) => { c.checked = false; });
     syncPoolItemVisuals();
@@ -5928,7 +5962,24 @@ function bindConfigActions() {
     });
   }
   $('#poolList').addEventListener('change', (e) => {
-    if (!e.target.matches('[data-pool]')) return;
+    const inp = e.target;
+    if (!inp.matches('[data-pool]')) return;
+    const card = inp.closest('.pool-group-card');
+    if (card) {
+      const parentToggle = card.querySelector('.pool-parent-toggle');
+      const parentInput = parentToggle ? parentToggle.querySelector('[data-pool]') : null;
+      const childInputs = $$('.pool-child [data-pool]', card);
+      if (inp === parentInput) {
+        const nextAll = (inp.dataset.tri || 'none') !== 'all';
+        parentInput.checked = nextAll;
+        parentInput.indeterminate = false;
+        childInputs.forEach((c) => { c.checked = nextAll; });
+      } else if (parentInput && childInputs.length) {
+        const checkedChildren = childInputs.filter((c) => c.checked).length;
+        if (checkedChildren === childInputs.length) parentInput.checked = true;
+        else if (checkedChildren === 0) parentInput.checked = false;
+      }
+    }
     syncPoolItemVisuals();
     updatePoolCount();
     markDirty();
@@ -5950,9 +6001,9 @@ function bindConfigActions() {
     if (grpBulk) {
       const card = grpBulk.closest('.pool-group-card');
       if (!card) return;
-      const inputs = $$('[data-pool]', card);
-      const allOn = inputs.length > 0 && inputs.every((c) => c.checked);
-      inputs.forEach((c) => { c.checked = !allOn; });
+      const parentInput = card.querySelector('.pool-parent-toggle [data-pool]');
+      const nextAll = parentInput ? ((parentInput.dataset.tri || 'none') !== 'all') : true;
+      $$('[data-pool]', card).forEach((c) => { c.checked = nextAll; });
       syncPoolItemVisuals();
       updatePoolCount();
       markDirty();
