@@ -30,7 +30,7 @@ function settingOn(key, dflt = '1') {
   return !(value === 0 || value === '0' || value === false);
 }
 
-const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
+const SHOTS_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || env.SHOTS_DIR);
 
 const today = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Shanghai' });
 
@@ -1095,9 +1095,12 @@ function send(res, code, obj) {
 
 function startServer({ host = env.dashboard.host, port = env.dashboard.port } = {}) {
   const server = http.createServer(async (req, res) => {
-    const u = new URL(req.url, `http://${host}`);
+    const u = new URL(req.url, 'http://127.0.0.1');
     res.setHeader('Cache-Control', 'no-store');
     try {
+      if (u.pathname === '/healthz' && req.method === 'GET') {
+        return send(res, 200, { ok: true, version: APP_VERSION });
+      }
       if (u.pathname.startsWith('/assets/dsh-pet/')) {
         const map = {
           'idle.webm': ['video/webm', 'idle.webm'],

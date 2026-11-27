@@ -22,8 +22,10 @@ function loadDotEnv() {
 loadDotEnv();
 
 const num = (v, d) => (v === undefined || v === '' || Number.isNaN(Number(v)) ? d : Number(v));
-const bool = (v, d) => (v === undefined ? d : /^(1|true|yes|on)$/i.test(String(v)));
+const bool = (v, d) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(String(v)));
+const splitArgs = (v) => String(v || '').trim().split(/[\s,]+/).filter(Boolean);
 
+const inDocker = bool(process.env.DOCKER, false) || fs.existsSync('/.dockerenv');
 const DATA_DIR = path.resolve(ROOT, process.env.DATA_DIR || 'data');
 
 // A bundled Chromium build must not open the system Chrome profile (cookies are bound to the
@@ -32,10 +34,21 @@ function browserProfileDir(base) {
   return module.exports.browser.channel === 'chromium' ? `${base}-chromium` : base;
 }
 
+function browserLaunchArgs(b = module.exports.browser, pos = b.windowPosition) {
+  const args = [`--window-position=${pos}`];
+  if (b.noSandbox) args.push('--no-sandbox', '--disable-setuid-sandbox');
+  if (b.disableDevShm) args.push('--disable-dev-shm-usage');
+  if (Array.isArray(b.extraArgs) && b.extraArgs.length) args.push(...b.extraArgs);
+  return args;
+}
+
 module.exports = {
   ROOT,
   DATA_DIR,
+  SHOTS_DIR: path.resolve(ROOT, process.env.SHOTS_DIR || path.join(DATA_DIR, 'shots')),
+  inDocker,
   browserProfileDir,
+  browserLaunchArgs,
   DB_FILE: path.resolve(ROOT, process.env.DB_FILE || path.join(DATA_DIR, 'app.db')),
 
   dashboard: {
@@ -54,6 +67,10 @@ module.exports = {
     // keep the automation window off-screen by default (see docs: "隐藏窗口模式")
     windowPosition: process.env.BROWSER_POS || '-20000,-20000',
     visiblePosition: process.env.BROWSER_VISIBLE_POS || '80,80',
+    noSandbox: bool(process.env.BROWSER_NO_SANDBOX, inDocker),
+    disableDevShm: bool(process.env.BROWSER_DISABLE_DEV_SHM, inDocker),
+    minimizeOnStart: bool(process.env.BROWSER_MINIMIZE_ON_START, !inDocker),
+    extraArgs: splitArgs(process.env.BROWSER_ARGS),
   },
 
   // daemon control is platform specific; core code only shells out when configured

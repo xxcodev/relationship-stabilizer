@@ -449,6 +449,35 @@ async function main() {
       break;
     }
 
+    case 'host':
+    case 'serve': {
+      const { Host } = require('./host');
+      const env = require('./env');
+      const port = args.includes('--port') ? Number(args[args.indexOf('--port') + 1]) : env.dashboard.port;
+      let stoppedResolve;
+      const stoppedPromise = new Promise((resolve) => { stoppedResolve = resolve; });
+      const host = new Host({
+        dataDir: env.DATA_DIR,
+        port,
+        streamLogs: true,
+        onLog: (msg) => console.log(`[${new Date().toISOString()}] ${msg}`),
+        onStop: stoppedResolve,
+      });
+      let stopping = false;
+      const shutdown = async (sig) => {
+        if (stopping) return;
+        stopping = true;
+        console.log(`[${new Date().toISOString()}] host: received ${sig}, shutting down`);
+        await host.stop();
+        process.exit(0);
+      };
+      process.on('SIGTERM', () => shutdown('SIGTERM'));
+      process.on('SIGINT', () => shutdown('SIGINT'));
+      await host.start();
+      await stoppedPromise;
+      break;
+    }
+
     case 'schedule': {
       dbReady();
       await acquireSchedulerLock();

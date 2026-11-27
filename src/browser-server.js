@@ -17,7 +17,7 @@ const PORT = Number(argOf('--port', '9334'));
 const POS = argOf('--pos', env.browser.windowPosition);
 const fs = require('fs');
 const TAG = path.basename(PROFILE);
-const SHOT_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || path.join('data', 'shots'));
+const SHOT_DIR = path.resolve(env.ROOT, process.env.SHOTS_DIR || env.SHOTS_DIR);
 fs.mkdirSync(SHOT_DIR, { recursive: true });
 
 let ctx, page;
@@ -350,7 +350,7 @@ const server = http.createServer(async (req, res) => {
     headless: env.browser.headless,
     viewport: { width: env.browser.viewportWidth, height: env.browser.viewportHeight },
     locale: env.browser.locale,
-    args: [`--window-position=${POS}`],
+    args: env.browserLaunchArgs(env.browser, POS),
   };
   if (env.browser.executablePath) launch.executablePath = env.browser.executablePath;
   else launch.channel = env.browser.channel;
@@ -366,7 +366,7 @@ const server = http.createServer(async (req, res) => {
   }
   // hidden mode: an off-screen x/y is clamped by macOS/AppKit to the nearest display edge and can
   // leave a sliver visible on multi-monitor setups, so minimize before navigating instead.
-  if (!env.browser.headless) {
+  if (!env.browser.headless && env.browser.minimizeOnStart) {
     try {
       const cdp = await ctx.newCDPSession(page);
       const { windowId } = await cdp.send('Browser.getWindowForTarget');

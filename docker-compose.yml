@@ -1,0 +1,33 @@
+services:
+  douyin-forwarder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: douyin-forwarder
+    restart: unless-stopped
+    shm_size: "512m"
+    ports:
+      - "${DASH_PORT:-9400}:${DASH_PORT:-9400}"
+    volumes:
+      - ./data:/app/data
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      DASH_HOST: 0.0.0.0
+      DASH_PORT: ${DASH_PORT:-9400}
+      BROWSER_CHANNEL: chromium
+      BROWSER_HEADLESS: ${BROWSER_HEADLESS:-false}
+      # 可选：首次初始化默认好友昵称
+      FRIEND: ${FRIEND:-}
+      # 可选：切换为外部 PostgreSQL / MySQL（默认使用 /app/data/app.db）
+      # DB_DRIVER: postgres
+      # DB_HOST: postgres
+      # DB_PORT: 5432
+      # DB_NAME: douyin_forwarder
+      # DB_USER: douyin
+      # DB_PASSWORD: change_me
+      # DB_SSL: "false"
+      # 可选：AI 旁路配置（也可直接在面板里配置并持久化到 /app/data/ai.json）
+      # AI_ENABLED: "false"
+      # AI_BASE_URL: https://api.deepseek.com/v1
+      # AI_MODEL: deepseek-chat
+      # AI_API_KEY: ""

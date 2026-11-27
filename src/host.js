@@ -8,22 +8,53 @@
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { StringDecoder } = require('string_decoder');
 const sessionRefresh = require('./session-refresh');
 
 const ROOT = path.resolve(__dirname, '..');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function readAccounts(dataDir) {
+function readAccounts() {
   const db = require('./db');
   try {
     const conn = db.open();
-    const rows = conn.prepare('SELECT label, port FROM accounts ORDER BY id').all();
-    return rows.map((r) => ({ label: String(r.label), port: Number(r.port) })).filter((r) => r.label);
+    const rows = conn.prepare('SELECT label, port, profile_dir FROM accounts ORDER BY id').all();
+    return rows
+      .map((r) => ({ label: String(r.label), port: Number(r.port), profileDir: r.profile_dir ? String(r.profile_dir) : '' }))
+      .filter((r) => r.label);
   } catch (e) {
     return [];
   } finally {
     try { db.close(); } catch (e) {}
   }
+}
+
+function cleanStaleProfileLocks(profileDir) {
+  if (!profileDir) return;
+  for (const dir of [profileDir, `${profileDir}-chromium`]) {
+    if (!fs.existsSync(dir)) continue;
+    for (const lock of ['SingletonLock', 'SingletonCookie', 'SingletonSocket']) {
+      try { fs.rmSync(path.join(dir, lock), { force: true }); } catch (e) {}
+    }
+  }
+}
+
+function pipePrefixed(stream, prefix, fileStream, target) {
+  const decoder = new StringDecoder('utf8');
+  let buf = '';
+  stream.on('data', (chunk) => {
+    try { fileStream.write(chunk); } catch (e) {}
+    buf += decoder.write(chunk);
+    const lines = buf.split(/\r?\n/);
+    buf = lines.pop() || '';
+    for (const line of lines) {
+      if (line) target.write(`[${prefix}] ${line}\n`);
+    }
+  });
+  stream.on('end', () => {
+    buf += decoder.end();
+    if (buf) target.write(`[${prefix}] ${buf}\n`);
+  });
 }
 
 function alive(pid) {
@@ -47,14 +78,23 @@ async function ping(url, timeout = 1500) {
 
 class Host {
   /**
-   * @param {{dataDir?: string, port?: number, env?: object, onLog?: Function}} opts
+   * @param {{dataDir?: string, port?: number, env?: object, onLog?: Function, onStop?: Function, streamLogs?: boolean}} opts
    */
-  constructor({ dataDir, port = 9400, env = {}, onLog } = {}) {
-    this.dataDir = path.resolve(dataDir || path.join(ROOT, 'data'));
+  constructor({ dataDir, port, env = {}, onLog, onStop, streamLogs } = {}) {
+    const explicitDataDir = !!dataDir;
+    const rawDataDir = dataDir || process.env.DATA_DIR || path.join(ROOT, 'data');
+    this.dataDir = path.resolve(ROOT, rawDataDir);
+    const dbFile = env.DB_FILE
+      ? path.resolve(ROOT, env.DB_FILE)
+      : (!explicitDataDir && process.env.DB_FILE ? path.resolve(ROOT, process.env.DB_FILE) : path.join(this.dataDir, 'app.db'));
+    const shotsDir = env.SHOTS_DIR
+      ? path.resolve(ROOT, env.SHOTS_DIR)
+      : (!explicitDataDir && process.env.SHOTS_DIR ? path.resolve(ROOT, process.env.SHOTS_DIR) : path.join(this.dataDir, 'shots'));
     // The DB helpers read DATA_DIR / DB_FILE from the environment; set them before any open().
     process.env.DATA_DIR = this.dataDir;
-    process.env.DB_FILE = path.join(this.dataDir, 'app.db');
-    this.port = Number(port);
+    process.env.DB_FILE = dbFile;
+    process.env.SHOTS_DIR = shotsDir;
+    this.port = Number(port || process.env.DASH_PORT || 9400);
     this.logDir = path.join(this.dataDir, 'logs');
     this.runDir = path.join(this.dataDir, 'run');
     this.children = {};
@@ -64,13 +104,17 @@ class Host {
     this.intentional = new Set();
     this.restartTimers = {};
     this.onLog = onLog || (() => {});
+    this.onStop = onStop || null;
+    this.streamLogs = streamLogs !== undefined
+      ? !!streamLogs
+      : /^(1|true|yes|on)$/i.test(String(process.env.HOST_LOG_STDOUT || ''));
     this.env = {
       ...process.env,
       ...env,
       DATA_DIR: this.dataDir,
       // absolute paths keep a packaged app out of its read-only .app bundle
-      DB_FILE: path.join(this.dataDir, 'app.db'),
-      SHOTS_DIR: path.join(this.dataDir, 'shots'),
+      DB_FILE: dbFile,
+      SHOTS_DIR: shotsDir,
     };
   }
 
@@ -87,18 +131,35 @@ class Host {
       return existing;
     }
     fs.mkdirSync(this.logDir, { recursive: true });
-    const out = fs.openSync(path.join(this.logDir, `${name}.log`), 'a');
+    const logPath = path.join(this.logDir, `${name}.log`);
+    let outFd = null;
+    let logStream = null;
+    let stdio;
+    if (this.streamLogs) {
+      logStream = fs.createWriteStream(logPath, { flags: 'a' });
+      stdio = ['ignore', 'pipe', 'pipe'];
+    } else {
+      outFd = fs.openSync(logPath, 'a');
+      stdio = ['ignore', outFd, outFd];
+    }
     const child = spawn(process.execPath, args, {
       cwd: ROOT,
       env: extraEnv ? { ...this.env, ...extraEnv } : this.env,
       windowsHide: true,
-      stdio: ['ignore', out, out],
+      stdio,
     });
+    if (this.streamLogs) {
+      if (child.stdout) pipePrefixed(child.stdout, name, logStream, process.stdout);
+      if (child.stderr) pipePrefixed(child.stderr, name, logStream, process.stderr);
+    }
     child.on('error', (e) => this.log(`${name} spawn failed: ${e.message}`));
     child.on('exit', (code, signal) => {
-      try {
-        fs.closeSync(out);
-      } catch (e) {}
+      if (outFd !== null) {
+        try { fs.closeSync(outFd); } catch (e) {}
+      }
+      if (logStream) {
+        try { logStream.end(); } catch (e) {}
+      }
       if (this.children[name] === child) delete this.children[name];
       if (this.stopping) return;
       if (this.intentional.delete(name)) {
@@ -163,10 +224,11 @@ class Host {
 
     // A detached browser-server can outlive the previous app instance and hold the Chrome
     // profile. Close it before starting new children so session exports and sends can proceed.
-    for (const acc of readAccounts(this.dataDir)) {
+    for (const acc of readAccounts()) {
       if (!acc.port) continue;
       const closed = await sessionRefresh.closeBrowser(acc.port);
       if (!closed) this.log(`stale browser on :${acc.port} did not close`);
+      else cleanStaleProfileLocks(acc.profileDir);
     }
 
     this.spawnChild('dashboard', ['src/index.js', 'dashboard', '--port', String(this.port)]);
@@ -182,7 +244,7 @@ class Host {
 
   // one scheduler child per account: each child has its own profile, port, plan and API session
   spawnSchedules() {
-    const labels = readAccounts(this.dataDir);
+    const labels = readAccounts();
     const targets = labels.length ? labels.map((r) => r.label) : [''];
     for (const label of targets) {
       const name = label ? `schedule:${label}` : 'schedule';
@@ -268,14 +330,17 @@ class Host {
       } catch (e) {}
     }
     // browsers started on demand by the dashboard are detached; ask them to close too
-    for (const acc of readAccounts(this.dataDir)) {
+    for (const acc of readAccounts()) {
       try {
         await fetch(`http://127.0.0.1:${acc.port}/quit`, { method: 'POST', signal: AbortSignal.timeout(1500) });
       } catch (e) {}
     }
     this.children = {};
     this.log('stopped');
+    if (this.onStop) {
+      try { this.onStop(); } catch (e) {}
+    }
   }
 }
 
-module.exports = { Host, alive, ping, ROOT };
+module.exports = { Host, alive, ping, cleanStaleProfileLocks, ROOT };

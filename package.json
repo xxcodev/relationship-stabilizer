@@ -10,6 +10,7 @@
   },
   "scripts": {
     "start": "node src/index.js dashboard",
+    "host": "node src/index.js host",
     "init": "node src/index.js init",
     "migrate": "node src/index.js migrate",
     "dashboard": "node src/index.js dashboard",

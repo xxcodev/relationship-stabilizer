@@ -143,6 +143,7 @@ npm run status          # 当前账号 / 计划 / 今日已发
 npm run plan            # 今天的计划(有则读库,无则现场生成)
 npm run dashboard       # 启动面板
 npm run schedule        # 启动调度(前台)
+npm run host            # 一体化托管启动面板 + 全账户调度
 npm run doctor          # 环境自检
 npm run verify          # 跨层冒烟
 npm run backup          # 数据库快照到 data/backups/
@@ -202,8 +203,9 @@ npm run verify  # 环境 + 表结构 + HTTP 接口冒烟
 
 ## 部署
 
-macOS(launchd)与 Linux(systemd --user)的示例配置见 `docs/daemon.md`;
-从旧版脚本切换与回滚见 `docs/cutover.md`。
+- **Docker（推荐用于服务器 / NAS）**：直接执行 `docker compose up -d --build` 启动（内含 Node 24 + Chromium + Xvfb + 一体化托管进程，数据持久化到 `./data`），详见 [`docs/docker.md`](docs/docker.md)；
+- **宿主机守护进程**：macOS(`launchd`) 与 Linux(`systemd --user`) 的示例配置见 [`docs/daemon.md`](docs/daemon.md)；
+- **迁移与回滚**：从旧版脚本切换与回滚见 [`docs/cutover.md`](docs/cutover.md)。
 
 桌面应用「心动投递」(Electron):`npm install && npm run app:dev` 打开原生窗口加载现有面板(开发数据隔离在
 `data-app/`);打包用 `npm run app:dist:mac`(macOS)或 `npm run app:dist:win`(Windows)。
