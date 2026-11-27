@@ -245,7 +245,7 @@ test('a random-range trigger fires at a moment inside the range', async () => {
   }
 });
 
-test('non-like metric thresholds disable the browser fallback', async () => {
+test('metric thresholds reject without browser fallback in pure API mode', async () => {
   const acc = repos.getAccount('B1');
   repos.setAccountSetting(acc.id, 'videoSource', 'pool');
   repos.setAccountSetting(acc.id, 'aiMode', 'off');
@@ -277,13 +277,17 @@ test('non-like metric thresholds disable the browser fallback', async () => {
     const rejected = await scheduler.apiAttempt(scheduler.runtimeConfig('B1'));
     assert.equal(rejected.ok, false);
     assert.equal(rejected.noFallback, true);
+    assert.equal(rejected.code, 'metric-filter');
     assert.match(rejected.error, /没有达到互动指标/);
 
-    // Likes are visible on browser cards, so a likes-only threshold may fall back.
+    // Pure API mode removes browser fallback, so likes-only metric rejections also stop cleanly.
     repos.setAccountSetting(acc.id, 'filterMinComments', 0);
     repos.setAccountSetting(acc.id, 'filterMinLikes', 99999);
-    const fallback = await scheduler.apiAttempt(scheduler.runtimeConfig('B1'));
-    assert.equal(fallback, null);
+    const likesRejected = await scheduler.apiAttempt(scheduler.runtimeConfig('B1'));
+    assert.equal(likesRejected.ok, false);
+    assert.equal(likesRejected.noFallback, true);
+    assert.equal(likesRejected.code, 'metric-filter');
+    assert.match(likesRejected.error, /没有达到互动指标/);
   } finally {
     global.fetch = originalFetch;
     repos.setAccountSetting(acc.id, 'videoSource', 'recommend');
@@ -367,7 +371,10 @@ test('already-sent candidates are filtered before AI ranking, never re-sent', as
   };
   try {
     const out = await scheduler.apiAttempt(scheduler.runtimeConfig('B1'));
-    assert.equal(out, null, 'the pool API path should signal no usable fresh candidate');
+    assert.equal(out.ok, false, 'the pool API path should fail cleanly when no fresh candidate exists');
+    assert.equal(out.noFallback, true);
+    assert.equal(out.code, 'no-fresh-candidate');
+    assert.match(out.error, /已发送过/);
     assert.equal(rankCalls, 0, 'history must be filtered before AI ranking');
     assert.equal(repos.listSends({ accountId: acc.id, limit: 200 }).length, sendsBefore);
     const events = repos.listEvents(30).map((e) => e.event);
