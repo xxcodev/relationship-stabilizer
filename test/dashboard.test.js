@@ -446,11 +446,12 @@ test('accounts support in-app QR bridge and deletion with last-account guard', a
     });
     assert.equal(delLast.status, 400);
 
-    // Add account via in-app QR bridge
+    // Add account via in-app QR bridge — must keep current activeAccount ('A') unchanged
     const qrRes = await post('/api/accounts/add-qr', { name: '小号测试', friend: '小美' });
     assert.equal(qrRes.ok, true);
     assert.equal(qrRes.mode, 'electron');
     assert.equal(qrRes.account.label, '小号测试');
+    assert.equal(repos.getSetting('activeAccount'), 'A');
     assert.ok(calls.some((c) => c.path === '/qr-login' && c.token === 'test-bridge-token' && c.body.label === '小号测试'));
 
     const stRes = await fetch(url + '/api/accounts/qr-status?label=' + encodeURIComponent('小号测试'));
@@ -459,7 +460,7 @@ test('accounts support in-app QR bridge and deletion with last-account guard', a
     assert.equal(stJson.status, 'done');
     assert.equal(stJson.nickname, '扫码新号');
 
-    // Delete the newly added account ('小号测试'), which should also switch activeAccount back to 'A'
+    // Delete the newly added account ('小号测试'), keeping activeAccount ('A')
     const delNew = await fetch(url + '/api/accounts', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },

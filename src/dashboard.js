@@ -1732,7 +1732,6 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const friend = String(input.friend || '').trim();
         if (friend) repos.addFriend(acc.id, friend);
         repos.seedAccountDefaults(acc.id);
-        repos.setSetting('activeAccount', acc.label);
         repos.logEvent('account-add', { label: acc.label, port: acc.port });
         const restarted = service.restartScheduler();
         return send(res, 200, { ok: true, account: { label: acc.label, name, port: acc.port }, restarted });
@@ -1788,7 +1787,6 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
         const friend = String(input.friend || '').trim();
         if (friend) repos.addFriend(acc.id, friend);
         repos.seedAccountDefaults(acc.id);
-        repos.setSetting('activeAccount', acc.label);
         repos.logEvent('account-add-qr', { label: acc.label, port: acc.port, mode: process.env.DF_APP_BRIDGE_URL ? 'electron' : 'external' });
         let mode = 'external';
         if (process.env.DF_APP_BRIDGE_URL) {

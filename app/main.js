@@ -699,6 +699,7 @@ async function openInAppLogin({ label = null, name = '', friend = '', isNew = fa
   const partition = partitionFor(targetLabel);
   const ses = session.fromPartition(partition);
   const ua = ses.getUserAgent().replace(/\s*Electron\/[^\s]+/g, '').replace(/\s*心动投递\/[^\s]+/g, '');
+  ses.setUserAgent(ua);
 
   let bounds = {};
   try {
@@ -715,7 +716,7 @@ async function openInAppLogin({ label = null, name = '', friend = '', isNew = fa
     width: 1100,
     height: 820,
     title: isNew ? `${TITLE} · 扫码添加账户` : `${TITLE} · 扫码登录（${acc.display_name || acc.label}）`,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#161823',
     webPreferences: {
       partition,
       nodeIntegration: false,
@@ -726,7 +727,7 @@ async function openInAppLogin({ label = null, name = '', friend = '', isNew = fa
   loginWin = lw;
   lw.webContents.setUserAgent(ua);
   lw.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\/[^/]*douyin\.com/i.test(url)) lw.loadURL(url);
+    if (/^https?:\/\/[^/]*douyin\.com/i.test(url)) lw.loadURL(url).catch(() => {});
     else shell.openExternal(url);
     return { action: 'deny' };
   });
@@ -737,43 +738,69 @@ async function openInAppLogin({ label = null, name = '', friend = '', isNew = fa
   let capturedCreate = null;
   let finishing = false;
   let pollTimer = null;
+  let loginModalClicked = false;
+  const pendingPost = new Map();
 
-  try {
-    lw.webContents.debugger.attach('1.3');
-    await lw.webContents.debugger.sendCommand('Network.enable');
-    lw.webContents.debugger.on('message', (_ev, method, params) => {
-      if (method !== 'Network.requestWillBeSent' || !params || !params.request) return;
-      const req = params.request;
-      const url = String(req.url || '');
-      if (!url) return;
-      if (apiExport.isFeedRequestUrl(url)) {
-        const nextFeed = {
-          url,
-          method: req.method || 'GET',
-          headers: req.headers || {},
-          bodyB64: req.postData ? Buffer.from(req.postData).toString('base64') : null,
-        };
-        if (!capturedFeed || /\/aweme\/v1\/web\/tab\/feed\/?/.test(url)) capturedFeed = nextFeed;
+  ses.webRequest.onBeforeRequest({ urls: ['https://*.douyin.com/*'] }, (details, callback) => {
+    try {
+      const url = String(details.url || '');
+      let bodyB64 = null;
+      if (Array.isArray(details.uploadData) && details.uploadData.length) {
+        const chunks = details.uploadData.map((d) => (d && d.bytes ? Buffer.from(d.bytes) : Buffer.alloc(0)));
+        const buf = Buffer.concat(chunks);
+        if (buf.length) bodyB64 = buf.toString('base64');
+      }
+      if (apiExport.isFeedRequestUrl(url) || /general\/search\/single|imapi\.douyin\.com/.test(url)) {
+        pendingPost.set(details.id, { url, method: details.method || 'GET', bodyB64 });
       }
       if (/general\/search\/single/.test(url)) capturedSearchUrl = url;
-      if (/imapi\.douyin\.com\/v1\/message\/send/.test(url)) {
-        capturedSend = {
-          url,
-          headers: req.headers || {},
-          bodyB64: req.postData ? Buffer.from(req.postData).toString('base64') : null,
-        };
+    } catch (e) {}
+    callback({});
+  });
+
+  ses.webRequest.onBeforeSendHeaders({ urls: ['https://*.douyin.com/*'] }, (details, callback) => {
+    try {
+      const url = String(details.url || '');
+      const meta = pendingPost.get(details.id);
+      if (meta) pendingPost.delete(details.id);
+      const headers = details.requestHeaders || {};
+      const bodyB64 = meta ? meta.bodyB64 : null;
+      if (apiExport.isFeedRequestUrl(url)) {
+        const nextFeed = { url, method: details.method || 'GET', headers, bodyB64 };
+        if (!capturedFeed || /\/aweme\/v1\/web\/tab\/feed\/?/.test(url)) capturedFeed = nextFeed;
       }
-      if (/imapi\.douyin\.com\/v2\/conversation\/create/.test(url)) {
-        capturedCreate = {
-          url,
-          headers: req.headers || {},
-          bodyB64: req.postData ? Buffer.from(req.postData).toString('base64') : null,
-        };
+      if (/imapi\.douyin\.com\/v1\/message\/send/.test(url) && bodyB64) {
+        capturedSend = { url, headers, bodyB64 };
       }
-    });
-  } catch (e) {
-    log(`in-app login debugger attach failed: ${e.message}`);
-  }
+      if (/imapi\.douyin\.com\/v2\/conversation\/create/.test(url) && bodyB64) {
+        capturedCreate = { url, headers, bodyB64 };
+      }
+    } catch (e) {}
+    callback({ requestHeaders: details.requestHeaders });
+  });
+
+  lw.webContents.on('did-fail-load', (_e, code, desc, url, isMain) => {
+    if (isMain && code !== -3) log(`in-app qr load failed (${code}): ${desc} url=${url}`);
+  });
+  lw.webContents.on('did-finish-load', () => {
+    if (loginModalClicked || finishing || lw.isDestroyed()) return;
+    setTimeout(() => {
+      if (loginModalClicked || finishing || lw.isDestroyed()) return;
+      lw.webContents.executeJavaScript(`(() => {
+        const txt = document.body ? document.body.innerText : '';
+        if (txt.includes('扫码登录') || txt.includes('抖音App扫码')) return 'open';
+        const btn = [...document.querySelectorAll('button,a,div,span')].find((el) => {
+          const t = (el.textContent || '').trim();
+          const r = el.getBoundingClientRect();
+          return (t === '登录' || t === '登录/注册') && r.width > 30 && r.width < 200 && r.height > 20 && r.height < 60 && r.y < 140;
+        });
+        if (btn) { btn.click(); return 'clicked'; }
+        return 'none';
+      })()`, true).then((res) => {
+        if (res === 'open' || res === 'clicked') loginModalClicked = true;
+      }).catch(() => {});
+    }, 1800);
+  });
 
   const checkLogin = async () => {
     if (finishing || lw.isDestroyed()) return;
@@ -805,7 +832,7 @@ async function openInAppLogin({ label = null, name = '', friend = '', isNew = fa
       // Reload recommend + search with authenticated cookies so feedUrl & searchUrl carry login state.
       capturedFeed = null;
       capturedSearchUrl = null;
-      await lw.loadURL('https://www.douyin.com/?recommend=1').catch(() => {});
+      if (!lw.isDestroyed()) await lw.loadURL('https://www.douyin.com/?recommend=1').catch(() => {});
       for (let i = 0; i < 8 && !capturedFeed && !lw.isDestroyed(); i++) await sleep(500);
       if (!capturedSearchUrl && !lw.isDestroyed()) {
         await lw.loadURL(`https://www.douyin.com/search/${encodeURIComponent('搞笑')}`).catch(() => {});
@@ -850,13 +877,17 @@ async function openInAppLogin({ label = null, name = '', friend = '', isNew = fa
 
   lw.on('closed', () => {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    try { lw.webContents.debugger.detach(); } catch (e) {}
+    try { ses.webRequest.onBeforeRequest(null); } catch (e) {}
+    try { ses.webRequest.onBeforeSendHeaders(null); } catch (e) {}
     if (loginWin === lw) loginWin = null;
     if (st.status === 'waiting') st.status = 'closed';
   });
 
   pollTimer = setInterval(checkLogin, 2000);
-  await lw.loadURL('https://www.douyin.com/');
+  // Start loading asynchronously so /qr-login returns immediately without hitting HTTP timeout.
+  lw.loadURL('https://www.douyin.com/').catch((e) => {
+    if (!/ERR_ABORTED/i.test(String(e && e.message))) log(`in-app qr load err: ${e && e.message}`);
+  });
   log(`in-app qr login opened label=${targetLabel} isNew=${isNew}`);
   return st;
 }
