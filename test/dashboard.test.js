@@ -362,3 +362,46 @@ test('pure API mode rejects browser mode and supports direct session JSON import
   assert.equal(imported.valid, true);
   assert.equal(imported.cookies, 1);
 });
+
+test('POST and DELETE /api/pools manage custom top-level categories and protect built-ins', async () => {
+  const html = await (await fetch(url + '/')).text();
+  assert.ok(html.includes('id="poolAddToggle"'));
+  assert.ok(html.includes('id="poolAddBar"'));
+
+  const createdRes = await fetch(url + '/api/pools', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '健身测试', keyword: '健身日常' }),
+  });
+  assert.equal(createdRes.status, 200);
+  const created = await createdRes.json();
+  assert.equal(created.ok, true);
+  assert.equal(created.pool.name, '健身测试');
+  assert.equal(created.pool.keyword, '健身日常');
+  const found = created.pools.find((p) => p.name === '健身测试');
+  assert.ok(found && found.enabled === true && found.builtin === false);
+
+  const dupRes = await fetch(url + '/api/pools', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '健身测试' }),
+  });
+  assert.equal(dupRes.status, 409);
+
+  const builtinDelRes = await fetch(url + '/api/pools', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '沙雕' }),
+  });
+  assert.equal(builtinDelRes.status, 400);
+
+  const delRes = await fetch(url + '/api/pools', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: '健身测试' }),
+  });
+  assert.equal(delRes.status, 200);
+  const delJson = await delRes.json();
+  assert.equal(delJson.ok, true);
+  assert.equal(delJson.pools.some((p) => p.name === '健身测试'), false);
+});

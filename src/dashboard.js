@@ -1599,9 +1599,45 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
         }
       }
+      const poolsWithMeta = (accountId) => {
+        const builtinSet = new Set(require('./pools').POOLS.map((p) => p.name));
+        return repos.listAccountPools(accountId).map((p) => ({ ...p, builtin: builtinSet.has(p.name) }));
+      };
       if (u.pathname === '/api/pools' && req.method === 'GET') {
         const acc = currentAccount();
-        return send(res, 200, { account: acc.label, pools: repos.listAccountPools(acc.id) });
+        return send(res, 200, { account: acc.label, pools: poolsWithMeta(acc.id) });
+      }
+      if (u.pathname === '/api/pools' && req.method === 'POST') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        const name = String(input.name || '').trim().slice(0, 40);
+        if (!name) return send(res, 400, { ok: false, error: '分类名不能为空' });
+        const keyword = String(input.keyword || '').trim().slice(0, 80) || name;
+        if (repos.listPools().some((p) => p.name === name)) {
+          return send(res, 409, { ok: false, error: '分类「' + name + '」已存在' });
+        }
+        const row = repos.addPool({ name, keyword, parentName: null, enabled: false });
+        repos.setAccountPoolEnabled(acc.id, row.name, true);
+        repos.logEvent('pool-add', { account: acc.label, name: row.name, keyword: row.keyword });
+        return send(res, 200, { ok: true, pool: row, pools: poolsWithMeta(acc.id) });
+      }
+      if (u.pathname === '/api/pools' && req.method === 'DELETE') {
+        let body = '';
+        for await (const c of req) body += c;
+        const input = JSON.parse(body || '{}') || {};
+        const acc = accountFromInput(input);
+        const name = String(input.name || u.searchParams.get('name') || '').trim();
+        if (!name) return send(res, 400, { ok: false, error: '缺少分类名称' });
+        const { POOLS } = require('./pools');
+        if (POOLS.some((p) => p.name === name)) {
+          return send(res, 400, { ok: false, error: '内置基础分类不支持删除，取消勾选即可' });
+        }
+        const out = repos.deletePool(name);
+        if (!out.deleted) return send(res, 404, { ok: false, error: '分类不存在' });
+        repos.logEvent('pool-delete', { account: acc.label, name: out.name, children: out.children });
+        return send(res, 200, { ok: true, deleted: out.name, children: out.children, pools: poolsWithMeta(acc.id) });
       }
       if (u.pathname === '/api/pools/generalize' && req.method === 'POST') {
         let body = '';
@@ -1622,7 +1658,7 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           }
           repos.setAccountPoolEnabled(acc.id, parent.name, true);
           repos.logEvent('pool-ai-generalize', { account: acc.label, parent: parent.name, added: added.map((x) => x.name) });
-          return send(res, 200, { ok: true, model: out.model, categories: added, pools: repos.listAccountPools(acc.id) });
+          return send(res, 200, { ok: true, model: out.model, categories: added, pools: poolsWithMeta(acc.id) });
         } catch (e) {
           return send(res, 502, { ok: false, error: e.message.split('\n')[0] });
         }

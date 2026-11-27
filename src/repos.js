@@ -462,6 +462,28 @@ function setAccountPoolEnabled(accountId, poolName, enabled) {
   return true;
 }
 
+function deletePool(name) {
+  const clean = String(name || '').trim();
+  if (!clean) return { deleted: false, children: [] };
+  const conn = db.open();
+  const row = conn.prepare('SELECT id, name FROM pools WHERE name = ?').get(clean);
+  if (!row) return { deleted: false, children: [] };
+  const childIds = conn
+    .prepare('SELECT pool_id FROM pool_hierarchy WHERE parent_id = ?')
+    .all(row.id)
+    .map((r) => r.pool_id);
+  const childNames = childIds
+    .map((id) => conn.prepare('SELECT name FROM pools WHERE id = ?').get(id))
+    .filter(Boolean)
+    .map((r) => r.name);
+  for (const id of [row.id, ...childIds]) {
+    conn.prepare('DELETE FROM pool_hierarchy WHERE pool_id = ? OR parent_id = ?').run(id, id);
+    conn.prepare('DELETE FROM account_pools WHERE pool_id = ?').run(id);
+    conn.prepare('DELETE FROM pools WHERE id = ?').run(id);
+  }
+  return { deleted: true, name: row.name, children: childNames };
+}
+
 // ---------- bands ----------
 function listBands(accountId) {
   return db.open().prepare('SELECT * FROM bands WHERE account_id = ? ORDER BY sort, id').all(accountId);
@@ -641,7 +663,7 @@ module.exports = {
   listFriends, listEnabledFriendNames, addFriend, getFriendByName, getFriendByUid,
   updateFriendName, setFriendUserid, upsertFriendByUid,
   setFriendEnabled, removeFriend, batchAddFriends, copyAccountConfig, syncAccountFriend,
-  listPools, seedPools, setPoolEnabled, addPool, listAccountPools, setAccountPoolEnabled,
+  listPools, seedPools, setPoolEnabled, addPool, deletePool, listAccountPools, setAccountPoolEnabled,
   listBands, replaceBands,
   getPlan, savePlan,
   insertSend, listSends, countSends, countSendsByAccount, querySends, listSendBuckets,

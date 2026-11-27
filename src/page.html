@@ -685,6 +685,15 @@
   .pool-ai-link{border:0;background:transparent;color:#a8bfff;font:inherit;font-size:11px;cursor:pointer;padding:2px 6px;border-radius:6px}
   .pool-ai-link:hover{background:rgba(91,140,255,.14);text-decoration:underline}
 
+  .pool-add-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px;border-radius:10px;
+    border:1px solid rgba(91,140,255,.32);background:rgba(91,140,255,.07)}
+  .pool-add-bar[hidden]{display:none!important}
+  .pool-add-bar input{flex:1 1 150px;min-width:120px;padding:6px 9px;font-size:12px}
+  .pool-del-btn{width:24px;height:24px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--dim2);
+    cursor:pointer;display:grid;place-items:center;font-size:15px;line-height:1;padding:0;flex:0 0 auto;transition:.14s}
+  .pool-del-btn:hover{color:var(--bad);background:rgba(255,93,93,.1);border-color:rgba(255,93,93,.28)}
+  html[data-theme="light"] .pool-add-bar{background:rgba(47,107,255,.05);border-color:rgba(47,107,255,.26)}
+
   .pool-feedback{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 22px;font-size:12px;line-height:1.5;
     border-bottom:1px solid var(--line);background:rgba(91,140,255,.08);color:#d7e4ff}
   .pool-feedback.ok{background:rgba(55,214,122,.09);color:#b2f3cd;border-bottom-color:rgba(55,214,122,.22)}
@@ -2564,6 +2573,7 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
         <button type="button" role="tab" data-pool-filter="unselected" aria-selected="false">未选 <span class="pool-seg-n" id="poolTabUnsel">0</span></button>
       </div>
       <div class="pool-bulk-actions">
+        <button class="btn soft sm" id="poolAddToggle" type="button">+ 新增大分类</button>
         <button class="btn ghost sm" id="poolExpandAll" type="button" hidden>收起分组</button>
         <button class="btn soft sm" id="poolAll" type="button">全选</button>
         <button class="btn ghost sm" id="poolNone" type="button">取消全选</button>
@@ -2574,6 +2584,12 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
       <input id="poolAiHint" placeholder="可选偏好，如：洛丽塔、cosplay…（填好后点 ✨）" autocomplete="off">
       <button class="pool-hint-clear" id="poolAiHintClear" type="button" aria-label="清空扩展方向" hidden>×</button>
       <span class="pool-ai-status" id="poolAiStatus"></span>
+    </div>
+    <div class="pool-add-bar" id="poolAddBar" hidden>
+      <input id="poolNewName" maxlength="40" placeholder="大分类名称（如：健身、穿搭、数码测评）" autocomplete="off">
+      <input id="poolNewKeyword" maxlength="80" placeholder="抖音搜索词（留空则同分类名）" autocomplete="off">
+      <button class="btn primary sm" id="poolAddSubmit" type="button">添加</button>
+      <button class="btn ghost sm" id="poolAddCancel" type="button">取消</button>
     </div>
   </div>
 
@@ -4889,6 +4905,7 @@ function renderPoolDropdown(selection = null) {
         + '<div class="pool-group-actions">'
         + '<button class="btn ghost sm pool-group-bulk" type="button" data-pool-group-toggle="' + esc(p.name) + '">全选本组</button>'
         + '<button class="pool-ai-btn" type="button" data-pool-ai="' + esc(p.name) + '" title="让 AI 扩展「' + esc(p.name) + '」的子分类" aria-label="AI 扩展 ' + esc(p.name) + '"><span aria-hidden="true">✨</span><span class="pool-ai-label">AI 扩展</span></button>'
+        + (p.builtin === false ? '<button class="pool-del-btn" type="button" data-pool-del="' + esc(p.name) + '" title="删除自定义分类「' + esc(p.name) + '」" aria-label="删除自定义分类 ' + esc(p.name) + '">×</button>' : '')
         + '</div></div>'
         + '<div class="pool-children"' + (open ? '' : ' hidden') + '>'
         + children.map((c) => (
@@ -4915,6 +4932,7 @@ function renderPoolDropdown(selection = null) {
         + (kwTag ? '<span class="pool-kw-inline">' + esc(kwTag) + '</span>' : '')
         + '</span></label>'
         + '<button class="pool-tile-ai" type="button" data-pool-ai="' + esc(p.name) + '" title="让 AI 扩展「' + esc(p.name) + '」的子分类" aria-label="AI 扩展 ' + esc(p.name) + '">✨</button>'
+        + (p.builtin === false ? '<button class="pool-del-btn" type="button" data-pool-del="' + esc(p.name) + '" title="删除自定义分类「' + esc(p.name) + '」" aria-label="删除自定义分类 ' + esc(p.name) + '">×</button>' : '')
         + '</div>';
     }
     html += '</div></section>';
@@ -4959,6 +4977,7 @@ function togglePoolPanel(open) {
   if (next) {
     setPoolFeedback('');
     updatePoolAiStatus();
+    if ($('#poolAddBar')) $('#poolAddBar').hidden = true;
     if ($('#poolSearch') && $('#poolSearch').value) $('#poolSearch').value = '';
     state.poolFilter = 'all';
     applyPoolFilters();
@@ -4966,6 +4985,64 @@ function togglePoolPanel(open) {
     setTimeout(() => { const input = $('#poolSearch'); if (input) input.focus(); }, 30);
   } else if (panel.contains(document.activeElement)) {
     trigger.focus();
+  }
+}
+async function createTopPool() {
+  const nameEl = $('#poolNewName');
+  const kwEl = $('#poolNewKeyword');
+  const btn = $('#poolAddSubmit');
+  const name = nameEl ? nameEl.value.trim() : '';
+  const keyword = kwEl ? kwEl.value.trim() : '';
+  if (!name) { setPoolFeedback('请输入大分类名称', 'bad'); if (nameEl) nameEl.focus(); return; }
+  const before = selectedPoolMap();
+  if (btn) btn.disabled = true;
+  try {
+    const account = (state.config && state.config.account) || (state.accounts && state.accounts.active) || undefined;
+    const d = await postJSON('/api/pools', { name, keyword, account });
+    state.pools = Array.isArray(d.pools) ? d.pools : state.pools;
+    const createdName = (d.pool && d.pool.name) || name;
+    const merged = { ...before, [createdName]: true };
+    if (nameEl) nameEl.value = '';
+    if (kwEl) kwEl.value = '';
+    if ($('#poolAddBar')) $('#poolAddBar').hidden = true;
+    if ($('#poolSearch')) $('#poolSearch').value = '';
+    state.poolFilter = 'all';
+    renderPoolDropdown(merged);
+    setPoolFeedback('已新增大分类「' + createdName + '」并勾选（搜索词：' + ((d.pool && d.pool.keyword) || createdName) + '）', 'ok');
+    toast('已新增大分类「' + createdName + '」', 'ok');
+    setTimeout(() => {
+      const tile = $$('#poolBaseSection .pool-tile').find((el) => el.dataset.poolName === createdName);
+      if (tile) {
+        tile.classList.add('is-just-added');
+        setTimeout(() => tile.classList.remove('is-just-added'), 1600);
+        tile.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 20);
+  } catch (e) {
+    setPoolFeedback('添加失败：' + (e.message || '未知错误'), 'bad');
+    toast('添加失败：' + (e.message || '未知错误'), 'bad');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+async function deleteCustomPool(name) {
+  const pool = (state.pools || []).find((p) => p.name === name);
+  const hasChildren = pool && (state.pools || []).some((p) => String(p.parent_id) === String(pool.id));
+  if (hasChildren && !window.confirm('删除自定义大分类「' + name + '」将同时删除其下属子分类，确定继续？')) return;
+  const before = selectedPoolMap();
+  try {
+    const account = (state.config && state.config.account) || (state.accounts && state.accounts.active) || undefined;
+    const d = await postJSON('/api/pools', { name, account }, 'DELETE');
+    state.pools = Array.isArray(d.pools) ? d.pools : state.pools;
+    const merged = { ...before };
+    delete merged[name];
+    for (const c of (d.children || [])) delete merged[c];
+    renderPoolDropdown(merged);
+    setPoolFeedback('已删除自定义分类「' + name + '」', 'ok');
+    toast('已删除自定义分类「' + name + '」', 'ok');
+  } catch (e) {
+    setPoolFeedback('删除失败：' + (e.message || '未知错误'), 'bad');
+    toast('删除失败：' + (e.message || '未知错误'), 'bad');
   }
 }
 async function generalizePool(parent) {
@@ -6485,6 +6562,25 @@ function bindConfigActions() {
       applyPoolFilters();
     };
   }
+  if ($('#poolAddToggle')) {
+    $('#poolAddToggle').onclick = () => {
+      const bar = $('#poolAddBar');
+      if (!bar) return;
+      const open = bar.hidden;
+      bar.hidden = !open;
+      if (open && $('#poolNewName')) $('#poolNewName').focus();
+    };
+  }
+  if ($('#poolAddCancel')) {
+    $('#poolAddCancel').onclick = () => {
+      if ($('#poolAddBar')) $('#poolAddBar').hidden = true;
+    };
+  }
+  if ($('#poolAddSubmit')) $('#poolAddSubmit').onclick = createTopPool;
+  ['#poolNewName', '#poolNewKeyword'].forEach((sel) => {
+    const inp = $(sel);
+    if (inp) inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); createTopPool(); } });
+  });
   $('#poolAll').onclick = () => {
     const targets = poolBulkTargets();
     if (!targets.length) return;
@@ -6560,6 +6656,8 @@ function bindConfigActions() {
       markDirty();
       return;
     }
+    const del = e.target.closest('[data-pool-del]');
+    if (del) { deleteCustomPool(del.dataset.poolDel); return; }
     const ai = e.target.closest('[data-pool-ai]');
     if (ai) generalizePool(ai.dataset.poolAi);
   });
