@@ -54,6 +54,7 @@ function setBurst(points, extra = {}) {
   repos.setAccountSetting(acc.id, 'burstMaxSec', 50);
   repos.setAccountSetting(acc.id, 'burstDurationFloor', true);
   repos.setAccountSetting(acc.id, 'burstFallbackSec', 15);
+  repos.setAccountSetting(acc.id, 'weekendRandomEnabled', extra.weekendRandomEnabled ?? false);
   for (const [key, value] of Object.entries(extra)) repos.setAccountSetting(acc.id, key, value);
   return acc;
 }
@@ -62,6 +63,7 @@ test.before(() => {
   repos.seedPools(POOLS);
   const acc = repos.upsertAccount({ label: 'B1', profileDir: path.join(tmp, 'p'), port: 9336, friend: 'Hime', enabled: true });
   repos.seedAccountDefaults(acc.id);
+  repos.setAccountSetting(acc.id, 'weekendRandomEnabled', false);
   repos.addFriend(acc.id, 'Hime');
   repos.setSetting('activeAccount', 'B1');
   repos.setAccountSetting(acc.id, 'scheduleMode', 'burst');
@@ -509,4 +511,88 @@ test('a random-range trigger retries with window backoff instead of aborting imm
     apiSender.sendVideo = originalSend;
     repos.setAccountSetting(acc.id, 'videoSource', 'recommend');
   }
+});
+
+test('pool mode falls back to filtered recommendation feed when all pools fail to yield candidates', async () => {
+  const acc = repos.getAccount('B1');
+  repos.clearBurstState(acc.id);
+  repos.setAccountSetting(acc.id, 'videoSource', 'pool');
+  repos.setAccountSetting(acc.id, 'aiMode', 'off');
+  repos.setAccountSetting(acc.id, 'banWords', ['广告违规词']);
+  repos.setAccountSetting(acc.id, 'filterLikesEnabled', true);
+  repos.setAccountSetting(acc.id, 'filterMinLikes', 500);
+  repos.setAccountSetting(acc.id, 'recommendMaxAgeDays', 30);
+  const pools = repos.listPools();
+  for (const p of pools) repos.setAccountPoolEnabled(acc.id, p.name, p.name === pools[0].name || p.name === pools[1].name);
+
+  const originalPick = apiSender.pick;
+  const originalFeed = apiSender.collectFeedCandidates;
+  const originalSend = apiSender.sendVideo;
+  let capturedFeedOpts = null;
+  apiSender.pick = async () => {
+    const err = new Error('最近 7 天没有候选视频');
+    err.code = 'no-candidate';
+    throw err;
+  };
+  apiSender.collectFeedCandidates = async (session, opts) => {
+    capturedFeedOpts = opts;
+    return {
+      candidates: [
+        { awemeId: 'aweme-fallback-1', title: '高赞正常推荐视频', author: '作者', likes: 900, durationMs: DURATION_MS },
+      ],
+      all: [],
+      rawCount: 2,
+      metricFiltered: 0,
+      json: {},
+    };
+  };
+  apiSender.sendVideo = async (_session, video) => ({
+    ok: true,
+    api: true,
+    serverMessageId: 'server-fallback-1',
+    friend: 'Hime',
+    durationMs: video.durationMs,
+  });
+
+  try {
+    const cfg = scheduler.runtimeConfig('B1');
+    const res = await scheduler.sendOne(cfg);
+    assert.equal(res.ok, true);
+    assert.equal(res.source, 'recommend');
+    assert.equal(res.bucket, '默认推荐（兜底）');
+    assert.equal(res.title, '高赞正常推荐视频');
+    assert.deepEqual(capturedFeedOpts.banWords, ['广告违规词']);
+    assert.equal(capturedFeedOpts.filters.likesEnabled, true);
+    assert.equal(capturedFeedOpts.filters.minLikes, 500);
+    assert.ok(repos.listEvents(40).some((e) => e.event === 'pool-recommend-fallback'));
+  } finally {
+    apiSender.pick = originalPick;
+    apiSender.collectFeedCandidates = originalFeed;
+    apiSender.sendVideo = originalSend;
+    repos.setAccountSetting(acc.id, 'videoSource', 'recommend');
+    repos.setAccountSetting(acc.id, 'banWords', []);
+    repos.setAccountSetting(acc.id, 'filterLikesEnabled', false);
+    repos.setAccountSetting(acc.id, 'filterMinLikes', 0);
+  }
+});
+
+test('runSchedule switches to weekend random clusters on Saturday when weekendRandomEnabled is true', async () => {
+  const SATURDAY = '2026-11-28';
+  const acc = setBurst([
+    { time: '08:00', count: 2 },
+    { time: '18:00', count: 2 },
+  ], { weekendRandomEnabled: true, videoSource: 'recommend' });
+  const cfg = scheduler.runtimeConfig('B1');
+  assert.equal(cfg.schedule.weekendRandom, true);
+
+  let clock = new Date(`${SATURDAY}T07:30:00`).getTime();
+  // Before any cluster window starts, running runSchedule generates weekend clusters without waiting forever if stopped by enabled=false.
+  repos.setAccountEnabled(acc.id, false);
+  const res = await scheduler.runSchedule(cfg, SATURDAY, { now: () => new Date(clock) });
+  repos.setAccountEnabled(acc.id, true);
+  assert.equal(res.paused, true);
+  const state = repos.getBurstState(acc.id);
+  assert.equal(state.weekendMode, true);
+  assert.equal(state.points.reduce((n, p) => n + p.count, 0), 4);
+  assert.ok(state.points.every((p) => p.mode === 'random'));
 });

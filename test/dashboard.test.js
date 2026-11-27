@@ -66,6 +66,7 @@ test('schedule config round-trips per account', async () => {
     burstFallbackSec: 20,
     videoSource: 'pool',
     dailyReadEnabled: false,
+    weekendRandomEnabled: false,
     filterAgeEnabled: false,
     filterMinLikes: 1000,
     filterMinComments: 20,
@@ -504,4 +505,72 @@ test('GET /api/read-records returns filtered read receipt history for the active
   assert.equal(dailyRes.total, 1);
   assert.equal(dailyRes.items[0].kindLabel, '发送后已读');
   assert.equal(dailyRes.items[0].conversationId, '0:1:100:200');
+});
+
+test('data exposes unified nextSend across active slow-mail and schedule, and weekendRandomEnabled round-trips', async () => {
+  const acc = repos.getAccount('A');
+  const html = await (await fetch(url + '/')).text();
+  assert.ok(html.includes('id="c_weekend_switch"'));
+
+  const cfgSaved = await post('/api/config', {
+    account: 'A',
+    enabled: true,
+    schedulePoints: ACCOUNT_A_POINTS,
+    burstMinSec: 15,
+    burstMaxSec: 45,
+    burstDurationFloor: true,
+    burstFallbackSec: 20,
+    videoSource: 'pool',
+    weekendRandomEnabled: true,
+    banWords: [],
+    pools: {},
+  });
+  assert.equal(cfgSaved.ok, true);
+  assert.equal(cfgSaved.config.weekendRandomEnabled, true);
+
+  const preview = await post('/api/preview', {
+    account: 'A',
+    enabled: true,
+    schedulePoints: ACCOUNT_A_POINTS,
+    burstMinSec: 15,
+    burstMaxSec: 45,
+    burstDurationFloor: true,
+    burstFallbackSec: 20,
+    weekendRandomEnabled: true,
+    videoSource: 'pool',
+    banWords: [],
+  });
+  assert.equal(preview.weekendRandomEnabled, true);
+  assert.ok(Array.isArray(preview.weekendPoints) && preview.weekendPoints.length >= 2);
+  assert.equal(preview.weekendPoints.reduce((n, p) => n + p.count, 0), 5);
+
+  const futureMs = Date.now() + 95_000;
+  repos.saveSlowMailState(acc.id, {
+    id: 'slow-next-test',
+    status: 'running',
+    friend: 'Hime',
+    friendUid: '100',
+    startedAt: Date.now() - 10_000,
+    endsAt: Date.now() + 3600_000,
+    nextAt: futureMs,
+    sent: 1,
+    maxSends: 10,
+    minGapSec: 60,
+    maxGapSec: 120,
+    bufferSec: 5,
+    fallbackSec: 15,
+    updatedAt: new Date().toISOString(),
+  });
+  try {
+    const withSlow = await get('/api/data');
+    assert.equal(withSlow.nextSend.source, 'slow');
+    assert.equal(withSlow.nextSend.at, futureMs);
+    assert.match(withSlow.nextTime, /^慢递 · /);
+  } finally {
+    repos.clearSlowMailState(acc.id);
+  }
+
+  const withSchedule = await get('/api/data');
+  assert.ok(withSchedule.nextSend);
+  assert.ok(['schedule', 'weekend', 'done', 'none'].includes(withSchedule.nextSend.source));
 });

@@ -2019,6 +2019,17 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
 
               <div class="switch-row" style="margin-top:12px">
                 <div>
+                  <b>周六周日随机集中发送</b>
+                  <div class="field-note">周六、周日不按上方排班触发，改为随机挑选 2–3 个集中时段批量发送（保持相同日均条数）。</div>
+                </div>
+                <div class="switch-control">
+                  <span class="switch-state" id="c_weekend_state">开启</span>
+                  <button class="switch on" id="c_weekend_switch" type="button" role="switch" aria-checked="true" aria-label="周六周日随机集中发送"></button>
+                </div>
+              </div>
+
+              <div class="switch-row" style="margin-top:12px">
+                <div>
                   <b>排班发送后自动已读</b>
                   <div class="field-note">每次排班发送成功后，自动标记该收件人的 1:1 会话已读（纯 API，不读消息内容）。</div>
                 </div>
@@ -2074,7 +2085,7 @@ html[data-theme="light"] .slow-panel .slow-friend-note{background:rgba(255,255,2
                   </button>
                 </div>
                 <div class="source-note" id="sourceNote">
-                  <span>视频池搜索：按分类关键词挑选，内容更可控；每个池会轮换基础关键词和同类变体。</span>
+                  <span>视频池搜索：按分类关键词挑选，内容更可控；若各池暂无满足条件的新视频，会自动按当前屏蔽词与筛选规则从默认推荐流兜底挑选。</span>
                 </div>
               </div>
 
@@ -3162,8 +3173,29 @@ function renderSlow() {
   syncSendButtons();
 }
 
+function homeNextLabel(d) {
+  if (!d) return '—';
+  const ns = d.nextSend;
+  const base = (ns && ns.label) || d.nextTime || '—';
+  const at = ns && Number(ns.at);
+  if (!at || at <= 0) return base;
+  const left = at - Date.now();
+  if (left <= 0) return left >= -120000 ? base + '（即将）' : base;
+  if (left < 60000) return base + '（' + Math.max(1, Math.round(left / 1000)) + '秒后）';
+  if (left < 3600000) return base + '（' + Math.max(1, Math.round(left / 60000)) + '分钟后）';
+  const h = Math.floor(left / 3600000);
+  const m = Math.round((left % 3600000) / 60000);
+  return base + '（' + h + '小时' + (m > 0 ? m + '分' : '') + '后）';
+}
+
+function refreshHomeNext() {
+  const el = $('#homeNext');
+  if (el && state.data) el.textContent = homeNextLabel(state.data);
+}
+
 function tickSlow() {
   if (document.hidden || state.view !== 'home') return;
+  refreshHomeNext();
   const slow = state.data && state.data.slow;
   if (!slow || !slow.live || !slow.state) return;
   const st = slow.state;
@@ -3454,7 +3486,7 @@ function renderHome() {
   $('#statTop').textContent = topBucket ? topBucket[0] : '-';
   $('#statTotal').textContent = d.totalSends ?? '-';
   $('#homeLeft').textContent = left;
-  $('#homeNext').textContent = d.nextTime || '—';
+  $('#homeNext').textContent = homeNextLabel(d);
   $('#homeTotal').textContent = d.totalSends ?? '-';
   $('#homeUpdated').textContent = d.generatedAt ? timeOf(d.generatedAt) : '-';
   $('#homeBar').style.width = (plan ? Math.min(100, (done / plan) * 100) : 0) + '%';
@@ -4677,7 +4709,9 @@ function updateScheduleHint() {
         ? ' · 下个触发：' + (upcoming.mode === 'random' ? (upcoming.from + '–' + upcoming.to) : upcoming.time)
         : ' · 今日剩余点位已过';
     }
-    hint.textContent = '约 ' + per + ' 秒/条' + progress;
+    const weekendOn = $('#c_weekend_switch') ? $('#c_weekend_switch').classList.contains('on') : true;
+    const weekendNow = weekendOn && [0, 6].includes(new Date().getDay());
+    hint.textContent = '约 ' + per + ' 秒/条' + (weekendNow ? ' · 今日周末：已切换随机集中时段' : progress);
   }
   if ($('#cfgHeroTotal')) $('#cfgHeroTotal').textContent = totalCount;
 }
@@ -5353,6 +5387,7 @@ function collectConfig() {
     naturalShare: $('#c_natural').value === 'true',
     naturalText: $('#c_natural_text_switch') ? $('#c_natural_text_switch').classList.contains('on') : true,
     dailyReadEnabled: $('#c_daily_read_switch') ? $('#c_daily_read_switch').classList.contains('on') : true,
+    weekendRandomEnabled: $('#c_weekend_switch') ? $('#c_weekend_switch').classList.contains('on') : true,
     maxVideoAgeDays: Number($('#c_vmax').value),
     recommendMaxAgeDays: Number($('#c_rmax').value),
     pools,
@@ -5375,6 +5410,14 @@ function setDailyReadSwitch(on) {
   el.classList.toggle('on', !!on);
   el.setAttribute('aria-checked', String(!!on));
   const state = $('#c_daily_read_state');
+  if (state) { state.textContent = on ? '开启' : '关闭'; state.style.color = on ? 'var(--ok)' : 'var(--dim2)'; }
+}
+function setWeekendSwitch(on) {
+  const el = $('#c_weekend_switch');
+  if (!el) return;
+  el.classList.toggle('on', !!on);
+  el.setAttribute('aria-checked', String(!!on));
+  const state = $('#c_weekend_state');
   if (state) { state.textContent = on ? '开启' : '关闭'; state.style.color = on ? 'var(--ok)' : 'var(--dim2)'; }
 }
 function activateConfigTab(tab, { scroll = false } = {}) {
@@ -5499,6 +5542,7 @@ async function loadConfigPage() {
     $('#c_natural').value = cfg.naturalShare === true ? 'true' : 'false';
     setNaturalTextSwitch(cfg.naturalText !== false);
     setDailyReadSwitch(cfg.dailyReadEnabled !== false);
+    setWeekendSwitch(cfg.weekendRandomEnabled !== false);
     $('#c_vmax').value = cfg.maxVideoAgeDays ?? 7;
     $('#c_rmax').value = cfg.recommendMaxAgeDays ?? 30;
     setFilterSwitch('age', cfg.filterAgeEnabled !== false);
@@ -6833,6 +6877,11 @@ function bindConfigActions() {
   });
   $('#c_natural_text_switch').onclick = () => { setNaturalTextSwitch(!$('#c_natural_text_switch').classList.contains('on')); markDirty(); };
   $('#c_daily_read_switch').onclick = () => { setDailyReadSwitch(!$('#c_daily_read_switch').classList.contains('on')); markDirty(); };
+  $('#c_weekend_switch').onclick = () => {
+    setWeekendSwitch(!$('#c_weekend_switch').classList.contains('on'));
+    updateScheduleHint();
+    markDirty();
+  };
   const setSaveMsgs = (text) => { $$('.js-save-msg').forEach((el) => { el.textContent = text; }); };
   const saveConfig = async () => {
     const conflict = scheduleConflict();
@@ -6866,14 +6915,20 @@ function bindConfigActions() {
     try {
       const out = await postJSON('/api/preview', collectConfig());
       if (!out.ok) { box.innerHTML = '<div class="bad">预览失败：' + esc(out.error) + '</div>'; return; }
-      const points = Array.isArray(out.points) ? out.points : [];
-      let html = '<div class="field-note">' + esc(out.summary || '') + '</div>';
+      const useWeekend = !!(out.weekendActive && Array.isArray(out.weekendPoints) && out.weekendPoints.length);
+      const points = useWeekend ? out.weekendPoints : (Array.isArray(out.points) ? out.points : []);
+      let html = '';
+      if (useWeekend) {
+        html += '<div class="field-note" style="color:var(--acc);margin-bottom:6px">今日为周末且已启用「周末随机集中发送」—— 以下为本次示例生成的集中时段（实际每日首次启动随机一次）：</div>';
+      }
+      html += '<div class="field-note">' + esc((useWeekend ? out.weekendSummary : out.summary) || '') + '</div>';
       html += '<div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>触发</th><th>条数</th><th>预计结束</th></tr></thead><tbody>';
       points.forEach((p) => {
         html += '<tr><td>' + esc(p.label || (p.mode === 'random' ? p.from + '–' + p.to + ' 随机' : p.time)) + '</td><td>' + p.count + '</td><td class="muted">' + esc(p.end) + '</td></tr>';
       });
       html += '</tbody></table></div>';
-      html += '<div class="field-note" style="margin-top:6px">共 ' + out.pointCount + ' 个触发点、' + out.count + ' 条 · 每条约 ' + ((out.estimate && out.estimate.perSec) || '-') + ' 秒' + (out.estimate && out.estimate.totalMinutes ? ' · 合计约 ' + out.estimate.totalMinutes + ' 分钟' : '') + '</div>';
+      const totalShown = points.reduce((n, p) => n + (Number(p.count) || 0), 0);
+      html += '<div class="field-note" style="margin-top:6px">共 ' + points.length + ' 个触发点、' + totalShown + ' 条 · 每条约 ' + ((out.estimate && out.estimate.perSec) || '-') + ' 秒' + (out.estimate && out.estimate.totalMinutes ? ' · 合计约 ' + out.estimate.totalMinutes + ' 分钟' : '') + '</div>';
       html += '<div class="field-note">预览不会保存；确认无误后点「保存设置」。</div>';
       box.innerHTML = html;
     } catch (e) { box.innerHTML = '<div class="bad">预览失败：' + esc(e.message) + '</div>'; }

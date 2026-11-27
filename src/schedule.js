@@ -28,12 +28,14 @@ function pointsForAccount(acc) {
 
 /** Normalized schedule for one account (points + shared interval settings). */
 function fromAccount(acc) {
+  const weekendRaw = repos.getAccountSetting(acc.id, 'weekendRandomEnabled', true);
   return burst.normalizeConfig({
     points: pointsForAccount(acc),
     minSec: repos.getAccountSetting(acc.id, 'burstMinSec', burst.DEFAULTS.minSec),
     maxSec: repos.getAccountSetting(acc.id, 'burstMaxSec', burst.DEFAULTS.maxSec),
     floor: repos.getAccountSetting(acc.id, 'burstDurationFloor', burst.DEFAULTS.floor),
     fallbackSec: repos.getAccountSetting(acc.id, 'burstFallbackSec', burst.DEFAULTS.fallbackSec),
+    weekendRandom: !(weekendRaw === false || weekendRaw === 0 || weekendRaw === '0' || weekendRaw === 'false'),
   });
 }
 

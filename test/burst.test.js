@@ -280,3 +280,36 @@ test('counts, summary and estimate describe every trigger', () => {
   assert.equal(est.points[0].end, '09:03');
   assert.equal(est.points[1].end, '22:01');
 });
+
+test('weekendRandom swaps weekday schedule for concentrated random clusters on Saturday and Sunday', () => {
+  const SATURDAY = '2026-11-28';
+  const SUNDAY = '2026-11-29';
+  const MONDAY = '2026-11-30';
+  assert.equal(burst.isWeekendDay(DAY), false);
+  assert.equal(burst.isWeekendDay(SATURDAY), true);
+  assert.equal(burst.isWeekendDay(SUNDAY), true);
+  assert.equal(burst.isWeekendDay(MONDAY), false);
+
+  const plan = burst.normalizeConfig({
+    points: [
+      { mode: 'fixed', time: '09:00', count: 3 },
+      { mode: 'fixed', time: '18:00', count: 3 },
+    ],
+    weekendRandom: true,
+  });
+  const satState = burst.freshState({ day: SATURDAY, burst: plan, nowMs: burst.startAt(SATURDAY, '08:00'), random: seeded(7) });
+  assert.equal(satState.weekendMode, true);
+  assert.equal(satState.points.length, 3);
+  assert.equal(satState.points.reduce((n, p) => n + p.count, 0), 6);
+  assert.ok(satState.points.every((p) => p.mode === 'random'));
+
+  // Subsequent ticks must preserve today's already rolled weekend clusters instead of re-rolling.
+  const tickState = burst.reconcileState(satState, { day: SATURDAY, burst: plan, nowMs: burst.startAt(SATURDAY, '09:00'), random: seeded(99) });
+  assert.deepEqual(tickState.points, satState.points);
+  assert.equal(tickState.updatedAt, satState.updatedAt);
+
+  // Rolling into Monday restores the configured weekday schedule points.
+  const monState = burst.freshState({ day: MONDAY, burst: plan, nowMs: burst.startAt(MONDAY, '08:00'), random: seeded(7) });
+  assert.equal(monState.weekendMode, false);
+  assert.deepEqual(monState.points.map((p) => p.time), ['09:00', '18:00']);
+});

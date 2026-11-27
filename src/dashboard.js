@@ -86,31 +86,45 @@ function triggerText(point, statePoint) {
   return at > 0 ? clockLabel(at) : `${point.from}–${point.to}`;
 }
 
+function seededRandom(seedStr) {
+  const hex = crypto.createHash('sha1').update(String(seedStr || '')).digest('hex').slice(0, 8);
+  let s = (parseInt(hex, 16) >>> 0) || 1;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
 // Today's schedule progress for the home page. Stale state from another day is ignored here;
 // the scheduler replaces it with a fresh day state.
 function scheduleRuntime(acc, day, plan, sends = []) {
   const state = repos.getBurstState(acc.id);
   const live = state && state.day === day && Array.isArray(state.points) ? state : null;
+  const weekendActive = Boolean((live && live.weekendMode) || (plan.weekendRandom && burstPlanner.isWeekendDay(day)));
   const byKey = new Map();
   for (const p of live ? live.points : []) {
     if (!p) continue;
     const key = p.mode === 'random' && p.from && p.to ? `r:${p.from}-${p.to}` : `f:${p.time}`;
     if (!byKey.has(key)) byKey.set(key, p);
   }
-  const points = plan.points.map((p) => {
-    const sp = byKey.get(triggerKey(p)) || null;
+  const sourcePoints = live && Array.isArray(live.points) && live.points.length
+    ? live.points
+    : burstPlanner.resolveDayPoints(day, plan, seededRandom(`${day}:${acc.id}:${plan.totalCount}`));
+  const points = sourcePoints.map((p) => {
+    const sp = byKey.get(triggerKey(p)) || p;
+    const normalizedSp = sp && sp.status ? sp : null;
     return {
       mode: p.mode,
       time: p.time,
       from: p.from,
       to: p.to,
-      label: triggerText(p, sp),
-      count: sp ? Math.max(1, Number(sp.count) || p.count) : p.count,
-      sent: sp ? Math.max(0, Number(sp.sent) || 0) : 0,
-      status: sp ? String(sp.status || 'pending') : 'pending',
-      startAt: sp ? Number(sp.startAt) || null : null,
-      nextAt: sp ? Number(sp.nextAt) || null : null,
-      lastError: sp ? String(sp.lastError || '') : '',
+      label: triggerText(p, normalizedSp),
+      count: Math.max(1, Number((normalizedSp && normalizedSp.count) || p.count) || 1),
+      sent: normalizedSp ? Math.max(0, Number(normalizedSp.sent) || 0) : 0,
+      status: normalizedSp ? String(normalizedSp.status || 'pending') : 'pending',
+      startAt: normalizedSp ? Number(normalizedSp.startAt) || null : null,
+      nextAt: normalizedSp ? Number(normalizedSp.nextAt) || null : null,
+      lastError: normalizedSp ? String(normalizedSp.lastError || '') : '',
     };
   });
   const total = points.reduce((n, p) => n + p.count, 0);
@@ -122,21 +136,33 @@ function scheduleRuntime(acc, day, plan, sends = []) {
   const active = activeIndex >= 0 && activeIndex < points.length ? points[activeIndex] : null;
   const open = status === 'pending' || status === 'running';
   let nextAt = null;
+  let nextAtMs = null;
   if (open && active) {
-    if (active.status === 'running' && active.nextAt) nextAt = clockLabel(active.nextAt);
-    else if (active.mode === 'fixed') nextAt = active.time;
-    else if (active.startAt) nextAt = clockLabel(active.startAt);
-    else nextAt = `${active.from}–${active.to}`;
+    if (active.status === 'running' && active.nextAt) {
+      nextAt = clockLabel(active.nextAt);
+      nextAtMs = Number(active.nextAt) || null;
+    } else if (active.mode === 'fixed') {
+      nextAt = active.time;
+      nextAtMs = burstPlanner.startAt(day, active.time);
+    } else if (active.startAt) {
+      nextAt = clockLabel(active.startAt);
+      nextAtMs = Number(active.startAt) || null;
+    } else {
+      nextAt = `${active.from}–${active.to}`;
+    }
   } else if (open) {
     const nowMs = Date.now();
-    const upcoming = plan.points
+    const upcoming = sourcePoints
       .map((p) => ({
         p,
         at: p.mode === 'fixed' ? burstPlanner.startAt(day, p.time) : burstPlanner.startAt(day, p.from),
       }))
       .filter((x) => x.at !== null && x.at >= nowMs)
       .sort((a, b) => a.at - b.at)[0];
-    if (upcoming) nextAt = upcoming.p.mode === 'fixed' ? upcoming.p.time : `${upcoming.p.from}–${upcoming.p.to}`;
+    if (upcoming) {
+      nextAt = upcoming.p.mode === 'fixed' ? upcoming.p.time : `${upcoming.p.from}–${upcoming.p.to}`;
+      if (upcoming.p.mode === 'fixed') nextAtMs = upcoming.at;
+    }
   }
   const timeline = points.map((p) => ({
     time: p.status === 'running' && p.nextAt ? clockLabel(p.nextAt) : p.label,
@@ -151,6 +177,8 @@ function scheduleRuntime(acc, day, plan, sends = []) {
     status,
     active: activeIndex,
     nextAt,
+    nextAtMs,
+    weekendActive,
     minSec: plan.minSec,
     maxSec: plan.maxSec,
     floor: plan.floor,
@@ -480,6 +508,7 @@ function configFromDb(acc = currentAccount()) {
     naturalShare: (() => { const v = repos.getAccountSetting(acc.id, 'naturalShare', false); return v === true || v === 1 || v === '1' || v === 'true'; })(),
     naturalText: (() => { const v = repos.getAccountSetting(acc.id, 'naturalText', true); return !(v === false || v === 0 || v === '0' || v === 'false'); })(),
     dailyReadEnabled: (() => { const v = repos.getAccountSetting(acc.id, 'dailyReadEnabled', '1'); return !(v === false || v === 0 || v === '0' || v === 'false'); })(),
+    weekendRandomEnabled: (() => { const v = repos.getAccountSetting(acc.id, 'weekendRandomEnabled', true); return !(v === false || v === 0 || v === '0' || v === 'false'); })(),
     sendMode: 'api',
     videoSource: videoSource === 'recommend' ? 'recommend' : 'pool',
     aiMode: repos.getAccountSetting(acc.id, 'aiMode', 'off'),
@@ -513,6 +542,38 @@ function formatSendRow(s) {
   };
 }
 
+function resolveNextSend({ enabled, slow, schedule }) {
+  if (!enabled) return { text: '已暂停', label: '已暂停', source: 'paused', at: null };
+  if (slow && slow.live && slow.state) {
+    const st = slow.state;
+    if (st.status === 'paused') {
+      return { text: '慢递暂停中', label: '慢递暂停中', source: 'slow-paused', at: null };
+    }
+    if (st.status === 'pending') {
+      const t = st.nextAt ? clockLabel(st.nextAt) : '准备中';
+      return { text: t, label: '慢递 · ' + t, source: 'slow', at: Number(st.nextAt) || null };
+    }
+    if (st.nextAt) {
+      const t = clockLabel(st.nextAt);
+      return { text: t, label: '慢递 · ' + t, source: 'slow', at: Number(st.nextAt) || null };
+    }
+    return { text: '准备下一条', label: '慢递 · 准备下一条', source: 'slow', at: null };
+  }
+  if (schedule && schedule.nextAt) {
+    const tag = schedule.weekendActive ? '周末随机' : '排班';
+    return {
+      text: schedule.nextAt,
+      label: tag + ' · ' + schedule.nextAt,
+      source: schedule.weekendActive ? 'weekend' : 'schedule',
+      at: Number(schedule.nextAtMs) || null,
+    };
+  }
+  if (schedule && schedule.status === 'done') {
+    return { text: '今日已完成', label: '今日已完成', source: 'done', at: null };
+  }
+  return { text: '—', label: '—', source: 'none', at: null };
+}
+
 function dataFromDb() {
   const acc = currentAccount();
   const day = today();
@@ -521,6 +582,8 @@ function dataFromDb() {
   const totalSends = repos.countSends({ accountId: acc.id });
   const totalOkSends = repos.countSends({ accountId: acc.id, ok: true });
   const schedule = scheduleRuntime(acc, day, plan, sends);
+  const slow = slowView(acc);
+  const nextSend = resolveNextSend({ enabled: !!acc.enabled, slow, schedule });
   return {
     account: acc.label,
     accountName: acc.display_name || acc.label,
@@ -528,11 +591,12 @@ function dataFromDb() {
     friend: repos.listEnabledFriendNames(acc.id)[0] || acc.friend,
     friends: repos.listEnabledFriendNames(acc.id),
     schedule,
-    slow: slowView(acc),
+    slow,
     todayPlan: schedule.count,
     todayDone: repos.countSendsByDay(day, acc.id),
     todayTimeline: schedule.timeline,
-    nextTime: schedule.nextAt,
+    nextTime: nextSend.label || nextSend.text,
+    nextSend,
     totalSends,
     totalOkSends,
     bucketStats: Object.fromEntries(repos.bucketStats(acc.id).map((r) => [r.bucket || '-', r.n])),
@@ -947,6 +1011,7 @@ function sanitize(input) {
     naturalShare: src.naturalShare === true,
     naturalText: src.naturalText !== false,
     dailyReadEnabled: src.dailyReadEnabled !== false,
+    weekendRandomEnabled: src.weekendRandomEnabled !== false,
     videoSource: src.videoSource === 'recommend' ? 'recommend' : 'pool',
     filterAgeEnabled: ageEnabled,
     filterMinLikes: metrics.minLikes,
@@ -982,6 +1047,7 @@ function persist(cfg, acc = currentAccount()) {
     repos.setAccountSetting(acc.id, 'naturalShare', !!cfg.naturalShare);
     repos.setAccountSetting(acc.id, 'naturalText', cfg.naturalText !== false);
     repos.setAccountSetting(acc.id, 'dailyReadEnabled', cfg.dailyReadEnabled !== false);
+    repos.setAccountSetting(acc.id, 'weekendRandomEnabled', cfg.weekendRandomEnabled !== false);
     repos.setAccountSetting(acc.id, 'videoSource', cfg.videoSource);
     repos.setAccountSetting(acc.id, 'filterAgeEnabled', cfg.filterAgeEnabled !== false);
     repos.setAccountSetting(acc.id, 'filterMinLikes', cfg.filterMinLikes);
@@ -2118,9 +2184,16 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           points: cfg.schedulePoints,
           minSec: cfg.burstMinSec, maxSec: cfg.burstMaxSec,
           floor: cfg.burstDurationFloor, fallbackSec: cfg.burstFallbackSec,
+          weekendRandom: cfg.weekendRandomEnabled !== false,
         });
         const est = burstPlanner.estimate(plan);
         const last = est.points[est.points.length - 1];
+        const day = today();
+        const weekendActive = !!(plan.weekendRandom && burstPlanner.isWeekendDay(day));
+        const weekendPlan = plan.weekendRandom
+          ? { ...plan, points: burstPlanner.weekendClusters(plan) }
+          : null;
+        const weekendEst = weekendPlan ? burstPlanner.estimate(weekendPlan) : null;
         return send(res, 200, {
           ok: true,
           mode: 'schedule',
@@ -2130,6 +2203,10 @@ function startServer({ host = env.dashboard.host, port = env.dashboard.port } = 
           requested: est.totalCount,
           summary: burstPlanner.summary(plan),
           estimate: { perSec: est.perSec, totalMinutes: est.totalMinutes, end: last ? last.end : '' },
+          weekendRandomEnabled: !!plan.weekendRandom,
+          weekendActive,
+          weekendPoints: weekendEst ? weekendEst.points : [],
+          weekendSummary: weekendPlan ? burstPlanner.summary(weekendPlan) : '',
           times: [],
           bands: [],
           allocation: [],

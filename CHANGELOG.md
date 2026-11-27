@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.32.21 — 2026-11-27
+- **视频池搜索无候选自动推荐流兜底**（[scheduler.js](file:///Users/xcodev/Code/Project/xcodev/douyin-forwarder/src/scheduler.js)）：当 `videoSource='pool'` 遍历已选分类均无满足条件或未发过的视频时，只要会话已捕获首页推荐流且失败源于候选耗尽/过滤，自动降级至推荐流 `collectFeedCandidates` 选片（标记为「默认推荐（兜底）」），并严格复用当前屏蔽词、互动指标阈值、时效上限、历史去重与 AI 排序，常规/自然分享两路均支持；若推荐请求本身临时失败则回退原候选异常继续窗口退避重试。
+- **首页统一显示「下一次发送时间」**（[dashboard.js](file:///Users/xcodev/Code/Project/xcodev/douyin-forwarder/src/dashboard.js)、[page.html](file:///Users/xcodev/Code/Project/xcodev/douyin-forwarder/src/page.html)）：`/api/data` 新增统一字段 `nextSend` 并联动 `#homeNext`，无论当前处于**慢递**（运行中/暂停/准备中）、**排班**还是**周末随机**模式，均展示来源标签、目标时刻与实时倒计时。
+- **周六日随机集中发送模式**（[burst.js](file:///Users/xcodev/Code/Project/xcodev/douyin-forwarder/src/burst.js)、[schedule.js](file:///Users/xcodev/Code/Project/xcodev/douyin-forwarder/src/schedule.js)、[page.html](file:///Users/xcodev/Code/Project/xcodev/douyin-forwarder/src/page.html)）：在 `01 发送计划` 新增「周六周日随机集中发送」开关（默认开启）；周末自动跳过工作日固定排班表，保持相同每日总条数，在日间到晚间随机挑选 1–4 个约 40 分钟的集中时段分批发出，并持久化当日已抽取的集中时段避免调度器重启或刷新跳变。
+- 补全对应单元测试及 Playwright 界面/首页验证。
+
 ## 0.32.20 — 2026-11-27
 - **「记录」页新增「已读记录」选项卡**：提供独立顶部标签切换（发送记录 / 已读记录），展示定时自动已读（`auto-read`）、发送后已读（`daily-read`）与慢递已读（`slow-read`）明细，支持总计/成功/失败/今日汇总、按来源/结果筛选、好友/会话搜索与分页。
 - 后端新增 `repos.listReadEvents()` 与 `GET /api/read-records` 接口，避免高频率事件把已读记录挤出常规事件列表。

@@ -166,7 +166,88 @@ function normalizeConfig(src = {}) {
     maxSec: intIn(raw.maxSec, minSec, 600, Math.max(minSec, DEFAULTS.maxSec)),
     floor: boolOn(raw.floor, DEFAULTS.floor),
     fallbackSec: intIn(raw.fallbackSec, 0, 600, DEFAULTS.fallbackSec),
+    weekendRandom: raw.weekendRandom === true,
   };
+}
+
+/** True when `day` ('YYYY-MM-DD') falls on Saturday or Sunday in local time. */
+function isWeekendDay(day) {
+  const parts = String(day || '').split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return false;
+  const weekday = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+  return weekday === 0 || weekday === 6;
+}
+
+const WEEKEND_CORE_BANDS = [
+  { from: 10 * 60 + 15, to: 12 * 60 + 30 },
+  { from: 14 * 60, to: 17 * 60 + 15 },
+  { from: 19 * 60 + 45, to: 22 * 60 + 45 },
+];
+
+const WEEKEND_DENSE_BANDS = [
+  { from: 10 * 60, to: 12 * 60 },
+  { from: 13 * 60 + 30, to: 15 * 60 + 45 },
+  { from: 16 * 60 + 30, to: 18 * 60 + 45 },
+  { from: 20 * 60, to: 22 * 60 + 45 },
+];
+
+/**
+ * Generate weekend trigger windows concentrated into 1–4 randomized leisure clusters
+ * instead of following the fixed weekday schedule, while keeping the daily share total.
+ */
+function weekendClusters(burst, random = Math.random) {
+  const b = coerce(burst);
+  const total = Math.max(1, Math.min(200, b.totalCount || b.points.reduce((n, p) => n + p.count, 0) || DEFAULTS.points[0].count));
+  let poolBands;
+  let desiredClusters;
+  if (total <= 1) {
+    poolBands = WEEKEND_CORE_BANDS;
+    desiredClusters = 1;
+  } else if (total <= 4) {
+    poolBands = WEEKEND_CORE_BANDS;
+    desiredClusters = 2;
+  } else if (total <= 9) {
+    poolBands = WEEKEND_CORE_BANDS;
+    desiredClusters = 3;
+  } else {
+    poolBands = WEEKEND_DENSE_BANDS;
+    desiredClusters = 4;
+  }
+  const indices = poolBands.map((_, i) => i);
+  while (indices.length > desiredClusters) {
+    indices.splice(Math.floor(clamp01(random()) * indices.length), 1);
+  }
+  indices.sort((a, bIdx) => a - bIdx);
+  const baseCount = Math.floor(total / indices.length);
+  const countsPerCluster = indices.map(() => baseCount);
+  const order = indices.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(clamp01(random()) * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  for (let r = 0; r < total % indices.length; r++) {
+    countsPerCluster[order[r]] += 1;
+  }
+  const spanMin = 40;
+  return indices.map((bandIdx, pos) => {
+    const band = poolBands[bandIdx];
+    const maxOffset = Math.max(1, band.to - band.from - spanMin);
+    const startMin = band.from + Math.floor(clamp01(random()) * maxOffset);
+    const endMin = Math.min(1439, startMin + spanMin);
+    return {
+      mode: 'random',
+      from: planner.hm(startMin),
+      to: planner.hm(endMin),
+      count: Math.min(50, Math.max(1, countsPerCluster[pos])),
+    };
+  });
+}
+
+/** Active trigger list for `day`: weekend clusters on Sat/Sun when enabled, else `burst.points`. */
+function resolveDayPoints(day, burst, random = Math.random) {
+  const b = coerce(burst);
+  if (b.weekendRandom && isWeekendDay(day)) return weekendClusters(b, random);
+  return b.points.map((p) => ({ ...p }));
 }
 
 /** Local epoch ms of a fixed time on `day` ('YYYY-MM-DD'). */
@@ -192,13 +273,15 @@ function earliestTriggerAt(day, point) {
   return startAt(day, point && point.time);
 }
 
-function fingerprint(burst) {
+function fingerprint(burst, day = null) {
   const b = burst || {};
   const points = Array.isArray(b.points) ? b.points : [];
   const list = points
     .map((p) => (p.mode === 'random' ? `r:${p.from}-${p.to}x${p.count}` : `f:${p.time}x${p.count}`))
     .join(',');
-  return [list, b.minSec, b.maxSec, b.floor ? 1 : 0, b.fallbackSec].join('|');
+  const base = [list, b.minSec, b.maxSec, b.floor ? 1 : 0, b.fallbackSec];
+  if (b.weekendRandom) base.push(`w:${day && isWeekendDay(day) ? 1 : 0}`);
+  return base.join('|');
 }
 
 /**
@@ -261,11 +344,14 @@ function freshPoint(day, cfgPoint, random) {
 
 /** Fresh day state: every configured trigger waiting for its moment. */
 function freshState({ day, burst, nowMs, random = Math.random }) {
+  const weekendMode = !!(burst && burst.weekendRandom && isWeekendDay(day));
+  const dayPoints = resolveDayPoints(day, burst, random);
   return settleState({
     day,
     mode: 'schedule',
-    configKey: fingerprint(burst),
-    points: burst.points.map((p) => freshPoint(day, p, random)),
+    weekendMode,
+    configKey: fingerprint(burst, day),
+    points: dayPoints.map((p) => freshPoint(day, p, random)),
     active: 0,
     status: 'pending',
     sent: 0,
@@ -359,8 +445,9 @@ function reconcileState(state, { day, burst, nowMs, random = Math.random }) {
   if (!state || typeof state !== 'object' || state.day !== day || !Array.isArray(state.points)) {
     return freshState({ day, burst, nowMs, random });
   }
-  const key = fingerprint(burst);
+  const key = fingerprint(burst, day);
   const rekeyed = state.configKey !== key;
+  const weekendActive = !!(burst && burst.weekendRandom && isWeekendDay(day));
   const byKey = new Map();
   for (const point of state.points) {
     if (!point || typeof point !== 'object') continue;
@@ -369,7 +456,12 @@ function reconcileState(state, { day, burst, nowMs, random = Math.random }) {
       : `f:${point.time}`;
     if (!byKey.has(pointKeyValue)) byKey.set(pointKeyValue, point);
   }
-  const points = burst.points.map((cfgPoint) => {
+  const stateTotal = state.points.reduce((n, p) => n + Math.max(0, Number(p && p.count) || 0), 0);
+  const keepWeekendClusters = weekendActive && state.weekendMode && stateTotal === burst.totalCount;
+  const targetPoints = weekendActive
+    ? (keepWeekendClusters ? normalizePoints(state.points) : resolveDayPoints(day, burst, random))
+    : burst.points;
+  const points = targetPoints.map((cfgPoint) => {
     const prev = byKey.get(pointKey(cfgPoint));
     if (!prev) return freshPoint(day, cfgPoint, random);
     const sent = Math.max(0, Math.round(Number(prev.sent) || 0));
@@ -421,7 +513,7 @@ function reconcileState(state, { day, burst, nowMs, random = Math.random }) {
     return point;
   });
 
-  const next = { ...state, mode: 'schedule', configKey: key, points, updatedAt: new Date(nowMs).toISOString() };
+  const next = { ...state, mode: 'schedule', weekendMode: weekendActive, configKey: key, points, updatedAt: new Date(nowMs).toISOString() };
   settleState(next);
   if (!rekeyed
     && samePoints(state.points, points)
@@ -530,4 +622,7 @@ module.exports = {
   estimate,
   triggerLabel,
   addMinutesHm,
+  isWeekendDay,
+  weekendClusters,
+  resolveDayPoints,
 };

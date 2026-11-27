@@ -175,40 +175,69 @@ function noFreshCandidates(message) {
   return err;
 }
 
-async function naturalCandidates(cfg, session, source, pool, history) {
-  let candidates;
-  let bucket;
+async function collectRecommendCandidates(cfg, session, history) {
   const ids = history.ids instanceof Set ? history.ids : new Set((history.ids || []).map(String));
   const titles = history.titles instanceof Set ? history.titles : new Set((history.titles || []).map(videoPicker.normalizeTitle));
+  const collected = await apiSender.collectFeedCandidates(session, {
+    banWords: cfg.banWords,
+    excludeVideoIds: ids,
+    excludeTitles: titles,
+    maxAgeDays: cfg.ageEnabled ? cfg.recommendMaxAgeDays : 0,
+    filters: cfg.metricFilters,
+  });
+  const ranked = await aiRankCandidates(cfg, collected.candidates, 'recommend');
+  if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
+  return ranked.candidates.length ? ranked.candidates : collected.candidates;
+}
+
+async function pickRecommendVideo(cfg, session, history, { bucket = '默认推荐' } = {}) {
+  const candidates = await collectRecommendCandidates(cfg, session, history);
+  const chosen = videoPicker.chooseVideo(candidates, {
+    ids: history.ids,
+    titles: history.titles,
+  });
+  if (!chosen) throw noFreshCandidates('推荐 feed 没有新的候选');
+  return { ...chosen, source: 'recommend', bucket };
+}
+
+async function naturalCandidates(cfg, session, source, pool, history) {
   if (source === 'recommend') {
-    const collected = await apiSender.collectFeedCandidates(session, {
-      banWords: cfg.banWords,
-      excludeVideoIds: ids,
-      excludeTitles: titles,
-      maxAgeDays: cfg.ageEnabled ? cfg.recommendMaxAgeDays : 0,
-      filters: cfg.metricFilters,
-    });
-    candidates = collected.candidates;
-    bucket = '默认推荐';
-  } else {
-    const keyword = (() => {
-      const value = chooseKeyword(pool);
-      return value.startsWith('@') ? pool.name : value;
-    })();
+    return {
+      candidates: await collectRecommendCandidates(cfg, session, history),
+      bucket: '默认推荐',
+      source: 'recommend',
+    };
+  }
+  const keyword = (() => {
+    const value = chooseKeyword(pool);
+    return value.startsWith('@') ? pool.name : value;
+  })();
+  try {
     const collected = await apiSender.collectSearchCandidates(session, {
       keyword,
       banWords: cfg.banWords,
       maxAgeDays: cfg.ageEnabled ? cfg.maxVideoAgeDays : 0,
       filters: cfg.metricFilters,
     });
-    candidates = collected.candidates;
-    bucket = pool.name;
+    const fresh = videoPicker.filterHistory(collected.candidates, history);
+    if (!fresh.length) throw noFreshCandidates('候选都已发送过，暂无新视频');
+    const ranked = await aiRankCandidates(cfg, fresh, source);
+    if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
+    return { candidates: ranked.candidates.length ? ranked.candidates : fresh, bucket: pool.name, source };
+  } catch (err) {
+    if (!isPoolCandidateError(err) || !(session && session.feedUrl)) throw err;
+    repos.logEvent('pool-recommend-fallback', {
+      account: cfg.accountLabel,
+      pool: pool && pool.name,
+      natural: true,
+      reason: String(err.message || '').slice(0, 120),
+    });
+    return {
+      candidates: await collectRecommendCandidates(cfg, session, history),
+      bucket: '默认推荐（兜底）',
+      source: 'recommend',
+    };
   }
-  const fresh = videoPicker.filterHistory(candidates, history);
-  if (!fresh.length) throw noFreshCandidates('候选都已发送过，暂无新视频');
-  const ranked = await aiRankCandidates(cfg, fresh, source);
-  if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
-  return { candidates: ranked.candidates.length ? ranked.candidates : fresh, bucket, source };
 }
 
 function chooseNaturalVideos(candidates, max = 2) {
@@ -334,7 +363,7 @@ function isPoolCandidateError(err) {
   if (!err) return false;
   if (POOL_RETRYABLE_CODES.has(err.code)) return true;
   const msg = String(err.message || '');
-  return /AI 过滤后没有安全候选|no candidate|没有达到互动指标|暂无新视频|没有新的候选/i.test(msg);
+  return /AI 过滤后没有安全候选|no candidate|没有达到互动指标|暂无新视频|没有新的候选|没有候选视频|没有可用视频候选/i.test(msg);
 }
 
 async function pickPoolVideo(cfg, session, pool, history) {
@@ -406,30 +435,21 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
   const toUserId = row.userid || cfg.friendUserId || null;
 
   const enabledPools = apiOnly ? [] : cfg.pools.filter((p) => p.enabled);
-  if (!apiOnly && !enabledPools.length) return null;
+  const canFeedFallback = !!(session && session.feedUrl);
+  if (!apiOnly && !enabledPools.length && !canFeedFallback) return null;
   let pool = enabledPools.length ? enabledPools[Math.floor(Math.random() * enabledPools.length)] : null;
   try {
     const history = recentVideoHistory(cfg.accountId);
     if (cfg.naturalShare) {
-      return await apiNaturalAttempt(cfg, { session, friend, toUserId, source, pool, history, dryRun });
+      const natSource = !apiOnly && !enabledPools.length && canFeedFallback ? 'recommend' : source;
+      return await apiNaturalAttempt(cfg, { session, friend, toUserId, source: natSource, pool, history, dryRun });
     }
     let video;
     if (apiOnly) {
-      const collected = await apiSender.collectFeedCandidates(session, {
-        banWords: cfg.banWords,
-        excludeVideoIds: history.ids,
-        excludeTitles: history.titles,
-        maxAgeDays: cfg.ageEnabled ? cfg.recommendMaxAgeDays : 0,
-        filters: cfg.metricFilters,
-      });
-      const ranked = await aiRankCandidates(cfg, collected.candidates, 'recommend');
-      if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
-      const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : collected.candidates, {
-        ids: history.ids,
-        titles: history.titles,
-      });
-      if (!chosen) throw noFreshCandidates('推荐 feed 没有新的候选');
-      video = { ...chosen, source: 'recommend', bucket: '默认推荐' };
+      video = await pickRecommendVideo(cfg, session, history, { bucket: '默认推荐' });
+    } else if (!enabledPools.length && canFeedFallback) {
+      repos.logEvent('pool-recommend-fallback', { account: cfg.accountLabel, attempts: 0, reason: 'no-enabled-pool' });
+      video = await pickRecommendVideo(cfg, session, history, { bucket: '默认推荐（兜底）' });
     } else {
       const candidates = shufflePools(enabledPools).slice(0, MAX_POOL_FALLBACKS);
       let lastPoolErr = null;
@@ -444,15 +464,35 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
           break;
         } catch (err) {
           lastPoolErr = err;
-          if (!isPoolCandidateError(err) || i === candidates.length - 1) throw err;
+          if (!isPoolCandidateError(err)) throw err;
         }
       }
-      if (!video && lastPoolErr) throw lastPoolErr;
+      if (!video && lastPoolErr) {
+        if (isPoolCandidateError(lastPoolErr) && canFeedFallback) {
+          repos.logEvent('pool-recommend-fallback', {
+            account: cfg.accountLabel,
+            attempts: candidates.length,
+            reason: String(lastPoolErr.message || '').slice(0, 120),
+          });
+          try {
+            video = await pickRecommendVideo(cfg, session, history, { bucket: '默认推荐（兜底）' });
+          } catch (feedErr) {
+            repos.logEvent('pool-recommend-fallback-failed', {
+              account: cfg.accountLabel,
+              error: String((feedErr && feedErr.message) || '').slice(0, 120),
+            });
+            throw isPoolCandidateError(feedErr) ? feedErr : lastPoolErr;
+          }
+        } else {
+          throw lastPoolErr;
+        }
+      }
     }
-    const bucket = apiOnly ? '默认推荐' : pool.name;
+    const effectiveSource = (video && video.source) || source;
+    const bucket = (video && video.bucket) || (apiOnly ? '默认推荐' : (pool && pool.name) || '默认推荐');
     if (dryRun) {
-      repos.logEvent('api-dry-run', { account: cfg.accountLabel, friend, title: video.title, pool: bucket, source });
-      return { ok: true, dryRun: true, api: true, source, bucket, title: video.title, friend, video, durationMs: Number(video.durationMs) || 0 };
+      repos.logEvent('api-dry-run', { account: cfg.accountLabel, friend, title: video.title, pool: bucket, source: effectiveSource });
+      return { ok: true, dryRun: true, api: true, source: effectiveSource, bucket, title: video.title, friend, video, durationMs: Number(video.durationMs) || 0 };
     }
     const res = await apiSender.sendVideo(session, video, { friend, toUserId });
     if (res.ok) {
@@ -469,11 +509,11 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
         toast: 'HTTP API',
         shot: null,
         videoId: video.awemeId,
-        source,
+        source: effectiveSource,
       });
-      repos.logEvent('sent-api', { account: cfg.accountLabel, pool: bucket, source, friend, title: video.title, serverMessageId: res.serverMessageId });
+      repos.logEvent('sent-api', { account: cfg.accountLabel, pool: bucket, source: effectiveSource, friend, title: video.title, serverMessageId: res.serverMessageId });
       return {
-        ok: true, api: true, source, bucket, title: video.title, friend, toast: 'HTTP API',
+        ok: true, api: true, source: effectiveSource, bucket, title: video.title, friend, toast: 'HTTP API',
         serverMessageId: res.serverMessageId,
         conversationId: res.conversationId || null,
         conversationShortId: res.conversationShortId || null,
