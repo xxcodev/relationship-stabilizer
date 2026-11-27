@@ -415,3 +415,98 @@ test('a scheduled API send marks the recipient conversation read', async () => {
     apiRead.markConversationRead = originalRead;
   }
 });
+
+test('apiAttempt falls back across enabled pools when earlier pools miss metric filters', async () => {
+  const acc = repos.getAccount('B1');
+  repos.setAccountSetting(acc.id, 'videoSource', 'pool');
+  repos.setAccountSetting(acc.id, 'aiMode', 'off');
+  repos.setAccountSetting(acc.id, 'filterLikesEnabled', true);
+  repos.setAccountSetting(acc.id, 'minLikes', 500);
+  for (const p of repos.listPools().slice(0, 3)) repos.setAccountPoolEnabled(acc.id, p.name, true);
+
+  const originalPick = apiSender.pick;
+  const originalSend = apiSender.sendVideo;
+  let attempts = 0;
+  apiSender.pick = async () => {
+    attempts++;
+    if (attempts === 1) {
+      const err = new Error('没有达到互动指标（点赞≥500）的候选');
+      err.code = 'metric-filter';
+      throw err;
+    }
+    return { awemeId: `aweme-fb-${attempts}`, title: '跨分类兜底命中视频', durationMs: DURATION_MS, author: '作者', likes: 888 };
+  };
+  apiSender.sendVideo = async () => ({
+    ok: true, api: true, serverMessageId: 'server-pool-fb', friend: 'Hime', durationMs: DURATION_MS,
+  });
+  try {
+    const out = await scheduler.apiAttempt(scheduler.runtimeConfig('B1'));
+    assert.equal(out.ok, true);
+    assert.equal(attempts, 2, 'should rotate to another pool after metric-filter miss');
+    assert.ok(repos.listEvents(40).some((e) => e.event === 'pool-fallback-hit'));
+  } finally {
+    apiSender.pick = originalPick;
+    apiSender.sendVideo = originalSend;
+    repos.setAccountSetting(acc.id, 'videoSource', 'recommend');
+    repos.setAccountSetting(acc.id, 'filterLikesEnabled', false);
+    repos.setAccountSetting(acc.id, 'minLikes', 0);
+  }
+});
+
+test('a random-range trigger retries with window backoff instead of aborting immediately on candidate miss', async () => {
+  const acc = repos.getAccount('B1');
+  repos.clearBurstState(acc.id);
+  repos.setAccountSetting(acc.id, 'videoSource', 'pool');
+  repos.setAccountSetting(acc.id, 'aiMode', 'off');
+  repos.setAccountSetting(acc.id, 'schedulePoints', [{ mode: 'random', from: '09:00', to: '11:00', count: 1 }]);
+  const pools = repos.listPools();
+  for (const p of pools) repos.setAccountPoolEnabled(acc.id, p.name, p.name === pools[0].name || p.name === pools[1].name);
+
+  let clock = new Date(`${today()}T09:05:00`).getTime();
+  const cfg = scheduler.runtimeConfig('B1');
+  repos.saveBurstState(acc.id, {
+    day: today(),
+    mode: 'schedule',
+    configKey: cfg.schedule ? `r:09:00-11:00x1|${cfg.schedule.minSec}|${cfg.schedule.maxSec}|${cfg.schedule.floor ? 1 : 0}|${cfg.schedule.fallbackSec}` : '',
+    points: [{ mode: 'random', from: '09:00', to: '11:00', count: 1, sent: 0, status: 'pending', startAt: clock, nextAt: clock, lastAt: null, lastDurationMs: 0, lastTitle: '', lastError: '' }],
+    active: 0,
+    status: 'pending',
+    sent: 0,
+  });
+
+  const originalPick = apiSender.pick;
+  const originalSend = apiSender.sendVideo;
+  let round = 0;
+  // First 2 rounds (2 pools each = 4 picks) throw metric-filter; 3rd round after window backoff succeeds.
+  apiSender.pick = async () => {
+    round++;
+    if (round <= 4) {
+      const err = new Error('没有达到互动指标的候选');
+      err.code = 'metric-filter';
+      throw err;
+    }
+    return { awemeId: 'aweme-win-retry', title: '窗口内退避重试命中视频', durationMs: DURATION_MS, author: '作者', likes: 999 };
+  };
+  apiSender.sendVideo = async () => ({
+    ok: true, api: true, serverMessageId: 'server-win-retry', friend: 'Hime', durationMs: DURATION_MS,
+  });
+  try {
+    const fakeNow = () => { clock += 1500; return new Date(clock); };
+    const res = await scheduler.runSchedule(cfg, today(), {
+      now: fakeNow,
+      retryDelayMs: 0,
+      windowRetryMs: 20,
+      maxWindowRetries: 2,
+    });
+    assert.equal(res.done, true);
+    assert.equal(res.sent, 1);
+    assert.equal(res.aborted, 0);
+    const state = repos.getBurstState(acc.id);
+    assert.equal(state.points[0].status, 'done');
+    assert.ok(repos.listEvents(60).some((e) => e.event === 'schedule-window-retry'));
+  } finally {
+    apiSender.pick = originalPick;
+    apiSender.sendVideo = originalSend;
+    repos.setAccountSetting(acc.id, 'videoSource', 'recommend');
+  }
+});

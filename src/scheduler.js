@@ -318,6 +318,59 @@ async function apiNaturalAttempt(cfg, { session, friend, toUserId, source, pool,
   };
 }
 
+const MAX_POOL_FALLBACKS = 6;
+const POOL_RETRYABLE_CODES = new Set(['no-fresh-candidate', 'metric-filter', 'no-candidate']);
+
+function shufflePools(list) {
+  const arr = [...list];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function isPoolCandidateError(err) {
+  if (!err) return false;
+  if (POOL_RETRYABLE_CODES.has(err.code)) return true;
+  const msg = String(err.message || '');
+  return /AI 过滤后没有安全候选|no candidate|没有达到互动指标|暂无新视频|没有新的候选/i.test(msg);
+}
+
+async function pickPoolVideo(cfg, session, pool, history) {
+  const keyword = (() => {
+    const value = chooseKeyword(pool);
+    return value.startsWith('@') ? pool.name : value;
+  })();
+  if (aiRanker.active(cfg.aiMode)) {
+    const collected = await apiSender.collectSearchCandidates(session, {
+      keyword,
+      banWords: cfg.banWords,
+      maxAgeDays: cfg.ageEnabled ? cfg.maxVideoAgeDays : 0,
+      filters: cfg.metricFilters,
+    });
+    const fresh = videoPicker.filterHistory(collected.candidates, history);
+    if (!fresh.length) throw noFreshCandidates('池搜索的候选都已发送过，暂无新视频');
+    const ranked = await aiRankCandidates(cfg, fresh, 'pool');
+    if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
+    const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : fresh, {
+      ids: history.ids,
+      titles: history.titles,
+    });
+    if (!chosen) throw noFreshCandidates('池搜索没有新的候选');
+    return { ...chosen, source: 'pool', bucket: pool.name };
+  }
+  const picked = await apiSender.pick(session, {
+    keyword,
+    banWords: cfg.banWords,
+    excludeVideoIds: history.ids,
+    excludeTitles: history.titles,
+    maxAgeDays: cfg.ageEnabled ? cfg.maxVideoAgeDays : 0,
+    filters: cfg.metricFilters,
+  });
+  return { ...picked, source: 'pool', bucket: pool.name };
+}
+
 /**
  * Pure-HTTP attempt. Returns a result object when the API path handled the send, or null to let
  * the caller fall back to the browser path (no/invalid session, template rejected, network error).
@@ -352,12 +405,9 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
   const friend = row.name;
   const toUserId = row.userid || cfg.friendUserId || null;
 
-  let pool = null;
-  if (!apiOnly) {
-    const pools = cfg.pools.filter((p) => p.enabled);
-    if (!pools.length) return null;
-    pool = pools[Math.floor(Math.random() * pools.length)];
-  }
+  const enabledPools = apiOnly ? [] : cfg.pools.filter((p) => p.enabled);
+  if (!apiOnly && !enabledPools.length) return null;
+  let pool = enabledPools.length ? enabledPools[Math.floor(Math.random() * enabledPools.length)] : null;
   try {
     const history = recentVideoHistory(cfg.accountId);
     if (cfg.naturalShare) {
@@ -381,37 +431,23 @@ async function apiAttempt(cfg, { dryRun = false } = {}) {
       if (!chosen) throw noFreshCandidates('推荐 feed 没有新的候选');
       video = { ...chosen, source: 'recommend', bucket: '默认推荐' };
     } else {
-      const keyword = (() => {
-        const value = chooseKeyword(pool);
-        return value.startsWith('@') ? pool.name : value;
-      })();
-      if (aiRanker.active(cfg.aiMode)) {
-        const collected = await apiSender.collectSearchCandidates(session, {
-          keyword,
-          banWords: cfg.banWords,
-          maxAgeDays: cfg.ageEnabled ? cfg.maxVideoAgeDays : 0,
-          filters: cfg.metricFilters,
-        });
-        const fresh = videoPicker.filterHistory(collected.candidates, history);
-        if (!fresh.length) throw noFreshCandidates('池搜索的候选都已发送过，暂无新视频');
-        const ranked = await aiRankCandidates(cfg, fresh, 'pool');
-        if (ranked.used && !ranked.candidates.length) throw new Error('AI 过滤后没有安全候选');
-        const chosen = videoPicker.chooseVideo(ranked.candidates.length ? ranked.candidates : fresh, {
-          ids: history.ids,
-          titles: history.titles,
-        });
-        if (!chosen) throw noFreshCandidates('池搜索没有新的候选');
-        video = { ...chosen, source: 'pool', bucket: pool.name };
-      } else {
-        video = await apiSender.pick(session, {
-          keyword,
-          banWords: cfg.banWords,
-          excludeVideoIds: history.ids,
-          excludeTitles: history.titles,
-          maxAgeDays: cfg.ageEnabled ? cfg.maxVideoAgeDays : 0,
-          filters: cfg.metricFilters,
-        });
+      const candidates = shufflePools(enabledPools).slice(0, MAX_POOL_FALLBACKS);
+      let lastPoolErr = null;
+      for (let i = 0; i < candidates.length; i++) {
+        const candidatePool = candidates[i];
+        pool = candidatePool;
+        try {
+          video = await pickPoolVideo(cfg, session, candidatePool, history);
+          if (i > 0) {
+            repos.logEvent('pool-fallback-hit', { account: cfg.accountLabel, pool: candidatePool.name, attempts: i + 1 });
+          }
+          break;
+        } catch (err) {
+          lastPoolErr = err;
+          if (!isPoolCandidateError(err) || i === candidates.length - 1) throw err;
+        }
       }
+      if (!video && lastPoolErr) throw lastPoolErr;
     }
     const bucket = apiOnly ? '默认推荐' : pool.name;
     if (dryRun) {
@@ -629,7 +665,11 @@ async function markDailyRead(cfg, res) {
   return out;
 }
 
-async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15000 } = {}) {
+async function runSchedule(
+  cfg,
+  day,
+  { now = () => new Date(), retryDelayMs = 15000, windowRetryMs = null, maxWindowRetries = 3 } = {}
+) {
   const nowMs = () => now().getTime();
   const stored = repos.getBurstState(cfg.accountId);
   const newDay = !stored || stored.day !== day || !Array.isArray(stored.points);
@@ -680,7 +720,8 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
     const trigger = burstPlanner.triggerLabel(point);
 
     const t = nowMs();
-    if (point.sent === 0 && t > Number(point.startAt) + burstPlanner.FIRST_START_GRACE_MS) {
+    const inWindowBackoff = Number(point.windowRetries) > 0;
+    if (point.sent === 0 && !inWindowBackoff && t > Number(point.startAt) + burstPlanner.FIRST_START_GRACE_MS) {
       point.status = 'skipped';
       point.nextAt = null;
       point.lastError = 'late-start';
@@ -698,7 +739,7 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
       }
       continue;
     }
-    if (point.sent > 0 && t > Number(point.nextAt) + burstPlanner.RESUME_GRACE_MS) {
+    if ((point.sent > 0 || inWindowBackoff) && t > Number(point.nextAt) + burstPlanner.RESUME_GRACE_MS) {
       point.status = 'skipped';
       point.nextAt = null;
       point.lastError = 'late-resume';
@@ -740,6 +781,39 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
     }
     if (!res || !res.ok) {
       if (res && res.error === 'captcha') repos.logEvent('captcha-blocked', { account: cfg.accountLabel, day, trigger, mode: 'schedule' });
+      const retryCount = Number(point.windowRetries) || 0;
+      const maxWinRetries = Number.isInteger(maxWindowRetries) ? maxWindowRetries : 3;
+      const windowEndMs = point.mode === 'random' && point.to ? burstPlanner.startAt(day, point.to) : null;
+      const retryTime = nowMs();
+      const backoffMs = windowRetryMs != null
+        ? Math.max(0, Number(windowRetryMs))
+        : Math.min(5 * 60 * 1000, (retryCount + 1) * 2 * 60 * 1000);
+      const retryableInWindow = res && res.error !== 'captcha' && !['session', 'friend', 'rejected'].includes(res.code)
+        && isPoolCandidateError({ code: res.code, message: res.error || res.reason });
+      if (
+        point.mode === 'random'
+        && retryableInWindow
+        && retryCount < maxWinRetries
+        && Number.isFinite(windowEndMs)
+        && (windowEndMs - retryTime) > backoffMs + 15000
+      ) {
+        point.windowRetries = retryCount + 1;
+        point.status = 'running';
+        point.nextAt = retryTime + backoffMs;
+        point.lastError = (res && (res.error || res.reason)) || 'send failed';
+        state.lastError = point.lastError;
+        state.updatedAt = new Date(retryTime).toISOString();
+        persistSchedule(cfg, state);
+        repos.logEvent('schedule-window-retry', {
+          account: cfg.accountLabel,
+          day,
+          trigger,
+          retry: point.windowRetries,
+          nextAt: new Date(point.nextAt).toISOString(),
+          error: point.lastError,
+        });
+        continue;
+      }
       point.status = 'aborted';
       point.nextAt = null;
       point.lastError = (res && (res.error || res.reason)) || 'send failed';
@@ -760,6 +834,7 @@ async function runSchedule(cfg, day, { now = () => new Date(), retryDelayMs = 15
 
     const durationMs = Math.max(0, Number(res.durationMs) || 0);
     point.sent += 1;
+    point.windowRetries = 0;
     point.status = 'running';
     point.lastAt = startedAt;
     point.lastDurationMs = durationMs;
